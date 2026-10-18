@@ -196,12 +196,8 @@ nested_test("cache_groups") do
         empty_cache!(view)
 
         @test get_scalar(view, "version") == "1.0"
-        @test cache_group_of_scalar(view, "version") == QueryData
-
         @test get_vector(view, "cell", "age") == [1, 2, 3]
-        @test cache_group_of_vector(view, "cell", "age") === nothing
-
         @test get_matrix(view, "cell", "gene", "UMIs") == [1 2; 3 4; 5 6]
-        @test cache_group_of_matrix(view, "cell", "gene", "UMIs") === nothing
+        @test isempty(view.internal.cache)
     end
 end

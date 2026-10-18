@@ -36,14 +36,12 @@ using ..Tokens
 using TanayLabUtilities
 
 import ..Formats
-import ..Formats.axis_vector_cache_key
-import ..Formats.get_through_cache
+import ..Formats.CacheKey
+import ..Formats.CachedAxis
+import ..Formats.CachedData
+import ..Formats.CachedNames
+import ..Formats.CachedQuery
 import ..Formats.Internal
-import ..Formats.matrix_cache_key
-import ..Formats.put_in_cache!
-import ..Formats.scalar_cache_key
-import ..Formats.vector_cache_key
-import ..Formats.with_cache_write_lock
 import ..Queries.as_query_sequence
 import ..Queries.patch_query
 import ..ReadOnly
@@ -71,6 +69,7 @@ struct DafView <: DafReadOnly
     is_pure_vectors::Bool
     is_pure_matrices::Bool
     path::Vector{AbstractString}
+    signature_per_cache_key::Dict{CacheKey, Any}
 end
 
 """
@@ -364,6 +363,7 @@ function viewer(
         is_all_entries_identity(reversed_view_vectors),
         is_all_entries_identity(reversed_view_matrices),
         AbstractString[],
+        Dict{CacheKey, Any}(),
     )
     @debug "Daf: $(brief(wrapper)) base: $(brief(daf))" _group = :daf_repos
     return wrapper
@@ -407,7 +407,7 @@ end
 
 function Formats.format_get_scalar(view::DafView, name::AbstractString)::Tuple{StorageScalar, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(view)
-    return (fetch_scalar_data(view, name), QueryData)
+    return (fetch_scalar_data(view, name), nothing)
 end
 
 function Formats.format_scalars_set(view::DafView)::AbstractSet{<:AbstractString}
@@ -432,9 +432,9 @@ function Formats.format_axis_vector(
 )::Tuple{AbstractVector{<:AbstractString}, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(view)
     if is_identity_axis(view, axis)
-        return Formats.format_axis_vector(view.daf, axis)
+        return (Formats.get_axis_vector_through_cache(view.daf, axis), nothing)
     else
-        return (fetch_axis_data(view, axis), QueryData)
+        return (fetch_axis_data(view, axis), nothing)
     end
 end
 
@@ -460,10 +460,9 @@ function Formats.format_get_vector(
 )::Tuple{StorageVector, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(view)
     if is_identity_vector(view, axis, name)
-        vector, cache_group = Formats.format_get_vector(view.daf, axis, name)
-        return (read_only_array(vector), cache_group)
+        return (read_only_array(Formats.get_vector_through_cache(view.daf, axis, name)), nothing)
     else
-        return (fetch_vector_data(view, axis, name), QueryData)
+        return (fetch_vector_data(view, axis, name), nothing)
     end
 end
 
@@ -504,10 +503,9 @@ function Formats.format_get_matrix(
 )::Tuple{StorageMatrix, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(view)
     if is_identity_matrix(view, rows_axis, columns_axis, name)
-        matrix, cache_group = Formats.format_get_matrix(view.daf, rows_axis, columns_axis, name)
-        return (read_only_array(matrix), cache_group)
+        return (read_only_array(Formats.get_matrix_through_cache(view.daf, rows_axis, columns_axis, name)), nothing)
     else
-        return (fetch_matrix_data(view, rows_axis, columns_axis, name), QueryData)
+        return (fetch_matrix_data(view, rows_axis, columns_axis, name), nothing)
     end
 end
 
@@ -523,6 +521,195 @@ function Formats.format_matrix_metadata(
     else
         return Formats.array_metadata(fetch_matrix_data(view, rows_axis, columns_axis, name))
     end
+end
+
+# The relayout copy of an identity matrix is the relayout copy of the base daf matrix, so it is cached in the base daf.
+# The relayout copy of a query matrix is cached in the view, and is valid only while the view's version of the matrix it
+# is a copy of is the same.
+
+function Formats.format_has_cached_matrix(
+    view::DafView,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Bool
+    @assert Formats.has_data_read_lock(view)
+    if Formats.format_has_matrix(view, rows_axis, columns_axis, name)
+        return true
+    elseif Formats.format_has_matrix(view, columns_axis, rows_axis, name) &&
+           is_identity_matrix(view, rows_axis, columns_axis, name)
+        return Formats.format_has_cached_matrix(view.daf, rows_axis, columns_axis, name)
+    else
+        return Formats.valid_result_from_cache(view, Formats.matrix_cache_key(rows_axis, columns_axis, name)) !==
+               nothing
+    end
+end
+
+function Formats.format_matrix_cache_format(
+    view::DafView,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+)::Formats.FormatReader
+    @assert Formats.has_data_read_lock(view)
+    if Formats.format_has_matrix(view, rows_axis, columns_axis, name) &&
+       is_identity_matrix(view, rows_axis, columns_axis, name)
+        return Formats.format_matrix_cache_format(view.daf, rows_axis, columns_axis, name)
+    else
+        return view
+    end
+end
+
+# A view caches no data of its own. The base daf caches its data, and the results of the queries the view reads, and
+# invalidates them when the data changes, even when it is changed directly rather than through the view. So the names
+# are collected on each access. The dict of a query axis is cached in the view, and is valid only while the view's
+# version of the axis is the same.
+
+function Formats.get_scalars_set_through_cache(view::DafView)::AbstractSet{<:AbstractString}
+    return Formats.format_scalars_set(view)
+end
+
+function Formats.get_axes_set_through_cache(view::DafView)::AbstractSet{<:AbstractString}
+    return Formats.format_axes_set(view)
+end
+
+function Formats.get_vectors_set_through_cache(view::DafView, axis::AbstractString)::AbstractSet{<:AbstractString}
+    return Formats.format_vectors_set(view, axis)
+end
+
+function Formats.get_matrices_set_through_cache(
+    view::DafView,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+)::AbstractSet{<:AbstractString}
+    return Formats.format_matrices_set(view, rows_axis, columns_axis)
+end
+
+function Formats.get_relayout_matrices_set_through_cache(
+    view::DafView,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+)::AbstractSet{<:AbstractString}
+    return union(
+        Formats.format_matrices_set(view, rows_axis, columns_axis),
+        Formats.format_matrices_set(view, columns_axis, rows_axis),
+    )
+end
+
+function Formats.get_axis_dict_through_cache(
+    view::DafView,
+    axis::AbstractString,
+)::AbstractDict{<:AbstractString, <:Integer}
+    if is_identity_axis(view, axis)
+        return Formats.get_axis_dict_through_cache(view.daf, axis)
+    else
+        return Formats.get_slow_through_cache(
+            view,
+            Formats.axis_dict_cache_key(axis),
+            AbstractDict{<:AbstractString, <:Integer},
+            MemoryData,
+        ) do
+            return (
+                Formats.names_dict(fetch_axis_data(view, axis)),
+                Set{CacheKey}([Formats.axis_vector_cache_key(axis)]),
+            )
+        end
+    end
+end
+
+# The version of a property or a names set of a view is derived from the base daf. The view keeps a counter per key,
+# and the signature it last saw: for a property, its base query and the versions of the query dependencies; for a names
+# set, its names. The counter is incremented whenever the signature changes. The results of queries run on the view
+# itself use the view's own counters.
+function Formats.format_get_version_counter(view::DafView, cache_key::CacheKey)::UInt32
+    if cache_key[1] == CachedQuery
+        return invoke(Formats.format_get_version_counter, Tuple{Formats.FormatReader, CacheKey}, view, cache_key)
+    end
+
+    signature = Formats.with_data_read_lock(view, "for version counter of:", cache_key) do
+        return view_signature(view, cache_key)
+    end
+
+    return Formats.with_cache_write_lock(view, "for version counter of:", cache_key) do
+        previous_signature = get(view.signature_per_cache_key, cache_key, missing)
+        if previous_signature === missing
+            view.signature_per_cache_key[cache_key] = signature
+        elseif previous_signature != signature
+            view.signature_per_cache_key[cache_key] = signature
+            Formats.increment_version_counter!(view, cache_key)
+        end
+        return get(view.internal.version_counters, cache_key, UInt32(0))
+    end
+end
+
+function view_signature(view::DafView, cache_key::CacheKey)::Any
+    type, key, _ = cache_key
+
+    if type == CachedNames
+        if key == "scalars"
+            return Formats.format_scalars_set(view)
+        elseif key == "axes"
+            return Formats.format_axes_set(view)
+        elseif key isa Tuple{AbstractString}
+            axis = key[1]
+            if !Formats.format_has_axis(view, axis; for_change = false)
+                return nothing
+            end
+            return Formats.format_vectors_set(view, axis)
+        else
+            rows_axis, columns_axis, relayout = key
+            if !Formats.format_has_axis(view, rows_axis; for_change = false) ||
+               !Formats.format_has_axis(view, columns_axis; for_change = false)
+                return nothing
+            end
+            matrices = Formats.format_matrices_set(view, rows_axis, columns_axis)
+            if relayout
+                matrices = union(matrices, Formats.format_matrices_set(view, columns_axis, rows_axis))
+            end
+            return matrices
+        end
+
+    elseif type == CachedAxis
+        axis = key[1]
+        return query_signature(view, fetch_axis_query(view, axis))
+
+    else
+        @assert type == CachedData
+        if key isa AbstractString
+            query = fetch_scalar_query(view, key)
+        elseif key isa Tuple{AbstractString, AbstractString}
+            axis, name = key
+            if Formats.format_has_axis(view, axis; for_change = false)
+                query = fetch_vector_query(view, axis, name)
+            else
+                query = nothing
+            end
+        else
+            @assert key isa Tuple{AbstractString, AbstractString, AbstractString}
+            rows_axis, columns_axis, name = key
+            if Formats.format_has_axis(view, rows_axis; for_change = false) &&
+               Formats.format_has_axis(view, columns_axis; for_change = false)
+                query = fetch_matrix_query(view, rows_axis, columns_axis, name)
+            else
+                query = nothing
+            end
+        end
+        return query_signature(view, query)
+    end
+end
+
+# The signature of a property: its base query, and the versions of the query dependencies. Computing the query records
+# them in the base daf, if they aren't there already.
+function query_signature(view::DafView, query::Maybe{QueryOperation})::Any
+    if query === nothing
+        return nothing
+    end
+    get_query(view.daf, query; cache = true)
+    query_key = (CachedQuery, "$(as_query_sequence(query))", :value)
+    dependency_versions = Formats.with_cache_read_lock(view.daf, "for version counter of:", query_key) do
+        return get(view.daf.internal.dependency_versions_of_cache_keys, query_key, nothing)
+    end
+    return (query_key[2], dependency_versions)
 end
 
 function Formats.format_description_header(
@@ -650,100 +837,73 @@ end
 
 QUERY_TYPE_BY_DIMENSIONS = ["scalar", "vector", "matrix"]
 
-function fetch_scalar_query(view::DafView, name::AbstractString)::Maybe{QueryOperation}
-    cache_key = scalar_cache_key(name, :query)
+# The query of each property depends on what the base daf contains, which may change at any time. So it is computed on
+# each access rather than cached.
 
-    query = get_through_cache(view, cache_key, Unsure{QueryOperation}) do
-        for (view_key, view_query) in view.reversed_view_scalars
-            if view_key == name || (view_key == "*" && has_scalar(view.daf, name))
-                query = prepare_scalar_query(view, view_query, name)
-                if query === nothing || !has_query(view.daf, query)
-                    return (missing, QueryData)
-                else
-                    return (query, QueryData)
-                end
+function fetch_scalar_query(view::DafView, name::AbstractString)::Maybe{QueryOperation}
+    for (view_key, view_query) in view.reversed_view_scalars
+        if view_key == name || (view_key == "*" && has_scalar(view.daf, name))
+            query = prepare_scalar_query(view, view_query, name)
+            if query === nothing || !has_query(view.daf, query)
+                return nothing
+            else
+                return query
             end
         end
-        return (missing, QueryData)
     end
-
-    if query === missing
-        return nothing
-    else
-        return query
-    end
+    return nothing
 end
 
 function fetch_scalar_data(view::DafView, name::AbstractString)::StorageScalar
     query = fetch_scalar_query(view, name)
     @assert query !== nothing
-    return get_query(view.daf, query; cache = false)
+    return get_query(view.daf, query; cache = true)
 end
 
 function fetch_axis_query(view::DafView, axis::AbstractString)::Maybe{QueryOperation}
-    cache_key = axis_vector_cache_key(axis, :query)
-
-    query = get_through_cache(view, cache_key, Unsure{QueryOperation}) do
-        for (view_key, view_query) in view.reversed_view_axes
-            if view_key == axis || (view_key == "*" && has_axis(view.daf, axis))
-                query = prepare_axis_query(view, view_query, axis)
-                if query === nothing || !has_query(view.daf, query)
-                    return (missing, QueryData)
-                else
-                    return (query, QueryData)
-                end
+    for (view_key, view_query) in view.reversed_view_axes
+        if view_key == axis || (view_key == "*" && has_axis(view.daf, axis))
+            query = prepare_axis_query(view, view_query, axis)
+            if query === nothing || !has_query(view.daf, query)
+                return nothing
+            else
+                return query
             end
         end
-        return (missing, QueryData)
     end
-
-    if query === missing
-        return nothing
-    else
-        return query
-    end
+    return nothing
 end
 
 function fetch_axis_data(view::DafView, axis::AbstractString)::AbstractVector{<:AbstractString}
     query = fetch_axis_query(view, axis)
     @assert query !== nothing
-    return get_query(view.daf, query; cache = false)
+    return get_query(view.daf, query; cache = true)
 end
 
 function fetch_vector_query(view::DafView, axis::AbstractString, name::AbstractString)::Maybe{QueryOperation}
-    cache_key = vector_cache_key(axis, name, :query)
-
     axis_query = fetch_axis_query(view, axis)
     @assert axis_query !== nothing
     base_axis = query_axis_name(axis_query)
 
-    query = get_through_cache(view, cache_key, Unsure{QueryOperation}) do
-        for (key, query) in view.reversed_view_vectors
-            key_axis, key_name = key
-            if (key_axis == axis || (key_axis == "*")) &&
-               (key_name == name || (key_name == "*" && has_vector(view.daf, base_axis, name)))
-                query = prepare_vector_query(view, axis_query, axis, query, name)
-                if query === nothing || !has_query(view.daf, query)
-                    return (missing, QueryData)
-                else
-                    return (query, QueryData)
-                end
+    for (key, query) in view.reversed_view_vectors
+        key_axis, key_name = key
+        if (key_axis == axis || (key_axis == "*")) &&
+           (key_name == name || (key_name == "*" && has_vector(view.daf, base_axis, name)))
+            query = prepare_vector_query(view, axis_query, axis, query, name)
+            if query === nothing || !has_query(view.daf, query)
+                return nothing
+            else
+                return query
             end
         end
-        return (missing, QueryData)
     end
-
-    if query === missing
-        return nothing
-    else
-        return query
-    end
+    return nothing
 end
 
 function fetch_vector_data(view::DafView, axis::AbstractString, name::AbstractString)::StorageVector
     query = fetch_vector_query(view, axis, name)
     @assert query !== nothing
-    return get_query(view.daf, query; cache = false)
+    return get_query(view.daf, query; cache = true)
 end
 
 function fetch_matrix_query(
@@ -752,74 +912,64 @@ function fetch_matrix_query(
     columns_axis::AbstractString,
     name::AbstractString,
 )::Maybe{QueryOperation}
-    cache_key = matrix_cache_key(rows_axis, columns_axis, name, :query)
-
     rows_axis_query = fetch_axis_query(view, rows_axis)
     @assert rows_axis_query !== nothing
 
     columns_axis_query = fetch_axis_query(view, columns_axis)
     @assert columns_axis_query !== nothing
 
-    query = get_through_cache(view, cache_key, Unsure{QueryOperation}) do
-        for (key, query) in view.reversed_view_tensors
-            key_main_axis, key_rows_axis, key_columns_axis, key_name = key
-            for (test_key_rows_axis, test_key_columns_axis) in
-                ((key_rows_axis, key_columns_axis), (key_columns_axis, key_rows_axis))
-                if test_key_rows_axis == rows_axis &&
-                   test_key_columns_axis == columns_axis &&
-                   endswith(name, key_name) &&
-                   haskey(axis_dict(view.daf, key_main_axis), name[1:(end - length(key_name) - 1)])
-                    query = prepare_matrix_query(
-                        view,
-                        rows_axis_query,
-                        rows_axis,
-                        columns_axis_query,
-                        columns_axis,
-                        query,
-                        name,
-                    )
-                    if query === nothing || !has_query(view.daf, query) || query_requires_relayout(view.daf, query)
-                        return (missing, QueryData)
-                    else
-                        return (query, QueryData)
-                    end
+    for (key, query) in view.reversed_view_tensors
+        key_main_axis, key_rows_axis, key_columns_axis, key_name = key
+        for (test_key_rows_axis, test_key_columns_axis) in
+            ((key_rows_axis, key_columns_axis), (key_columns_axis, key_rows_axis))
+            if test_key_rows_axis == rows_axis &&
+               test_key_columns_axis == columns_axis &&
+               endswith(name, key_name) &&
+               haskey(axis_dict(view.daf, key_main_axis), name[1:(end - length(key_name) - 1)])
+                query = prepare_matrix_query(
+                    view,
+                    rows_axis_query,
+                    rows_axis,
+                    columns_axis_query,
+                    columns_axis,
+                    query,
+                    name,
+                )
+                if query === nothing || !has_query(view.daf, query) || query_requires_relayout(view.daf, query)
+                    return nothing
+                else
+                    return query
                 end
             end
         end
+    end
 
-        for (key, query) in view.reversed_view_matrices
-            key_rows_axis, key_columns_axis, key_name = key
-            for (test_key_rows_axis, test_key_columns_axis) in
-                ((key_rows_axis, key_columns_axis), (key_columns_axis, key_rows_axis))
-                if (test_key_rows_axis == rows_axis || test_key_rows_axis == "*") &&
-                   (test_key_columns_axis == columns_axis || test_key_columns_axis == "*") &&
-                   (key_name == name || key_name == "*")
-                    query = prepare_matrix_query(
-                        view,
-                        rows_axis_query,
-                        rows_axis,
-                        columns_axis_query,
-                        columns_axis,
-                        query,
-                        name,
-                    )
-                    if query === nothing || !has_query(view.daf, query) || query_requires_relayout(view.daf, query)
-                        return (missing, QueryData)
-                    else
-                        return (query, QueryData)
-                    end
+    for (key, query) in view.reversed_view_matrices
+        key_rows_axis, key_columns_axis, key_name = key
+        for (test_key_rows_axis, test_key_columns_axis) in
+            ((key_rows_axis, key_columns_axis), (key_columns_axis, key_rows_axis))
+            if (test_key_rows_axis == rows_axis || test_key_rows_axis == "*") &&
+               (test_key_columns_axis == columns_axis || test_key_columns_axis == "*") &&
+               (key_name == name || key_name == "*")
+                query = prepare_matrix_query(
+                    view,
+                    rows_axis_query,
+                    rows_axis,
+                    columns_axis_query,
+                    columns_axis,
+                    query,
+                    name,
+                )
+                if query === nothing || !has_query(view.daf, query) || query_requires_relayout(view.daf, query)
+                    return nothing
+                else
+                    return query
                 end
             end
         end
-
-        return (missing, QueryData)
     end
 
-    if query === missing
-        return nothing
-    else
-        return query
-    end
+    return nothing
 end
 
 function fetch_matrix_data(
@@ -830,7 +980,7 @@ function fetch_matrix_data(
 )::StorageMatrix
     query = fetch_matrix_query(view, rows_axis, columns_axis, name)
     @assert query !== nothing
-    return get_query(view.daf, query; cache = false)
+    return get_query(view.daf, query; cache = true)
 end
 
 function collect_view_scalars(view::DafView)::AbstractSet{<:AbstractString}

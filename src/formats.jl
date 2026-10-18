@@ -272,7 +272,7 @@ The constructor will automatically call `unique_name` to try and make the names 
 struct Internal  # NOLINT
     cache::Dict{CacheKey, CacheEntry}
     dependents_of_cache_keys::Dict{CacheKey, Set{CacheKey}}
-    dependencies_of_query_keys::Dict{CacheKey, Set{CacheKey}}
+    dependency_versions_of_cache_keys::Dict{CacheKey, Dict{CacheKey, UInt32}}
     lazy_arrays_of_cache_keys::Dict{CacheKey, Vector{WeakRef}}
     version_counters::Dict{CacheKey, UInt32}
     cache_lock::ExtendedReadWriteLock
@@ -293,7 +293,7 @@ function Internal(;
     return Internal(
         Dict{CacheKey, CacheEntry}(),
         Dict{CacheKey, Set{CacheKey}}(),
-        Dict{CacheKey, Set{CacheKey}}(),
+        Dict{CacheKey, Dict{CacheKey, UInt32}}(),
         Dict{CacheKey, Vector{WeakRef}}(),
         Dict{CacheKey, UInt32}(),
         ExtendedReadWriteLock(),
@@ -991,16 +991,47 @@ function get_slow_through_cache(
     @assert has_data_read_lock(format)
     cached = nothing
     while cached === nothing
-        cache_entry = with_cache_read_lock(format, "for get_from_cache:", cache_key) do
-            return get(format.internal.cache, cache_key, nothing)
-        end
-        cached = result_from_cache(cache_entry)
+        cached = valid_result_from_cache(format, cache_key)
         # If another computation became pending meanwhile, this returns `nothing`, and the loop waits for it.
         if cached === nothing
             cached = write_slow_through_cache(getter, format, cache_key, T, cache_group)
         end
     end
     return cached::T
+end
+
+# The cached result, or `nothing` if it needs to be computed. A query result is valid only while the versions of its
+# dependencies are the same as when it was computed. The versions are checked without the cache lock, since they may
+# come from other dafs (e.g., the bases of a chain). A stale entry is deleted unless another task replaced it meanwhile.
+function valid_result_from_cache(format::FormatReader, cache_key::CacheKey)::Any
+    cache_entry, dependency_versions = with_cache_read_lock(format, "for get_from_cache:", cache_key) do
+        return (
+            get(format.internal.cache, cache_key, nothing),
+            get(format.internal.dependency_versions_of_cache_keys, cache_key, nothing),
+        )
+    end
+    result = result_from_cache(cache_entry)
+    if result !== nothing && dependency_versions !== nothing && !are_current_versions(format, dependency_versions)
+        with_cache_write_lock(format, "for stale:", cache_key) do
+            if get(format.internal.cache, cache_key, nothing) === cache_entry
+                increment_version_counter!(format, cache_key)
+                delete!(format.internal.cache, cache_key)
+                delete!(format.internal.dependency_versions_of_cache_keys, cache_key)
+            end
+            return nothing
+        end
+        result = nothing
+    end
+    return result
+end
+
+function are_current_versions(format::FormatReader, dependency_versions::AbstractDict{CacheKey, UInt32})::Bool
+    for (dependency_key, dependency_version) in dependency_versions
+        if format_get_version_counter(format, dependency_key) != dependency_version
+            return false
+        end
+    end
+    return true
 end
 
 function result_from_cache(::Nothing)::Nothing
@@ -1084,14 +1115,22 @@ function write_slow_through_cache(
         @assert pending_result isa PendingResult
         try
             result, dependency_keys = getter()
+            # The versions may come from other dafs (e.g., the bases of a chain), so they are collected before taking
+            # the cache lock.
+            if dependency_keys !== nothing
+                dependency_versions = Dict{CacheKey, UInt32}(
+                    dependency_key => format_get_version_counter(format, dependency_key) for
+                    dependency_key in dependency_keys
+                )
+            else
+                dependency_versions = nothing
+            end
             with_cache_write_lock(format, "for slow:", cache_key) do
-                if dependency_keys !== nothing
-                    for dependency_key in dependency_keys
+                if dependency_versions !== nothing
+                    for dependency_key in keys(dependency_versions)
                         put_cached_dependency_key!(format, cache_key, dependency_key)
                     end
-                    if cache_key[1] == CachedQuery
-                        format.internal.dependencies_of_query_keys[cache_key] = dependency_keys
-                    end
+                    format.internal.dependency_versions_of_cache_keys[cache_key] = dependency_versions
                 end
                 cache_entry.data = result
                 lock(format.internal.pending_condition) do
@@ -1243,7 +1282,7 @@ function get_relayout_matrix_through_cache(
     return get_slow_through_cache(format, matrix_cache_key(rows_axis, columns_axis, name), NamedArray, MemoryData) do
         matrix = flipped(matrix)
         matrix = as_named_matrix(format, rows_axis, columns_axis, read_only_array(matrix))
-        return (matrix, nothing)
+        return (matrix, Set{CacheKey}([matrix_cache_key(columns_axis, rows_axis, name)]))
     end
 end
 
@@ -1390,10 +1429,10 @@ function invalidate_cached!(format::FormatReader, cache_key::CacheKey)::Nothing
                 @debug "- delete dependent_key: $(dependent_key)"
                 increment_version_counter!(format, dependent_key)
                 delete!(format.internal.cache, dependent_key)
-                delete!(format.internal.dependencies_of_query_keys, dependent_key)
+                delete!(format.internal.dependency_versions_of_cache_keys, dependent_key)
             end
         end
-        return delete!(format.internal.dependencies_of_query_keys, cache_key)
+        return delete!(format.internal.dependency_versions_of_cache_keys, cache_key)
     end
 
     return nothing
@@ -1593,7 +1632,7 @@ function empty_cache!(daf::DafReader; clear::Maybe{CacheGroup} = nothing, keep::
         if clear === nothing && keep === nothing
             empty!(daf.internal.cache)
             empty!(daf.internal.dependents_of_cache_keys)
-            empty!(daf.internal.dependencies_of_query_keys)
+            empty!(daf.internal.dependency_versions_of_cache_keys)
         else
             filter!(daf.internal.cache) do key_value
                 cache_group = key_value[2].cache_group
@@ -1602,7 +1641,7 @@ function empty_cache!(daf::DafReader; clear::Maybe{CacheGroup} = nothing, keep::
 
             if isempty(daf.internal.cache)
                 empty!(daf.internal.dependents_of_cache_keys)  # UNTESTED
-                empty!(daf.internal.dependencies_of_query_keys)  # UNTESTED
+                empty!(daf.internal.dependency_versions_of_cache_keys)  # UNTESTED
             else
                 for (_, dependents_keys) in daf.internal.dependents_of_cache_keys
                     filter!(dependents_keys) do dependent_key
@@ -1613,7 +1652,7 @@ function empty_cache!(daf::DafReader; clear::Maybe{CacheGroup} = nothing, keep::
                     dependents_keys = entry[2]
                     return !isempty(dependents_keys)
                 end
-                filter!(daf.internal.dependencies_of_query_keys) do entry
+                filter!(daf.internal.dependency_versions_of_cache_keys) do entry
                     return haskey(daf.internal.cache, entry[1])
                 end
             end

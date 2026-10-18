@@ -1824,12 +1824,12 @@ end
 
 function Queries.verify_contract_query(contract_daf::ContractDaf, cache_key::CacheKey)::Nothing
     flame_timed("verify_contract_query") do
-        dependecies_keys = get(contract_daf.internal.dependencies_of_query_keys, cache_key, nothing)
-        if dependecies_keys === nothing
+        dependency_versions = get(contract_daf.internal.dependency_versions_of_cache_keys, cache_key, nothing)
+        if dependency_versions === nothing
             return nothing
         end
 
-        for dependency_key in dependecies_keys
+        for dependency_key in keys(dependency_versions)
             type, key = dependency_key
             if type == CachedAxis
                 access_axis(contract_daf, key[1]; is_for_modify = false)

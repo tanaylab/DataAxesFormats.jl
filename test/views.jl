@@ -12,13 +12,25 @@ nested_test("views") do
             @test get_scalar(view, "version") == 1
             @test get_vector(view, "cell", "age") == [1, 2, 3]
             @test vectors_set(view, "cell") == Set(["age", "is_old"])
+            @test get_query(view, "@ cell : age >> Sum") == 6
+            ages = get_query(view, "@ cell : age")
+            @test get_query(view, "@ cell : age") === ages
+            previous_age_version = vector_version_counter(view, "cell", "age")
+            previous_batch_version = vector_version_counter(view, "cell", "batch")
+            previous_is_old_version = vector_version_counter(view, "cell", "is_old")
 
             set_scalar!(daf, "version", 2; overwrite = true)
             set_vector!(daf, "cell", "age", [4, 5, 6]; overwrite = true)
             set_vector!(daf, "cell", "batch", [1, 1, 2])
+            set_vector!(daf, "cell", "is_old", [true, true, true]; overwrite = true)
             @test get_scalar(view, "version") == 2
             @test get_vector(view, "cell", "age") == [4, 5, 6]
             @test vectors_set(view, "cell") == Set(["age", "is_old", "batch"])
+            @test get_query(view, "@ cell : age >> Sum"; cache = false) == 15
+            @test get_query(view, "@ cell : age >> Sum") == 15
+            @test vector_version_counter(view, "cell", "age") > previous_age_version
+            @test vector_version_counter(view, "cell", "batch") > previous_batch_version
+            @test vector_version_counter(view, "cell", "is_old") > previous_is_old_version
             return nothing
         end
 
@@ -31,13 +43,31 @@ nested_test("views") do
             )
             @test axis_vector(view, "cell") == ["B", "C"]
             @test get_vector(view, "cell", "age") == [2, 3]
+            @test names(get_vector(view, "cell", "age"), 1) == ["B", "C"]
+            @test collect(keys(axis_dict(view, "cell"))) == ["B", "C"]
+            @test haskey(view.internal.cache, DataAxesFormats.Formats.axis_dict_cache_key("cell"))
             @test get_scalar(view, "total_age") == 6
+            previous_cell_version = axis_version_counter(view, "cell")
 
             set_vector!(daf, "cell", "age", [10, 20, 30]; overwrite = true)
             set_vector!(daf, "cell", "is_old", [true, false, true]; overwrite = true)
             @test axis_vector(view, "cell") == ["A", "C"]
             @test get_vector(view, "cell", "age") == [10, 30]
+            @test names(get_vector(view, "cell", "age"), 1) == ["A", "C"]
+            @test collect(keys(axis_dict(view, "cell"))) == ["A", "C"]
             @test get_scalar(view, "total_age") == 60
+            @test axis_version_counter(view, "cell") > previous_cell_version
+            return nothing
+        end
+
+        nested_test("relayout") do
+            add_axis!(daf, "gene", ["X", "Y"])
+            set_matrix!(daf, "cell", "gene", "UMIs", [1 2; 3 4; 5 6]; relayout = false)
+            view = viewer(daf; name = "view!", axes = ["cell" => "@ cell", "gene" => "="], data = [VIEW_ALL_MATRICES])
+            @test get_matrix(view, "gene", "cell", "UMIs") == [1 3 5; 2 4 6]
+
+            set_matrix!(daf, "cell", "gene", "UMIs", [1 2; 3 0; 5 6]; overwrite = true, relayout = false)
+            @test get_matrix(view, "gene", "cell", "UMIs") == [1 3 5; 2 0 6]
             return nothing
         end
     end

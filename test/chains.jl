@@ -16,6 +16,9 @@ nested_test("chains") do
         @test get_matrix(chain, "gene", "cell", "UMIs") == [1 4; 2 5; 3 6]
         @test vectors_set(chain, "cell") == Set(["age"])
         @test matrices_set(chain, "gene", "cell"; relayout = true) == Set(["UMIs"])
+        @test get_query(chain, "@ cell : age >> Sum") == 3
+        ages = get_query(chain, "@ cell : age")
+        @test get_query(chain, "@ cell : age") === ages
 
         set_scalar!(second, "version", 2; overwrite = true)
         set_vector!(first, "cell", "age", [3, 4]; overwrite = true)
@@ -29,6 +32,8 @@ nested_test("chains") do
         @test get_matrix(chain, "gene", "cell", "UMIs") == [0 4; 2 5; 3 6]
         @test vectors_set(chain, "cell") == Set(["age", "batch"])
         @test matrices_set(chain, "gene", "cell"; relayout = true) == Set(["UMIs", "fraction"])
+        @test get_query(chain, "@ cell : age >> Sum"; cache = false) == 7
+        @test get_query(chain, "@ cell : age >> Sum") == 7
         return nothing
     end
 
