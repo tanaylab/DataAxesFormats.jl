@@ -32,6 +32,7 @@ DataAxesFormats.Operations.Var
 DataAxesFormats.Operations.VarN
 DataAxesFormats.Operations.Mode
 DataAxesFormats.Operations.Count
+DataAxesFormats.Operations.compute_grouped_reduction
 ```
 
 ## Support functions

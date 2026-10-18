@@ -239,7 +239,7 @@ source axis contains entries that do not exist in the target, they are discarded
                 overwrite,
                 packed,
             ) do sparse_nzind, sparse_nzval
-                sparse_value = plain_array(value.array)
+                sparse_value = plain_array(value)
                 sparse_nzind .= nzind(sparse_value)
                 sparse_nzval .= nzval(sparse_value)
                 return nothing

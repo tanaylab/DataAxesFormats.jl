@@ -1364,7 +1364,7 @@ function sparsify_concatenated_vectors(
         else
             @assert length(vector) == size
             # A plain sparse vector is stored as is, rather than converted element by element.
-            vector = plain_array(vector.array)
+            vector = plain_array(vector)
             if !issparse(vector)
                 vector = sparse_vector(vector)
             end
@@ -1398,7 +1398,7 @@ function sparsify_concatenated_matrices(
         else
             @assert size(matrix) == (nrows, ncols)
             # A plain sparse matrix is stored as is, rather than converted element by element.
-            sparse_matrices[source_index] = plain_array(matrix.array)
+            sparse_matrices[source_index] = plain_array(matrix)
         end
         return nothing
     end

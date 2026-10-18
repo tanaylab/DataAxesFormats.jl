@@ -665,7 +665,7 @@ end
 function copy_vectors(daf::DafReader, axis::AbstractString, frame::DataFrame)::Nothing
     for name in vectors_set(daf, axis)
         @debug "Vector $(axis): $(name)"
-        frame[!, name] = plain_array(densify(get_vector(daf, axis, name).array); contiguous = true)
+        frame[!, name] = plain_array(densify(get_vector(daf, axis, name)); contiguous = true)
     end
 end
 

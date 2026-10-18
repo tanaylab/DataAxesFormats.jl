@@ -18,6 +18,10 @@ DataAxesFormats.Registry.ReductionOperation
 DataAxesFormats.Registry.compute_reduction
 DataAxesFormats.Registry.reduction_result_type
 DataAxesFormats.Registry.supports_strings
+DataAxesFormats.Registry.supports_grouped_reduction
+DataAxesFormats.Registry.empty_reduction_state
+DataAxesFormats.Registry.update_reduction_state
+DataAxesFormats.Registry.final_reduction_value
 ```
 
 ## Registering operations

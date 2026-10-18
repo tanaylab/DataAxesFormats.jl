@@ -4852,32 +4852,38 @@ function compute_grouped_matrix(
     result_type = reduction_result_type(reduce_to_row.reduction_operation, eltype(matrix_values))
     reduced_values =
         Matrix{result_type}(undef, length(unique_group_values), length(base_state.columns_state.vector_entries))
-    is_in_group_per_value_per_thread = allocate_is_in_group_per_value_per_thread(length(group_state.vector_values))
-    loop_name = "GroupByRows($(nameof(typeof(reduce_to_row.reduction_operation))))"
-    parallel_loop_wo_rng(
-        1:length(unique_group_values);
-        name = loop_name,
-        progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = loop_name),
-    ) do group_index
-        @views is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
-        group_value = unique_group_values[group_index]
-        is_in_group_per_value .= group_state.vector_values .== group_value
-        if any(is_in_group_per_value)
-            @views group_matrix_values = matrix_values[is_in_group_per_value, :]
-            reduced_values[group_index, :] =
-                vec(compute_reduction(reduce_to_row.reduction_operation, group_matrix_values, 1))  # NOLINT
-        elseif if_missing !== nothing
-            reduced_values[group_index, :] .= cast_value(query_state, "missing", if_missing.default_value, result_type)
-        else
-            error_at_state(
-                query_state,
-                """
-                no IfMissing value specified for the unused entry: $(group_value)
-                of the axis: $(group_state.property_axis_name)
-                """,
-            )
+    if eltype(matrix_values) <: StorageReal &&
+       supports_grouped_reduction(reduce_to_row.reduction_operation) &&
+       major_axis(matrix_values) == Columns
+        reduce_grouped_rows!(
+            query_state,
+            reduced_values,
+            reduce_to_row,
+            matrix_values,
+            group_state,
+            unique_group_values,
+            if_missing,
+        )
+    else
+        is_in_group_per_value_per_thread = allocate_is_in_group_per_value_per_thread(length(group_state.vector_values))
+        loop_name = "GroupByRows($(nameof(typeof(reduce_to_row.reduction_operation))))"
+        parallel_loop_wo_rng(
+            1:length(unique_group_values);
+            name = loop_name,
+            progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = loop_name),
+        ) do group_index
+            @views is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
+            group_value = unique_group_values[group_index]
+            is_in_group_per_value .= group_state.vector_values .== group_value
+            if any(is_in_group_per_value)
+                @views group_matrix_values = matrix_values[is_in_group_per_value, :]
+                reduced_values[group_index, :] =
+                    vec(compute_reduction(reduce_to_row.reduction_operation, group_matrix_values, 1))  # NOLINT
+            else
+                fill_unused_group!(query_state, reduced_values, group_index, group_value, group_state, if_missing)
+            end
+            return nothing
         end
-        return nothing
     end
 
     reduced_state = MatrixState()
@@ -4891,6 +4897,75 @@ function compute_grouped_matrix(
 
     push!(query_state.stack, reduced_state)
 
+    return nothing
+end
+
+# Fill the row of a group with no rows in the input with the `if_missing` value, or fail if there is none.
+function fill_unused_group!(
+    query_state::QueryState,
+    reduced_values::AbstractMatrix,
+    group_index::Integer,
+    group_value::Any,
+    group_state::VectorState,
+    if_missing::Maybe{IfMissing},
+)::Nothing
+    if if_missing === nothing
+        error_at_state(
+            query_state,
+            """
+            no IfMissing value specified for the unused entry: $(group_value)
+            of the axis: $(group_state.property_axis_name)
+            """,
+        )
+    else
+        reduced_values[group_index, :] .=
+            cast_value(query_state, "missing", if_missing.default_value, eltype(reduced_values))
+    end
+    return nothing
+end
+
+# Reduce the rows of each group in one pass over each column of the `matrix_values` (see `compute_grouped_reduction`),
+# instead of reducing the rows of each group on their own.
+function reduce_grouped_rows!(
+    query_state::QueryState,
+    reduced_values::AbstractMatrix,
+    reduce_to_row::ReduceToRow,
+    matrix_values::AbstractMatrix,
+    group_state::VectorState,
+    unique_group_values::AbstractVector,
+    if_missing::Maybe{IfMissing},
+)::Nothing
+    group_index_per_value = Dict(value => index for (index, value) in enumerate(unique_group_values))
+    group_index_per_row = [get(group_index_per_value, value, 0) for value in group_state.vector_values]
+    is_used_per_group = falses(length(unique_group_values))
+    for group_index in group_index_per_row
+        if group_index > 0
+            is_used_per_group[group_index] = true
+        end
+    end
+
+    used_group_indices = findall(is_used_per_group)
+    for group_index in findall(.!is_used_per_group)
+        fill_unused_group!(
+            query_state,
+            reduced_values,
+            group_index,
+            unique_group_values[group_index],
+            group_state,
+            if_missing,
+        )
+    end
+
+    used_position_per_group = zeros(Int, length(unique_group_values))
+    used_position_per_group[used_group_indices] .= 1:length(used_group_indices)
+    used_position_per_row =
+        [group_index > 0 ? used_position_per_group[group_index] : 0 for group_index in group_index_per_row]
+    reduced_values[used_group_indices, :] .= compute_grouped_reduction(
+        reduce_to_row.reduction_operation,
+        matrix_values,
+        used_position_per_row,
+        length(used_group_indices),
+    )
     return nothing
 end
 

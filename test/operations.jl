@@ -357,6 +357,56 @@ nested_test("operations") do
     end
 
     nested_test("reduction") do
+        # Reducing the rows of each group in one pass over each column gives the same results as reducing each group's
+        # rows on their own.
+        nested_test("grouped") do
+            compute_reduction = DataAxesFormats.Registry.compute_reduction
+            reduction_result_type = DataAxesFormats.Registry.reduction_result_type
+            supports_grouped_reduction = DataAxesFormats.Registry.supports_grouped_reduction
+            group_index_per_row = [1, 2, 0, 1, 3, 2, 1, 0, 3, 3, 2, 1]
+            integers = Int64[
+                0 3 0 1 0
+                2 0 0 0 5
+                0 0 7 0 0
+                4 1 0 0 0
+                0 0 0 2 1
+                1 0 3 0 0
+                0 6 0 0 2
+                9 0 0 4 0
+                0 0 1 0 0
+                3 0 0 0 0
+                0 2 0 5 0
+                0 0 0 0 3
+            ]
+            floats = integers .* 0.5
+            operations = (
+                Count(),
+                Sum(),
+                Max(),
+                Min(),
+                Mean(),
+                GeoMean(; eps = 1.0),
+                Var(),
+                VarN(; eps = 1.0),
+                Std(),
+                StdN(; eps = 1.0),
+            )
+            for operation in operations
+                @test supports_grouped_reduction(operation)
+                for values in (integers, floats, sparse(integers), sparse(floats))
+                    result = compute_grouped_reduction(operation, values, group_index_per_row, 3)
+                    @test size(result) == (3, 5)
+                    @test eltype(result) == reduction_result_type(operation, eltype(values))
+                    for group_index in 1:3
+                        expected = compute_reduction(operation, values[group_index_per_row .== group_index, :], 1)
+                        @test result[group_index, :] ≈ expected
+                    end
+                end
+            end
+            @test !supports_grouped_reduction(Median())
+            return nothing
+        end
+
         nested_test("most_frequent") do
             nested_test("vector") do
                 nested_test("numeric") do

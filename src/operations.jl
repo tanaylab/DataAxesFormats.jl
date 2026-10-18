@@ -24,6 +24,7 @@ export StdN
 export Sum
 export Var
 export VarN
+export compute_grouped_reduction
 export error_invalid_parameter_value
 export float_type_for
 export int_type_for
@@ -47,8 +48,12 @@ using TanayLabUtilities
 
 import ..Registry.compute_eltwise
 import ..Registry.compute_reduction
+import ..Registry.empty_reduction_state
+import ..Registry.final_reduction_value
 import ..Registry.reduction_result_type
+import ..Registry.supports_grouped_reduction
 import ..Registry.supports_strings
+import ..Registry.update_reduction_state
 import ..Tokens.error_at_token
 import ..Tokens.Token
 import Base.MathConstants.e
@@ -1049,6 +1054,22 @@ function supports_strings(::Count)::Bool
     return true
 end
 
+function supports_grouped_reduction(::Count)::Bool
+    return true
+end
+
+function empty_reduction_state(::Count, ::Type)::Nothing
+    return nothing
+end
+
+function update_reduction_state(::Count, ::Nothing, ::StorageReal)::Nothing
+    return nothing
+end
+
+function final_reduction_value(::Count, ::Nothing, ::Integer, n_values::Integer)::Integer
+    return n_values
+end
+
 """
     Mode()
 
@@ -1174,6 +1195,22 @@ function reduction_result_type(operation::Sum, eltype::Type)::Type
     return sum_type_for(eltype, operation.type)
 end
 
+function supports_grouped_reduction(::Sum)::Bool
+    return true
+end
+
+function empty_reduction_state(operation::Sum, eltype::Type)::StorageReal
+    return zero(reduction_result_type(operation, eltype))
+end
+
+function update_reduction_state(::Sum, sum::StorageReal, value::StorageReal)::StorageReal
+    return oftype(sum, sum + value)
+end
+
+function final_reduction_value(::Sum, sum::StorageReal, ::Integer, ::Integer)::StorageReal
+    return sum
+end
+
 """
     Max()
 
@@ -1221,6 +1258,22 @@ function reduction_result_type(::Max, eltype::Type)::Type
     return eltype
 end
 
+function supports_grouped_reduction(::Max)::Bool
+    return true
+end
+
+function empty_reduction_state(::Max, eltype::Type)::StorageReal
+    return typemin(eltype)
+end
+
+function update_reduction_state(::Max, maximal::StorageReal, value::StorageReal)::StorageReal
+    return max(maximal, value)
+end
+
+function final_reduction_value(::Max, maximal::StorageReal, n_seen::Integer, n_values::Integer)::StorageReal
+    return n_seen < n_values ? max(maximal, zero(maximal)) : maximal
+end
+
 """
     Min()
 
@@ -1266,6 +1319,22 @@ end
 
 function reduction_result_type(::Min, eltype::Type)::Type
     return eltype
+end
+
+function supports_grouped_reduction(::Min)::Bool
+    return true
+end
+
+function empty_reduction_state(::Min, eltype::Type)::StorageReal
+    return typemax(eltype)
+end
+
+function update_reduction_state(::Min, minimal::StorageReal, value::StorageReal)::StorageReal
+    return min(minimal, value)
+end
+
+function final_reduction_value(::Min, minimal::StorageReal, n_seen::Integer, n_values::Integer)::StorageReal
+    return n_seen < n_values ? min(minimal, zero(minimal)) : minimal
 end
 
 """
@@ -1450,6 +1519,22 @@ function reduction_result_type(operation::Mean, eltype::Type)::Type
     return float_type_for(eltype, operation.type)
 end
 
+function supports_grouped_reduction(::Mean)::Bool
+    return true
+end
+
+function empty_reduction_state(::Mean, ::Type)::Float64
+    return 0.0
+end
+
+function update_reduction_state(::Mean, sum::Float64, value::StorageReal)::Float64
+    return sum + value
+end
+
+function final_reduction_value(::Mean, sum::Float64, ::Integer, n_values::Integer)::Float64
+    return sum / n_values
+end
+
 """
     GeoMean(; type::Maybe{Type} = nothing, eps::StorageReal = 0.0)
 
@@ -1538,6 +1623,51 @@ function reduction_result_type(operation::GeoMean, eltype::Type)::Type
     return float_type_for(eltype, operation.type)
 end
 
+function supports_grouped_reduction(::GeoMean)::Bool
+    return true
+end
+
+function empty_reduction_state(::GeoMean, ::Type)::Float64
+    return 0.0
+end
+
+function update_reduction_state(operation::GeoMean, sum_of_logs::Float64, value::StorageReal)::Float64
+    return sum_of_logs + log(value + operation.eps)
+end
+
+function final_reduction_value(operation::GeoMean, sum_of_logs::Float64, n_seen::Integer, n_values::Integer)::Float64
+    if n_seen < n_values
+        sum_of_logs += (n_values - n_seen) * log(operation.eps)
+    end
+    return exp(sum_of_logs / n_values) - operation.eps
+end
+
+# The state of Welford's online algorithm, shared by the variance reductions: the number of values seen, their mean, and
+# the sum of the squared differences from that mean.
+MomentsState = Tuple{Int, Float64, Float64}
+
+function empty_moments_state()::MomentsState
+    return (0, 0.0, 0.0)
+end
+
+function update_moments_state(state::MomentsState, value::StorageReal)::MomentsState
+    n_seen, mean_of_seen, squared_differences = state
+    n_seen += 1
+    difference = value - mean_of_seen
+    mean_of_seen += difference / n_seen
+    squared_differences += difference * (value - mean_of_seen)
+    return (n_seen, mean_of_seen, squared_differences)
+end
+
+# The mean and the (uncorrected) variance of `n_values` values: the ones seen by the `state`, and zeros for the rest.
+function moments_with_zeros(state::MomentsState, n_values::Integer)::Tuple{Float64, Float64}
+    n_seen, mean_of_seen, squared_differences = state
+    n_zeros = n_values - n_seen
+    mean = mean_of_seen * n_seen / n_values
+    squared_differences += mean_of_seen^2 * n_seen * n_zeros / n_values
+    return (mean, squared_differences / n_values)
+end
+
 """
     Var(; type::Maybe{Type} = nothing)
 
@@ -1587,6 +1717,23 @@ end
 
 function reduction_result_type(operation::Var, eltype::Type)::Type
     return float_type_for(eltype, operation.type)
+end
+
+function supports_grouped_reduction(::Var)::Bool
+    return true
+end
+
+function empty_reduction_state(::Var, ::Type)::MomentsState
+    return empty_moments_state()
+end
+
+function update_reduction_state(::Var, state::MomentsState, value::StorageReal)::MomentsState
+    return update_moments_state(state, value)
+end
+
+function final_reduction_value(::Var, state::MomentsState, ::Integer, n_values::Integer)::Float64
+    _, variance = moments_with_zeros(state, n_values)
+    return variance
 end
 
 """
@@ -1654,6 +1801,23 @@ function reduction_result_type(operation::VarN, eltype::Type)::Type
     return float_type_for(eltype, operation.type)
 end
 
+function supports_grouped_reduction(::VarN)::Bool
+    return true
+end
+
+function empty_reduction_state(::VarN, ::Type)::MomentsState
+    return empty_moments_state()
+end
+
+function update_reduction_state(::VarN, state::MomentsState, value::StorageReal)::MomentsState
+    return update_moments_state(state, value)
+end
+
+function final_reduction_value(operation::VarN, state::MomentsState, ::Integer, n_values::Integer)::Float64
+    mean, variance = moments_with_zeros(state, n_values)
+    return variance / (mean + operation.eps)
+end
+
 """
     Std(; type::Maybe{Type} = nothing)
 
@@ -1703,6 +1867,23 @@ end
 
 function reduction_result_type(operation::Std, eltype::Type)::Type
     return float_type_for(eltype, operation.type)
+end
+
+function supports_grouped_reduction(::Std)::Bool
+    return true
+end
+
+function empty_reduction_state(::Std, ::Type)::MomentsState
+    return empty_moments_state()
+end
+
+function update_reduction_state(::Std, state::MomentsState, value::StorageReal)::MomentsState
+    return update_moments_state(state, value)
+end
+
+function final_reduction_value(::Std, state::MomentsState, ::Integer, n_values::Integer)::Float64
+    _, variance = moments_with_zeros(state, n_values)
+    return sqrt(variance)
 end
 
 """
@@ -1768,6 +1949,137 @@ end
 
 function reduction_result_type(operation::StdN, eltype::Type)::Type
     return float_type_for(eltype, operation.type)
+end
+
+function supports_grouped_reduction(::StdN)::Bool
+    return true
+end
+
+function empty_reduction_state(::StdN, ::Type)::MomentsState
+    return empty_moments_state()
+end
+
+function update_reduction_state(::StdN, state::MomentsState, value::StorageReal)::MomentsState
+    return update_moments_state(state, value)
+end
+
+function final_reduction_value(operation::StdN, state::MomentsState, ::Integer, n_values::Integer)::Float64
+    mean, variance = moments_with_zeros(state, n_values)
+    return sqrt(variance) / (mean + operation.eps)
+end
+
+"""
+    compute_grouped_reduction(
+        operation::ReductionOperation,
+        matrix::StorageMatrix{<:StorageReal},
+        group_index_per_row::AbstractVector{<:Integer},
+        n_groups::Integer,
+    )::Matrix{<:StorageReal}
+
+Reduce the rows of a column-major `matrix` per group. The result has one row per group, and one column per column of the
+`matrix`. The group of each row is given by `group_index_per_row`, where 0 means the row is in no group. Each group must
+have at least one row. The `operation` must [`supports_grouped_reduction`](@ref).
+
+Each column is visited once, so the time is proportional to the number of values, plus the number of groups for each
+column. For a sparse matrix only the stored values are visited.
+"""
+function compute_grouped_reduction(
+    operation::ReductionOperation,
+    matrix::StorageMatrix{<:StorageReal},
+    group_index_per_row::AbstractVector{<:Integer},
+    n_groups::Integer,
+)::Matrix{<:StorageReal}
+    @assert supports_grouped_reduction(operation)
+    @assert length(group_index_per_row) == size(matrix, 1)
+    @assert require_major_axis(matrix) == Columns
+
+    n_rows_per_group = zeros(Int, n_groups)
+    for group_index in group_index_per_row
+        if group_index > 0
+            n_rows_per_group[group_index] += 1
+        end
+    end
+    @assert all(n_rows_per_group .> 0)
+
+    plain_matrix = plain_array(matrix)
+    element_type = eltype(plain_matrix)
+    n_columns = size(plain_matrix, 2)
+    output = Matrix{reduction_result_type(operation, element_type)}(undef, n_groups, n_columns)
+    empty_state = empty_reduction_state(operation, element_type)
+    buffers = ReusableStorage(() -> (Vector{typeof(empty_state)}(undef, n_groups), Vector{Int}(undef, n_groups)))
+
+    parallel_loop_wo_rng(
+        1:n_columns;
+        name = "compute_grouped_reduction",
+        progress = DebugProgress(n_columns; group = :daf_loops, desc = "compute_grouped_reduction"),
+    ) do column_index
+        with_reusable(buffers) do (state_per_group, n_seen_per_group)
+            state_per_group .= Ref(empty_state)
+            n_seen_per_group .= 0
+            reduce_column_per_group!(
+                operation,
+                state_per_group,
+                n_seen_per_group,
+                plain_matrix,
+                column_index,
+                group_index_per_row,
+            )
+            for group_index in 1:n_groups
+                output[group_index, column_index] = final_reduction_value(
+                    operation,
+                    state_per_group[group_index],
+                    n_seen_per_group[group_index],
+                    n_rows_per_group[group_index],
+                )
+            end
+            return nothing
+        end
+        return nothing
+    end
+
+    return output
+end
+
+# Update the state of each group with the stored values of one column of a sparse matrix.
+function reduce_column_per_group!(
+    operation::ReductionOperation,
+    state_per_group::AbstractVector,
+    n_seen_per_group::AbstractVector{<:Integer},
+    matrix::SparseMatrixCSC,
+    column_index::Integer,
+    group_index_per_row::AbstractVector{<:Integer},
+)::Nothing
+    row_index_per_stored = rowvals(matrix)
+    value_per_stored = nonzeros(matrix)
+    @inbounds for stored_index in nzrange(matrix, column_index)
+        group_index = group_index_per_row[row_index_per_stored[stored_index]]
+        if group_index > 0
+            state_per_group[group_index] =
+                update_reduction_state(operation, state_per_group[group_index], value_per_stored[stored_index])
+            n_seen_per_group[group_index] += 1
+        end
+    end
+    return nothing
+end
+
+# Update the state of each group with all the values of one column of a dense matrix.
+function reduce_column_per_group!(
+    operation::ReductionOperation,
+    state_per_group::AbstractVector,
+    n_seen_per_group::AbstractVector{<:Integer},
+    matrix::AbstractMatrix,
+    column_index::Integer,
+    group_index_per_row::AbstractVector{<:Integer},
+)::Nothing
+    @inbounds for row_index in axes(matrix, 1)
+        group_index = group_index_per_row[row_index]
+        if group_index > 0
+            state_per_group[group_index] =
+                update_reduction_state(operation, state_per_group[group_index], matrix[row_index, column_index])
+            n_seen_per_group[group_index] += 1
+        end
+    end
+    return nothing
 end
 
 end # module

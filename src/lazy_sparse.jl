@@ -413,12 +413,12 @@ function Base.show(io::IO, mime::MIME"text/plain", matrix::LazySparseMatrix)::No
 end
 
 function Base.show(io::IO, named::NamedLazySparseMatrix)::Nothing
-    show(io, NamedArray(plain_array(named.array), named.dicts, named.dimnames))
+    show(io, NamedArray(plain_array(named), named.dicts, named.dimnames))
     return nothing
 end
 
 function Base.show(io::IO, mime::MIME"text/plain", named::NamedLazySparseMatrix)::Nothing
-    show(io, mime, NamedArray(plain_array(named.array), named.dicts, named.dimnames))
+    show(io, mime, NamedArray(plain_array(named), named.dicts, named.dimnames))
     return nothing
 end
 

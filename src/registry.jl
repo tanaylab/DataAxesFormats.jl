@@ -15,9 +15,13 @@ export QueryOperation
 export ReductionOperation
 export compute_eltwise
 export compute_reduction
+export empty_reduction_state
+export final_reduction_value
 export reduction_result_type
 export register_query_operation
+export supports_grouped_reduction
 export supports_strings
+export update_reduction_state
 
 using ..StorageTypes
 using TanayLabUtilities
@@ -141,6 +145,43 @@ function compute_reduction end
 Return the data type of the result of the reduction `operation` if applied to a vector of the specified `eltype`.
 """
 function reduction_result_type end
+
+"""
+    supports_grouped_reduction(operation::ReductionOperation)::Bool
+
+Whether the reduction `operation` can be computed one value at a time, which allows reducing the rows of a matrix per
+group in a single pass over each column (see `compute_grouped_reduction` in the query operations module). Such an
+operation implements [`empty_reduction_state`](@ref), [`update_reduction_state`](@ref) and
+[`final_reduction_value`](@ref). By default this is `false`, and the reduction is applied to each group's values.
+"""
+function supports_grouped_reduction(::ReductionOperation)::Bool
+    return false
+end
+
+"""
+    empty_reduction_state(operation::ReductionOperation, eltype::Type)::Any
+
+The state of the reduction `operation` before seeing any value of the specified `eltype`. Only needed if
+[`supports_grouped_reduction`](@ref).
+"""
+function empty_reduction_state end
+
+"""
+    update_reduction_state(operation::ReductionOperation, state::Any, value::StorageReal)::Any
+
+The state of the reduction `operation` after also seeing the `value`. Only needed if
+[`supports_grouped_reduction`](@ref).
+"""
+function update_reduction_state end
+
+"""
+    final_reduction_value(operation::ReductionOperation, state::Any, n_seen::Integer, n_values::Integer)::StorageReal
+
+The result of the reduction `operation`, given the `state` after seeing `n_seen` values. The input has `n_values` values
+in total. The values that weren't seen are zeros (the implicit zeros of a sparse matrix). The result is converted to the
+[`reduction_result_type`](@ref). Only needed if [`supports_grouped_reduction`](@ref).
+"""
+function final_reduction_value end
 
 # A global registry of all the known element-wise operations.
 ELTWISE_REGISTERED_OPERATIONS = Dict{String, RegisteredOperation}()
