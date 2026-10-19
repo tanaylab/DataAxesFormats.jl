@@ -1403,8 +1403,11 @@ end
 # not sharded, so Zarr.jl decodes exactly the chunk that is read.
 function zarr_chunked_array(array::ZArray{T, N})::ChunkedArray{T, N} where {T, N}
     pool = is_http_array(array) ? HTTP_CHUNK_POOL : LOCAL_CHUNK_POOL
-    read_chunk = chunk_ranges -> array[chunk_ranges...]
-    return ChunkedArray{T, N}(size(array), Tuple(array.metadata.chunks), read_chunk, pool)
+    function read_chunk!(destination::AbstractArray, chunk_ranges::Tuple)::Nothing
+        copyto!(destination, array[chunk_ranges...])
+        return nothing
+    end
+    return ChunkedArray{T, N}(size(array), Tuple(array.metadata.chunks), read_chunk!, pool)
 end
 
 # Whether `array_as_vector` / `array_as_matrix` would return a wrapper that defers reads (chunked / packed-Range /

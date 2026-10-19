@@ -631,6 +631,144 @@ compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageR
 </section>
 </details>
 </article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Registry.supports_grouped_reduction">
+<a class="docstring-binding" href="#DataAxesFormats.Registry.supports_grouped_reduction">
+<code>DataAxesFormats.Registry.supports_grouped_reduction
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">supports_grouped_reduction(operation::ReductionOperation)::Bool
+</code>
+</pre>
+<p>Whether the reduction 
+<code>operation
+</code> can be computed one value at a time, which allows reducing the rows of a matrix per group in a single pass over each column (see 
+<code>compute_grouped_reduction
+</code> in the query operations module). Such an operation implements 
+<a href="registry.html#DataAxesFormats.Registry.empty_reduction_state">
+<code>empty_reduction_state
+</code>
+</a>, 
+<a href="registry.html#DataAxesFormats.Registry.update_reduction_state">
+<code>update_reduction_state
+</code>
+</a> and 
+<a href="registry.html#DataAxesFormats.Registry.final_reduction_value">
+<code>final_reduction_value
+</code>
+</a>. By default this is 
+<code>false
+</code>, and the reduction is applied to each group&#39;s values.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Registry.empty_reduction_state">
+<a class="docstring-binding" href="#DataAxesFormats.Registry.empty_reduction_state">
+<code>DataAxesFormats.Registry.empty_reduction_state
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">empty_reduction_state(operation::ReductionOperation, eltype::Type)::Any
+</code>
+</pre>
+<p>The state of the reduction 
+<code>operation
+</code> before seeing any value of the specified 
+<code>eltype
+</code>. Only needed if 
+<a href="registry.html#DataAxesFormats.Registry.supports_grouped_reduction">
+<code>supports_grouped_reduction
+</code>
+</a>.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Registry.update_reduction_state">
+<a class="docstring-binding" href="#DataAxesFormats.Registry.update_reduction_state">
+<code>DataAxesFormats.Registry.update_reduction_state
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">update_reduction_state(operation::ReductionOperation, state::Any, value::StorageReal)::Any
+</code>
+</pre>
+<p>The state of the reduction 
+<code>operation
+</code> after also seeing the 
+<code>value
+</code>. Only needed if 
+<a href="registry.html#DataAxesFormats.Registry.supports_grouped_reduction">
+<code>supports_grouped_reduction
+</code>
+</a>.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Registry.final_reduction_value">
+<a class="docstring-binding" href="#DataAxesFormats.Registry.final_reduction_value">
+<code>DataAxesFormats.Registry.final_reduction_value
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">final_reduction_value(operation::ReductionOperation, state::Any, n_seen::Integer, n_values::Integer)::StorageReal
+</code>
+</pre>
+<p>The result of the reduction 
+<code>operation
+</code>, given the 
+<code>state
+</code> after seeing 
+<code>n_seen
+</code> values. The input has 
+<code>n_values
+</code> values in total. The values that weren&#39;t seen are zeros (the implicit zeros of a sparse matrix). The result is converted to the 
+<a href="registry.html#DataAxesFormats.Registry.reduction_result_type">
+<code>reduction_result_type
+</code>
+</a>. Only needed if 
+<a href="registry.html#DataAxesFormats.Registry.supports_grouped_reduction">
+<code>supports_grouped_reduction
+</code>
+</a>.
+</p>
+</div>
+</section>
+</details>
+</article>
 <h2 id="Registering-operations">
 <a class="docs-heading-anchor" href="#Registering-operations">Registering operations
 </a>
@@ -772,6 +910,18 @@ end
 </a>
 </li>
 <li>
+<a href="registry.html#DataAxesFormats.Registry.empty_reduction_state">
+<code>DataAxesFormats.Registry.empty_reduction_state
+</code>
+</a>
+</li>
+<li>
+<a href="registry.html#DataAxesFormats.Registry.final_reduction_value">
+<code>DataAxesFormats.Registry.final_reduction_value
+</code>
+</a>
+</li>
+<li>
 <a href="registry.html#DataAxesFormats.Registry.reduction_result_type">
 <code>DataAxesFormats.Registry.reduction_result_type
 </code>
@@ -784,8 +934,20 @@ end
 </a>
 </li>
 <li>
+<a href="registry.html#DataAxesFormats.Registry.supports_grouped_reduction">
+<code>DataAxesFormats.Registry.supports_grouped_reduction
+</code>
+</a>
+</li>
+<li>
 <a href="registry.html#DataAxesFormats.Registry.supports_strings">
 <code>DataAxesFormats.Registry.supports_strings
+</code>
+</a>
+</li>
+<li>
+<a href="registry.html#DataAxesFormats.Registry.update_reduction_state">
+<code>DataAxesFormats.Registry.update_reduction_state
 </code>
 </a>
 </li>

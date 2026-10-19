@@ -1003,6 +1003,16 @@ nested_test("packed_format") do
                 @test all(columns[column] == values[:, column] for column in 1:4)
             end
 
+            nested_test("trailing_edge") do
+                trailing_values = Float64[row + column / 10 for row in 1:105, column in 1:2]
+                trailing_bytes = Vector{UInt8}(reinterpret(UInt8, vec(trailing_values)))
+                trailing_fetcher = (offset::Int, n_bytes::Int) -> trailing_bytes[(offset + 1):(offset + n_bytes)]
+                array = DataAxesFormats.PackedFormat.StripedMatrix(Float64, 105, 2, 10, trailing_fetcher)
+                @test array[:, 2] == trailing_values[:, 2]
+                @test array[103, :] == trailing_values[103, :]
+                @test collect(array) == trailing_values
+            end
+
             nested_test("whole_chunks_bypass") do
                 array = chunked()
                 @test collect(array) == values
@@ -2137,6 +2147,67 @@ nested_test("packed_format") do
                     end
                 finally
                     DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION = saved_compression
+                end
+            end
+        end
+    end
+
+    # A lazy read decodes each chunk it uses whole straight into the destination. Each column ends in a partial chunk at
+    # the trailing edge, and partially used chunks are pooled, so reads also mix pooled and missing chunks.
+    nested_test("direct_decoding") do
+        n_rows = 2 * 2048 + 100
+        n_columns = 3
+        values = Float32[row + column / 10 for row in 1:n_rows, column in 1:n_columns]
+        pool = DataAxesFormats.PackedFormat.LOCAL_CHUNK_POOL
+        for compression in DataAxesFormats.PackedFormat.SUPPORTED_COMPRESSION_CODECS
+            for (format_name, create_daf) in (
+                ("files", path -> FilesDaf(joinpath(path, "test.daf"), "w+"; name = "files!", packed = true)),
+                ("zip", path -> ZipDaf(joinpath(path, "test.daf.zip"), "w+"; name = "zip!", packed = true)),
+                ("zarr", path -> ZarrDaf(joinpath(path, "test.daf.zarr"), "w+"; name = "zarr!", packed = true)),
+                (
+                    "zarr_zip",
+                    path -> ZarrDaf(joinpath(path, "test.daf.zarr.zip"), "w+"; name = "zarr_zip!", packed = true),
+                ),
+                ("h5df", path -> H5df(joinpath(path, "test.h5df"), "w+"; name = "h5df!", packed = true)),
+            )
+                nested_test("$(compression)/$(format_name)") do
+                    saved_compression = DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION
+                    try
+                        DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION = compression
+                        mktempdir() do path
+                            daf = create_daf(path)
+                            add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+                            add_axis!(daf, "column", ["c$(index)" for index in 1:n_columns])
+                            set_matrix!(daf, "row", "column", "m", values; relayout = false)
+                            empty_cache!(daf)
+                            lazy = get_matrix(daf, "row", "column", "m"; relayout = false).array
+                            @test lazy isa DataAxesFormats.PackedFormat.ChunkedArray
+                            n_pooled_chunks() = count(key -> key[1] == lazy.source_id, keys(pool.chunks))
+
+                            @test lazy[:, 1] == values[:, 1]
+                            @test n_pooled_chunks() == 0
+                            @test lazy[5, :] == values[5, :]
+                            @test n_pooled_chunks() == n_columns
+                            @test lazy[:, 2] == values[:, 2]
+                            @test collect(lazy) == values
+
+                            chunk_rows = lazy.chunk_shape[1]
+                            @test n_rows % chunk_rows != 0
+                            second_chunk_rows = (chunk_rows + 1):(2 * chunk_rows)
+                            buffer = Matrix{Float32}(undef, chunk_rows, 1)
+                            DiskArrays.readblock!(lazy, buffer, second_chunk_rows, 1:1)
+                            @test vec(buffer) == values[second_chunk_rows, 1]
+                            n_allocated_bytes = @allocated DiskArrays.readblock!(lazy, buffer, second_chunk_rows, 3:3)
+                            @test vec(buffer) == values[second_chunk_rows, 3]
+                            # zlib allocates its own decoder state (about 40 KB) for every gzip chunk.
+                            if compression != :gzip
+                                @test n_allocated_bytes < sizeof(buffer) ÷ 2
+                            end
+                            return nothing
+                        end
+                    finally
+                        DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION = saved_compression
+                    end
                 end
             end
         end

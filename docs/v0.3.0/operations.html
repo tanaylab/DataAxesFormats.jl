@@ -1074,6 +1074,47 @@
 </section>
 </details>
 </article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Operations.compute_grouped_reduction">
+<a class="docstring-binding" href="#DataAxesFormats.Operations.compute_grouped_reduction">
+<code>DataAxesFormats.Operations.compute_grouped_reduction
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">compute_grouped_reduction(
+    operation::ReductionOperation,
+    matrix::StorageMatrix{&lt;:StorageReal},
+    group_index_per_row::AbstractVector{&lt;:Integer},
+    n_groups::Integer,
+)::Matrix{&lt;:StorageReal}
+</code>
+</pre>
+<p>Reduce the rows of a column-major 
+<code>matrix
+</code> per group. The result has one row per group, and one column per column of the 
+<code>matrix
+</code>. The group of each row is given by 
+<code>group_index_per_row
+</code>, where 0 means the row is in no group. Each group must have at least one row. The 
+<code>operation
+</code> must 
+<a href="registry.html#DataAxesFormats.Registry.supports_grouped_reduction">
+<code>supports_grouped_reduction
+</code>
+</a>.
+</p>
+<p>Each column is visited once, so the time is proportional to the number of values, plus the number of groups for each column. For a sparse matrix only the stored values are visited.
+</p>
+</div>
+</section>
+</details>
+</article>
 <h2 id="Support-functions">
 <a class="docs-heading-anchor" href="#Support-functions">Support functions
 </a>
@@ -1539,6 +1580,12 @@
 <li>
 <a href="operations.html#DataAxesFormats.Operations.VarN">
 <code>DataAxesFormats.Operations.VarN
+</code>
+</a>
+</li>
+<li>
+<a href="operations.html#DataAxesFormats.Operations.compute_grouped_reduction">
+<code>DataAxesFormats.Operations.compute_grouped_reduction
 </code>
 </a>
 </li>

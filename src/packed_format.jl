@@ -95,7 +95,6 @@ export DAF_PACKED_TARGET_CHUNK_KB
 using ..Formats
 using ..MmapZipStores
 using ..StorageTypes
-using Base64
 using Base.Threads
 using CodecZlib
 using DiskArrays
@@ -130,6 +129,12 @@ import ..MmapZipStores.write_local_file_header!
 import ..Operations.DTYPE_BY_NAME
 
 import Base.Threads.maxthreadid
+import Blosc.blosc_decompress_ctx
+import ChunkCodecCore.is_size
+import ChunkCodecCore.try_decode!
+import ChunkCodecLibZlib.DeflateCodec  # NOLINT
+import ChunkCodecLibZlib.GzipCodec  # NOLINT
+import ChunkCodecLibZstd.ZstdCodec  # NOLINT
 import SparseArrays.indtype
 import ZipArchives.zip_crc32
 
@@ -822,10 +827,13 @@ end
 # coalesced into the smallest set of byte-contiguous fetches (gap ≤ [`DAF_HTTP_MAX_COALESCE_GAP_KB`](@ref)), and each
 # fetched chunk is decoded through the configured pipeline.
 #
-# - `decode_chunk(encoded_bytes::Vector{UInt8}, chunk_shape_in_array::NTuple{N, Int}, method::UInt16) -> Array{T, N}`
-#   converts raw fetched bytes into a chunk-shaped buffer. `method` is the ZIP compression method (relevant
-#   only to the CD-based reader); flat and shard-index decoders ignore it (callers supply sentinel
-#   `UInt16(0)`).
+# - `decode_chunk!(destination::AbstractArray{T, N}, encoded_bytes::AbstractVector{UInt8}, method::UInt16) -> Nothing`
+#   decodes the fetched bytes of one chunk into `destination`. The `destination` is contiguous in memory and has the
+#   stored shape of the chunk (see `is_padded`). The `encoded_bytes` may be a view into a larger fetched span.
+#   `method` is the ZIP compression method (relevant only to the CD-based reader); flat and shard-index decoders
+#   ignore it (callers supply sentinel `UInt16(0)`).
+# - `is_padded` is whether a chunk at the trailing edge of the array is stored in the full chunk shape, padded with
+#   fill values. Otherwise it is stored in its shape in the array.
 # - `ensure_index() -> Nothing` is called before any chunk's byte range is queried. For flat data it's a no-op;
 #   for packed data it fetches and parses the metadata (Zarr shard index or ZIP central directory) on first
 #   call (cached after).
@@ -836,7 +844,8 @@ end
 # - `byte_fetcher(offset::Int, n_bytes::Int) -> Vector{UInt8}` reads one byte slab from the underlying
 #   resource.
 struct EncodedChunkReader
-    decode_chunk::Function
+    decode_chunk!::Function
+    is_padded::Bool
     ensure_index::Function
     chunk_byte_range::Function
     byte_fetcher::Function
@@ -847,7 +856,11 @@ end
 # part of are kept in the array's `pool`.
 #
 # The `chunk_reader` is either an [`EncodedChunkReader`](@ref), or a
-# `read_chunk(chunk_ranges::NTuple{N, UnitRange{Int}}) -> Array{T, N}` closure that returns one chunk, already decoded.
+# `read_chunk!(destination::AbstractArray{T, N}, chunk_ranges::NTuple{N, UnitRange{Int}}) -> Nothing` closure that reads
+# one chunk, already decoded, into a `destination` which is contiguous in memory.
+#
+# A read decodes each chunk it uses whole straight into its slice of the destination, when that slice is contiguous in
+# memory. Other chunks are decoded into a new array, then copied.
 #
 # The same machinery serves flat dense vector ([`StripedVector`](@ref)), flat dense matrix ([`StripedMatrix`](@ref)),
 # v3-sharded packed dense array ([`PackedDenseArray`](@ref)), ZIP-CD-based packed shard reads
@@ -1040,11 +1053,11 @@ function DiskArrays.readblock!(
     return nothing
 end
 
-# Read each missing chunk with `read_chunk`, which returns it already decoded. Copy it into the `destination` slice of
-# the requested `ranges`, and pool it if the read used only part of it.
+# Read each missing chunk with `read_chunk!`, which reads it already decoded, into the `destination` slice of the
+# requested `ranges`.
 function read_decoded_chunks!(
     array::ChunkedArray{T, N},
-    read_chunk::Function,
+    read_chunk!::Function,
     missing_chunk_coords::Vector{CartesianIndex{N}},
     destination::AbstractArray{<:Any, N},
     ranges::NTuple{N, <:AbstractUnitRange},
@@ -1055,11 +1068,76 @@ function read_decoded_chunks!(
             first_in_array = (chunk_coords[dim] - 1) * array.chunk_shape[dim] + 1
             return first_in_array:(first_in_array + chunk_shape[dim] - 1)
         end
-        chunk = read_chunk(chunk_ranges)::Array{T, N}
-        copy_chunk_into_destination!(destination, chunk, chunk_coords, array.chunk_shape, ranges)
-        pool_partially_used_chunk!(array, chunk, chunk_coords, ranges)
+        read_chunk_into_destination!(array, destination, chunk_coords, ranges, false) do chunk_destination
+            read_chunk!(chunk_destination, chunk_ranges)
+            return nothing
+        end
     end
     return nothing
+end
+
+# Read the chunk at `chunk_coords` into the `destination` slice of the requested `ranges`. The `fill_chunk!` function
+# fills an array, contiguous in memory, with the stored chunk. If `is_padded`, a chunk at the trailing edge of the array
+# is stored in the full chunk shape.
+#
+# A chunk the read uses whole is filled straight into its slice of the `destination`, if that slice is contiguous in
+# memory and has the shape of the stored chunk. Otherwise the chunk is filled into a new array, then copied into the
+# `destination`, and pooled if the read used only part of it.
+function read_chunk_into_destination!(
+    fill_chunk!::Function,
+    array::ChunkedArray{T, N},
+    destination::AbstractArray{<:Any, N},
+    chunk_coords::CartesianIndex{N},
+    ranges::NTuple{N, <:AbstractUnitRange},
+    is_padded::Bool,
+)::Nothing where {T, N}
+    chunk_shape = chunk_shape_in_array(array, chunk_coords)
+    stored_chunk_shape = is_padded ? array.chunk_shape : chunk_shape
+    is_whole_chunk_used = all(1:N) do dim
+        first_in_array = (chunk_coords[dim] - 1) * array.chunk_shape[dim] + 1
+        last_in_array = first_in_array + chunk_shape[dim] - 1
+        return first(ranges[dim]) <= first_in_array && last_in_array <= last(ranges[dim])
+    end
+
+    if is_whole_chunk_used && isbitstype(T) && eltype(destination) == T && stored_chunk_shape == chunk_shape
+        destination_ranges = ntuple(N) do dim
+            first_in_destination = (chunk_coords[dim] - 1) * array.chunk_shape[dim] + 2 - first(ranges[dim])
+            return first_in_destination:(first_in_destination + chunk_shape[dim] - 1)
+        end
+        destination_slice = view(destination, destination_ranges...)
+        if is_contiguous_memory(destination_slice)
+            fill_chunk!(destination_slice)
+            return nothing
+        end
+    end
+
+    stored_chunk = Array{T, N}(undef, stored_chunk_shape)
+    fill_chunk!(stored_chunk)
+    if stored_chunk_shape == chunk_shape
+        chunk = stored_chunk
+    else
+        chunk = stored_chunk[ntuple(dim -> 1:chunk_shape[dim], N)...]
+    end
+    copy_chunk_into_destination!(destination, chunk, chunk_coords, array.chunk_shape, ranges)
+    if !is_whole_chunk_used
+        pool_chunk!(array, chunk, chunk_coords)
+    end
+    return nothing
+end
+
+# Whether the `array` occupies one contiguous block of memory, in column-major order.
+function is_contiguous_memory(array::AbstractArray)::Bool
+    if !(array isa StridedArray)
+        return false
+    end
+    expected_stride = 1
+    for dim in 1:ndims(array)
+        if size(array, dim) > 1 && stride(array, dim) != expected_stride
+            return false
+        end
+        expected_stride *= size(array, dim)
+    end
+    return true
 end
 
 # Clamped chunk extent (in elements) along each dim. For interior chunks this equals `array.chunk_shape`; for
@@ -1077,32 +1155,24 @@ function chunk_key(array::ChunkedArray{T, N}, chunk_coords::CartesianIndex{N})::
     return (array.source_id, LinearIndices(chunk_grid_shape)[chunk_coords])
 end
 
-# Keep a fetched chunk in the pool if the read used only part of it. A read that used all of it isn't kept, so sweeps
-# over whole chunks don't push out the chunks that partial reads revisit.
-function pool_partially_used_chunk!(
+# Keep a fetched chunk in the pool. Only chunks a read used part of are kept, so sweeps over whole chunks don't push out
+# the chunks that partial reads revisit.
+function pool_chunk!(
     array::ChunkedArray{T, N},
     chunk::Array{T, N},
     chunk_coords::CartesianIndex{N},
-    ranges::NTuple{N, <:AbstractUnitRange},
 )::Nothing where {T, N}
-    is_whole_chunk_used = all(1:N) do dim
-        first_in_array = (chunk_coords[dim] - 1) * array.chunk_shape[dim] + 1
-        last_in_array = first_in_array + size(chunk, dim) - 1
-        return first(ranges[dim]) <= first_in_array && last_in_array <= last(ranges[dim])
+    chunks = array.pool.chunks
+    maxsize = array.pool.budget_kb() * 1024
+    if chunks.maxsize != maxsize
+        resize!(chunks; maxsize)
     end
-    if !is_whole_chunk_used
-        chunks = array.pool.chunks
-        maxsize = array.pool.budget_kb() * 1024
-        if chunks.maxsize != maxsize
-            resize!(chunks; maxsize)
-        end
-        key = chunk_key(array, chunk_coords)
-        lock(array.pooled_chunk_indices_lock) do
-            push!(array.pooled_chunk_indices, key[2])
-            return nothing
-        end
-        chunks[key] = chunk
+    key = chunk_key(array, chunk_coords)
+    lock(array.pooled_chunk_indices_lock) do
+        push!(array.pooled_chunk_indices, key[2])
+        return nothing
     end
+    chunks[key] = chunk
     return nothing
 end
 
@@ -1132,10 +1202,9 @@ function copy_chunk_into_destination!(
 end
 
 # Sort missing chunks by byte offset, group consecutive ones into byte-contiguous Range GET spans (gap ≤
-# `DAF_HTTP_MAX_COALESCE_GAP_KB`), fetch each span, decode each chunk via `chunk_reader.decode_chunk`, copy it into
-# the `destination` slice of the requested `ranges`, and pool it if the read used only part of it. Empty chunks (those
-# for which `chunk_reader.chunk_byte_range` returns `nothing`, i.e. packed fill chunks) become zero-filled tiles
-# without any HTTP traffic.
+# `DAF_HTTP_MAX_COALESCE_GAP_KB`), fetch each span, and decode each chunk via `chunk_reader.decode_chunk!` into the
+# `destination` slice of the requested `ranges`. Empty chunks (those for which `chunk_reader.chunk_byte_range` returns
+# `nothing`, i.e. packed fill chunks) become tiles of the fill value without any HTTP traffic.
 function fetch_chunks_coalesced!(
     array::ChunkedArray{T, N},
     chunk_reader::EncodedChunkReader,
@@ -1158,9 +1227,10 @@ function fetch_chunks_coalesced!(
         end
     end
     for chunk_coords in empty_chunk_coords
-        chunk = zeros(T, chunk_shape_in_array(array, chunk_coords))  # UNTESTED
-        copy_chunk_into_destination!(destination, chunk, chunk_coords, array.chunk_shape, ranges)  # UNTESTED
-        pool_partially_used_chunk!(array, chunk, chunk_coords, ranges)  # UNTESTED
+        read_chunk_into_destination!(array, destination, chunk_coords, ranges, false) do chunk_destination  # UNTESTED
+            fill!(chunk_destination, shard_fill_value(T))  # UNTESTED
+            return nothing  # UNTESTED
+        end
     end
 
     if isempty(nonempty_with_offset)
@@ -1203,8 +1273,8 @@ function fetch_chunks_coalesced!(
 end
 
 # Issue one Range GET covering the byte-contiguous span from `span_first_index` through `span_last_index`
-# (inclusive, indices into `nonempty_with_offset`), decode each chunk in the span via `chunk_reader.decode_chunk`,
-# copy it into the `destination` slice of the requested `ranges`, and pool it if the read used only part of it.
+# (inclusive, indices into `nonempty_with_offset`), and decode each chunk in the span via `chunk_reader.decode_chunk!`
+# into the `destination` slice of the requested `ranges`.
 function fetch_chunk_span!(
     array::ChunkedArray{T, N},
     chunk_reader::EncodedChunkReader,
@@ -1221,14 +1291,17 @@ function fetch_chunk_span!(
     for span_index in span_first_index:span_last_index
         chunk_coords, chunk_offset, chunk_end, chunk_method = nonempty_with_offset[span_index]
         offset_in_span = chunk_offset - first_offset
-        chunk_byte_view = view(span_bytes, (offset_in_span + 1):(chunk_end - first_offset))
-        chunk = chunk_reader.decode_chunk(
-            Vector{UInt8}(chunk_byte_view),
-            chunk_shape_in_array(array, chunk_coords),
-            chunk_method,
-        )
-        copy_chunk_into_destination!(destination, chunk, chunk_coords, array.chunk_shape, ranges)
-        pool_partially_used_chunk!(array, chunk, chunk_coords, ranges)
+        chunk_bytes = view(span_bytes, (offset_in_span + 1):(chunk_end - first_offset))
+        read_chunk_into_destination!(
+            array,
+            destination,
+            chunk_coords,
+            ranges,
+            chunk_reader.is_padded,
+        ) do chunk_destination
+            chunk_reader.decode_chunk!(chunk_destination, chunk_bytes, chunk_method)
+            return nothing
+        end
     end
     return nothing
 end
@@ -1260,16 +1333,12 @@ function flat_chunk_byte_range_closure(  # ONLY SEEMS UNTESTED
     return compute_range
 end
 
-# Closure factory for the decoder of a flat chunk — `reinterpret` the raw bytes as `T` and `reshape` to the
-# (possibly partial-at-edge) chunk shape inside the array. The `method` argument is part of the shared
+# The decoder of a flat chunk: copy the raw bytes into the `destination`. The `method` argument is part of the shared
 # `ChunkedArray` decode contract and ignored here (flat reads have no ZIP framing).
-function flat_decode_closure(::Type{T})::Function where {T}  # ONLY SEEMS UNTESTED
-    function decode_flat(bytes::Vector{UInt8}, chunk_shape_in_array::NTuple{N, Int}, ::UInt16)::Array{T, N} where {N}
-        n_elements = prod(chunk_shape_in_array)
-        @assert length(bytes) == n_elements * sizeof(T)
-        return reshape(collect(reinterpret(T, bytes)), chunk_shape_in_array)
-    end
-    return decode_flat
+function decode_flat_chunk!(destination::AbstractArray{T}, bytes::AbstractVector{UInt8}, ::UInt16)::Nothing where {T}
+    @assert length(bytes) == length(destination) * sizeof(T)
+    GC.@preserve destination bytes unsafe_copyto!(Ptr{UInt8}(pointer(destination)), pointer(bytes), length(bytes))
+    return nothing
 end
 
 """
@@ -1292,7 +1361,8 @@ function StripedVector(
     shape = (Int(n_elements),)
     chunk_shape = (Int(stripe_n_elements),)
     chunk_reader = EncodedChunkReader(
-        flat_decode_closure(T),
+        decode_flat_chunk!,
+        false,
         () -> nothing,
         flat_chunk_byte_range_closure(shape, chunk_shape, sizeof(T)),
         byte_fetcher,
@@ -1322,7 +1392,8 @@ function StripedMatrix(
     shape = (Int(n_rows), Int(n_columns))
     chunk_shape = (Int(stripe_n_rows), 1)
     chunk_reader = EncodedChunkReader(
-        flat_decode_closure(T),
+        decode_flat_chunk!,
+        false,
         () -> nothing,
         flat_chunk_byte_range_closure(shape, chunk_shape, sizeof(T)),
         byte_fetcher,
@@ -1386,20 +1457,18 @@ function PackedDenseArray(
         return range === nothing ? nothing : (range[1], range[2], UInt16(0))
     end
 
-    function decode_chunk(encoded::Vector{UInt8}, this_chunk_shape::NTuple{N, Int}, ::UInt16)::Array{T, N}
-        # Allocate the full inner-chunk shape and trim for trailing-edge partial chunks: the sharding codec
-        # knows the inner chunk shape from its metadata and pads short chunks with the array's fill value, so
-        # decoding into the full-shape buffer is safe and the trim drops only padding.
-        full_chunk = Array{T}(undef, chunk_shape)
-        Zarr.pipeline_decode!(sharding_codec.codecs, full_chunk, encoded)
-        if this_chunk_shape == chunk_shape
-            return full_chunk
+    # The sharding codec pads trailing-edge chunks to the full inner-chunk shape with the array's fill value.
+    function decode_chunk!(destination::AbstractArray{T, N}, encoded::AbstractVector{UInt8}, method::UInt16)::Nothing
+        if isbitstype(T)
+            decode_packed_chunk!(destination, encoded, codec.compression, method)
         else
-            return full_chunk[ntuple(dim -> 1:this_chunk_shape[dim], N)...]
+            # `pipeline_decode!` requires a `Vector`. A local fetcher returns a view of the shard bytes.
+            Zarr.pipeline_decode!(sharding_codec.codecs, destination, convert(Vector{UInt8}, encoded))
         end
+        return nothing
     end
 
-    chunk_reader = EncodedChunkReader(decode_chunk, ensure_index, chunk_byte_range, byte_fetcher)
+    chunk_reader = EncodedChunkReader(decode_chunk!, true, ensure_index, chunk_byte_range, byte_fetcher)
     return ChunkedArray{T, N}(shape, chunk_shape, chunk_reader, pool)
 end
 
@@ -1421,7 +1490,7 @@ mmap of a local file, the in-memory bytes of an outer-ZIP entry).
 The EOCD region (a fixed-size tail block) is fetched once on first read to learn the CD's absolute offset;
 each chunk's CD entry is then random-accessed by `cd_offset + (chunk_index - 1) * cd_entry_size` (fixed-size
 entries, see `inner_chunk_name_bytes`) and parsed on demand. No code walks the whole CD. Per-chunk reads
-coalesce adjacent byte ranges and decode through `decode_zip_entry`.
+coalesce adjacent byte ranges and decode through `decode_zip_entry!`.
 """
 function ZipShardArray(
     ::Type{T},
@@ -1466,10 +1535,10 @@ function ZipShardArray(
         cd_buffer_bytes = cd_buffer()
         position = (chunk_index - 1) * cd_entry_size + 1
         data_offset, chunk_size, entry_method = parse_zip_central_directory_entry(cd_buffer_bytes, position)
-        expected_name = inner_chunk_name_bytes(chunks_per_shard, chunk_index, entry_method)
         name_position = position + CENTRAL_DIRECTORY_ENTRY_FIXED_SIZE
-        actual_name = view(cd_buffer_bytes, name_position:(name_position + length(expected_name) - 1))
-        if actual_name != expected_name
+        if !is_inner_chunk_name(cd_buffer_bytes, name_position, chunks_per_shard, chunk_index, entry_method)
+            expected_name = inner_chunk_name_bytes(chunks_per_shard, chunk_index, entry_method)  # UNTESTED
+            actual_name = view(cd_buffer_bytes, name_position:(name_position + length(expected_name) - 1))  # UNTESTED
             error(chomp("""  # UNTESTED
                         unexpected ZIP CD entry name: $(format_zip_entry_name(actual_name))
                         expected name: $(format_zip_entry_name(expected_name))
@@ -1479,16 +1548,13 @@ function ZipShardArray(
         return (Int(data_offset), Int(data_offset + chunk_size), entry_method)
     end
 
-    function decode_chunk(encoded::Vector{UInt8}, this_chunk_shape::NTuple{N, Int}, method::UInt16)::Array{T, N}
-        full_chunk = decode_zip_entry(method, encoded, chunk_shape, inner_pipeline, T)
-        if this_chunk_shape == chunk_shape
-            return full_chunk
-        else
-            return full_chunk[ntuple(dim -> 1:this_chunk_shape[dim], N)...]
-        end
+    # Each entry holds a full inner chunk, also at the trailing edge of the array.
+    function decode_chunk!(destination::AbstractArray{T, N}, encoded::AbstractVector{UInt8}, method::UInt16)::Nothing
+        decode_zip_entry!(destination, method, encoded, inner_pipeline, codec.compression)
+        return nothing
     end
 
-    chunk_reader = EncodedChunkReader(decode_chunk, ensure_index, chunk_byte_range, byte_fetcher)
+    chunk_reader = EncodedChunkReader(decode_chunk!, true, ensure_index, chunk_byte_range, byte_fetcher)
     return ChunkedArray{T, N}(shape, chunk_shape, chunk_reader, pool)
 end
 
@@ -1515,25 +1581,25 @@ function parse_zip_central_directory_entry(
     return (lfh_offset + lfh_size, compressed_size, compression_method)
 end
 
-# Decode one ZIP entry's bytes into a chunk-shaped array per its CD-declared compression method.
-# Method 0 (STORED) feeds the entry bytes through `inner_pipeline` (the Zarr v3 codec pipeline the
-# descriptor implies): the entry bytes are the codec output verbatim. Method 93 (ZSTD) likewise
-# feeds the entry bytes through `inner_pipeline` because the Zarr ZstdV3Codec consumes the same
-# raw zstd frame the ZIP entry data holds. Method 8 (DEFLATE) entries hold a raw DEFLATE payload
-# (the gzip header sits in the LFH name field and the trailer as dead bytes after the entry); we
-# decompress the payload manually and then run only the array→bytes step of the pipeline.
+# Decode one ZIP entry's bytes into the `destination` chunk per its CD-declared compression method.
+# Method 0 (STORED) entry bytes are the output of `inner_pipeline` (the Zarr v3 codec pipeline the
+# descriptor implies) verbatim. Method 93 (ZSTD) entry bytes are the same raw zstd frame the Zarr
+# ZstdV3Codec produces. Method 8 (DEFLATE) entries hold a raw DEFLATE payload (the gzip header sits
+# in the LFH name field and the trailer as dead bytes after the entry). Numbers are decoded by
+# [`decode_packed_chunk!`](@ref). Strings go through the pipeline; for DEFLATE, we decompress the
+# payload manually and then run only the array→bytes step of the pipeline.
 #
 # The CD-declared method must match what the descriptor codec implies — STORED iff descriptor has
 # no bytes-bytes codec, DEFLATE iff gzip, ZSTD iff zstd. Anything else is a contradiction between
 # the two layers of metadata (e.g. STORED + zstd descriptor would claim "uncompressed" entry bytes
 # that are actually a zstd frame).
-function decode_zip_entry(
+function decode_zip_entry!(
+    destination::AbstractArray{T},
     method::UInt16,
-    encoded::Vector{UInt8},
-    chunk_shape::NTuple{N, Int},
+    encoded::AbstractVector{UInt8},
     inner_pipeline::Zarr.AbstractCodecPipeline,
-    ::Type{T},
-)::Array{T, N} where {T, N}
+    compression::Symbol,
+)::Nothing where {T}
     expected_method = zip_method_for_pipeline(inner_pipeline)
     if method != expected_method
         descriptor_codec = # UNTESTED
@@ -1544,17 +1610,53 @@ function decode_zip_entry(
                     for descriptor codec: $(descriptor_codec)
                     """))
     end
-    full_chunk = Array{T}(undef, chunk_shape)
-    if method == STORED_COMPRESSION_METHOD || method == ZSTD_COMPRESSION_METHOD
-        Zarr.pipeline_decode!(inner_pipeline, full_chunk, encoded)
+    if isbitstype(T)
+        decode_packed_chunk!(destination, encoded, compression, method)
+    elseif method == STORED_COMPRESSION_METHOD || method == ZSTD_COMPRESSION_METHOD
+        # `pipeline_decode!` requires a `Vector`. A local fetcher returns a view of the shard bytes.
+        Zarr.pipeline_decode!(inner_pipeline, destination, convert(Vector{UInt8}, encoded))
     elseif method == DEFLATE_COMPRESSION_METHOD
-        raw_bytes = transcode(DeflateDecompressor, encoded)
+        raw_bytes = transcode(DeflateDecompressor, convert(Vector{UInt8}, encoded))
         array_bytes_pipeline = Zarr.V3Pipeline((), inner_pipeline.array_bytes, ())
-        Zarr.pipeline_decode!(array_bytes_pipeline, full_chunk, raw_bytes)  # NOJET
+        Zarr.pipeline_decode!(array_bytes_pipeline, destination, raw_bytes)  # NOJET
     else
         error("unsupported ZIP compression method $(Int(method)) for chunk decode")  # UNTESTED
     end
-    return full_chunk
+    return nothing
+end
+
+# Decode the `encoded` bytes of one packed numeric chunk into the memory of the `destination`, which must be contiguous
+# and hold exactly the decoded chunk. The bytes are compressed by the `compression` codec. A gzip chunk is a raw DEFLATE
+# payload in a ZIP entry (`method` 8), and a gzip frame otherwise. Nothing is allocated for the decoded bytes.
+function decode_packed_chunk!(
+    destination::AbstractArray{T},
+    encoded::AbstractVector{UInt8},
+    compression::Symbol,
+    method::UInt16,
+)::Nothing where {T}
+    n_bytes = length(destination) * sizeof(T)
+    GC.@preserve destination encoded begin
+        destination_pointer = Ptr{UInt8}(pointer(destination))
+        if compression == :zstd || compression == :gzip
+            destination_bytes = unsafe_wrap(Vector{UInt8}, destination_pointer, n_bytes)
+            if compression == :zstd
+                decoded_size = try_decode!(ZstdCodec(), destination_bytes, encoded)
+            elseif method == DEFLATE_COMPRESSION_METHOD
+                decoded_size = try_decode!(DeflateCodec(), destination_bytes, encoded)
+            else
+                decoded_size = try_decode!(GzipCodec(), destination_bytes, encoded)
+            end
+            is_decoded = is_size(decoded_size) && Int(decoded_size) == n_bytes
+        else
+            # Every other codec is Blosc, which knows its compressor from its own header.
+            decoded_size = blosc_decompress_ctx(pointer(encoded), destination_pointer, n_bytes, 1)
+            is_decoded = decoded_size == n_bytes
+        end
+    end
+    if !is_decoded
+        error("failed to decode a packed chunk of $(n_bytes) bytes compressed by: $(compression)")  # UNTESTED
+    end
+    return nothing
 end
 
 # Closure that captures `buffer` (an mmap of a shard file or the in-memory bytes of a ZIP entry)
@@ -1917,36 +2019,77 @@ end
 #     Julia→C-order, matching Zarr's `ChunkKeyEncoding('/', true)` ordering), with each dim
 #     component zero-padded to `ndigits(chunks_per_shard[d] - 1)`. Per-shard fixed-stride.
 function inner_chunk_name_bytes(chunks_per_shard::Tuple, chunk_index::Int, method::UInt16)::Vector{UInt8}
+    name_bytes = Vector{UInt8}(undef, inner_chunk_name_length(chunks_per_shard, method))
+    all_inner_chunk_name_bytes(chunks_per_shard, chunk_index, method) do offset, byte
+        name_bytes[offset] = byte
+        return true
+    end
+    return name_bytes
+end
+
+# Whether the `bytes` starting at `position` are the inner-chunk ZIP entry name of the chunk at the linear
+# `chunk_index`. Unlike comparing with [`inner_chunk_name_bytes`](@ref), this allocates nothing.
+function is_inner_chunk_name(
+    bytes::AbstractVector{UInt8},
+    position::Int,
+    chunks_per_shard::Tuple,
+    chunk_index::Int,
+    method::UInt16,
+)::Bool
+    return all_inner_chunk_name_bytes(chunks_per_shard, chunk_index, method) do offset, byte
+        return bytes[position + offset - 1] == byte
+    end
+end
+
+const BASE64_ALPHABET = codeunits("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
+
+# Whether `is_expected(offset, byte)` holds for every byte of the inner-chunk ZIP entry name of the chunk at the linear
+# `chunk_index` (see [`inner_chunk_name_bytes`](@ref)), where `offset` is the 1-based offset of the `byte` in the name.
+# Stops at the first byte for which it doesn't hold.
+function all_inner_chunk_name_bytes(
+    is_expected::Function,
+    chunks_per_shard::Tuple,
+    chunk_index::Int,
+    method::UInt16,
+)::Bool
     if method == DEFLATE_COMPRESSION_METHOD
         # The 10-byte gzip header doubles as the LFH name. `chunk_index` rides in the `mtime` field as
         # 4 Base64 chars (24-bit cap, asserted) so per-chunk names are distinct in `unzip -l` listings;
         # bytes 0–3 / 8 / 9 are non-NUL constants so the name is a valid C string.
         @assert 1 <= chunk_index <= (1 << 24) "chunk_index $(chunk_index) exceeds 2^24 (gzip-header naming cap)"
-        mtime_bytes = UInt8[((chunk_index - 1) >> 16) & 0xff, ((chunk_index - 1) >> 8) & 0xff, (chunk_index - 1) & 0xff]
-        base64_chars = codeunits(base64encode(mtime_bytes))
-        @assert length(base64_chars) == 4
-        return UInt8[
-            0x1f,
-            0x8b,
-            0x08,
-            0x01,
-            base64_chars[1],
-            base64_chars[2],
-            base64_chars[3],
-            base64_chars[4],
-            0x02,
-            0xff,
-        ]
+        mtime = chunk_index - 1
+        return is_expected(1, 0x1f) &&
+               is_expected(2, 0x8b) &&
+               is_expected(3, 0x08) &&
+               is_expected(4, 0x01) &&
+               is_expected(5, BASE64_ALPHABET[((mtime >> 18) & 0x3f) + 1]) &&
+               is_expected(6, BASE64_ALPHABET[((mtime >> 12) & 0x3f) + 1]) &&
+               is_expected(7, BASE64_ALPHABET[((mtime >> 6) & 0x3f) + 1]) &&
+               is_expected(8, BASE64_ALPHABET[(mtime & 0x3f) + 1]) &&
+               is_expected(9, 0x02) &&
+               is_expected(10, 0xff)
     end
     cart_index = CartesianIndices(chunks_per_shard)[chunk_index]
-    io = IOBuffer()
-    write(io, 'c')
+    offset = 1
+    if !is_expected(offset, UInt8('c'))
+        return false
+    end
     for julia_dim in length(chunks_per_shard):-1:1
         width = ndigits(chunks_per_shard[julia_dim] - 1)
-        write(io, '/')
-        write(io, lpad(string(cart_index[julia_dim] - 1), width, '0'))
+        offset += 1
+        if !is_expected(offset, UInt8('/'))
+            return false
+        end
+        remaining_value = cart_index[julia_dim] - 1
+        for digit_offset in width:-1:1
+            if !is_expected(offset + digit_offset, UInt8('0') + UInt8(remaining_value % 10))
+                return false
+            end
+            remaining_value ÷= 10
+        end
+        offset += width
     end
-    return take!(io)
+    return true
 end
 
 # Fixed length (in bytes) of every inner-chunk ZIP entry name produced by `inner_chunk_name_bytes`

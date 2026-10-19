@@ -2042,17 +2042,21 @@ function restore_object(live_group::HDF5.Group, backup_group::HDF5.Group, name::
 end
 
 # A lazy array over a chunked (packed) `HDF5.Dataset`. Each chunk is read by a hyperslab read of exactly that chunk,
-# which HDF5 decodes through the registered filter pipeline. Unpacked (contiguous) datasets keep the mmap fast path.
+# which HDF5 decodes through the registered filter pipeline. Numbers are decoded straight into the destination. Unpacked
+# (contiguous) datasets keep the mmap fast path.
 function dataset_as_chunked_array(dataset::HDF5.Dataset)::ChunkedArray
     @assert HDF5.ischunked(dataset)
     shape = size(dataset)
-    read_chunk = chunk_ranges -> dataset[chunk_ranges...]
-    return ChunkedArray{dataset_eltype(dataset), length(shape)}(
-        shape,
-        HDF5.get_chunk(dataset),
-        read_chunk,
-        LOCAL_CHUNK_POOL,
-    )
+    element_type = dataset_eltype(dataset)
+    function read_chunk!(destination::AbstractArray, chunk_ranges::Tuple)::Nothing
+        if isbitstype(element_type)
+            copyto!(destination, dataset, chunk_ranges...)
+        else
+            copyto!(destination, dataset[chunk_ranges...])
+        end
+        return nothing
+    end
+    return ChunkedArray{element_type, length(shape)}(shape, HDF5.get_chunk(dataset), read_chunk!, LOCAL_CHUNK_POOL)
 end
 
 # Write `data` (a numeric `AbstractArray{T,N}`) to a new dataset under `parent` at `name`. When `packed = true` and
