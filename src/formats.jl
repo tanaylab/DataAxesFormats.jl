@@ -136,7 +136,7 @@ function array_metadata(array::AbstractArray)::PropertyMetadata
     end
 end
 
-CacheData = Union{
+const CacheData = Union{
     AbstractSet{<:AbstractString},  # Names
     AbstractVector{<:AbstractString},  # Axis entries
     StorageScalar,  # Scalar
@@ -165,11 +165,11 @@ end
 
 @enum CacheType CachedAxis CachedData CachedQuery CachedNames
 
-AxisCacheKey = Tuple{AxisKey, Bool}
+const AxisCacheKey = Tuple{AxisKey, Bool}
 
-NamesKey = Union{AbstractString, Tuple{AbstractString}, Tuple{AbstractString, AbstractString, Bool}}
+const NamesKey = Union{AbstractString, Tuple{AbstractString}, Tuple{AbstractString, AbstractString, Bool}}
 
-CacheKey = Tuple{CacheType, Union{AxisCacheKey, PropertyKey, AbstractString, NamesKey}, Symbol}
+const CacheKey = Tuple{CacheType, Union{AxisCacheKey, PropertyKey, AbstractString, NamesKey}, Symbol}  # NOLINT
 
 function Base.show(io::IO, cache_key::CacheKey)::Nothing
     type, key, qualifier = cache_key

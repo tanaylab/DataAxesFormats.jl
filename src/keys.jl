@@ -18,28 +18,28 @@ export pairs_as_dict
 """
 A key specifying some axis in `Daf` by its name.
 """
-AxisKey = AbstractString
+const AxisKey = AbstractString
 
 """
 A key specifying some scalar in `Daf` by its name.
 """
-ScalarKey = AbstractString
+const ScalarKey = AbstractString
 
 """
 A key specifying some vector in `Daf` by its axis and name.
 """
-VectorKey = Tuple{AbstractString, AbstractString}
+const VectorKey = Tuple{AbstractString, AbstractString}
 
 """
 A key specifying some matrix in `Daf` by its axes and name. The axes order does not matter.
 """
-MatrixKey = Tuple{AbstractString, AbstractString, AbstractString}
+const MatrixKey = Tuple{AbstractString, AbstractString, AbstractString}
 
 """
 A key specifying some atomic data property in `Daf`. That is, these keys refer to data we can directly get or set using
 the APIs.
 """
-PropertyKey = Union{ScalarKey, VectorKey, MatrixKey}
+const PropertyKey = Union{ScalarKey, VectorKey, MatrixKey}
 
 """
 A key specifying some tensor in `Daf` by its axes and name. `Daf` is restricted to storing 0D, 1D and 2D data, for good
@@ -49,13 +49,13 @@ this case, we pick the 1st axis as the main one, and store a series of `<main-ax
 using the other two axes (whose order doesn't matter). Access is only to each specific matrix, not to the whole 3D
 tensor. However, it is useful to be able to specify the whole set of matrices for copying, views, contracts, etc.
 """
-TensorKey = Tuple{AbstractString, AbstractString, AbstractString, AbstractString}
+const TensorKey = Tuple{AbstractString, AbstractString, AbstractString, AbstractString}
 
 """
 A key specifying some data property in `Daf`. This includes [`TensorKey`](@ref) which actually refers to a series of
 matrix properties instead of a single data property.
 """
-DataKey = Union{PropertyKey, TensorKey}
+const DataKey = Union{PropertyKey, TensorKey}
 
 """
 Convert a dictionary, a vector of pairs, or a named tuple to a dictionary. Returns `nothing` for `nothing`.

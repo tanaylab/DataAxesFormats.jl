@@ -3,7 +3,32 @@ using StaticLint
 using SymbolServer
 using TOML
 
+using Base.JuliaSyntax: @K_str, children, kind, parseall, source_line, sourcetext, SyntaxNode
+
 PACKAGE_NAME = TOML.parsefile("Project.toml")["name"]
+
+# The module-level assignments of a file which are neither `const` nor typed (`name::Type = value`), as `(line_number,
+# name)`. A function which uses such a variable looks it up at run time, and can't infer its type. So a type alias must
+# be `const`, and a setting must be typed.
+function untyped_module_variables(path::AbstractString)::Vector{Tuple{Int, String}}
+    untyped = Tuple{Int, String}[]
+    collect_untyped_module_variables!(untyped, parseall(SyntaxNode, read(path, String); filename = path))
+    return untyped
+end
+
+function collect_untyped_module_variables!(untyped::Vector{Tuple{Int, String}}, node::SyntaxNode)::Nothing
+    node_kind = kind(node)
+    if node_kind in (K"toplevel", K"module", K"block")
+        for child in children(node)
+            collect_untyped_module_variables!(untyped, child)
+        end
+    elseif node_kind == K"doc"
+        collect_untyped_module_variables!(untyped, children(node)[end])
+    elseif node_kind == K"=" && kind(children(node)[1]) in (K"Identifier", K"curly")
+        push!(untyped, (source_line(node), sourcetext(children(node)[1])))
+    end
+    return nothing
+end
 
 language_server = LanguageServerInstance(Pipe(), stdout, ".")
 _, symbols = SymbolServer.getstore(language_server.symbol_server, ".")
@@ -45,15 +70,20 @@ for doc in LanguageServer.getdocuments_value(language_server)
             push!(no_lint_lines, line_number)
         end
     end
-    for diagnostic in doc.diagnostics
-        line_number = diagnostic.range.start.line + 1
-        character_number = diagnostic.range.start.character + 1
+    problems = [
+        (diagnostic.range.start.line + 1, diagnostic.range.start.character + 1, diagnostic.message) for
+        diagnostic in doc.diagnostics
+    ]
+    for (line_number, name) in untyped_module_variables(doc._path)
+        push!(problems, (line_number, 1, "Module-level variable is neither const nor typed: $(name)"))
+    end
+    for (line_number, character_number, problem) in problems
         if line_number in no_lint_lines
             delete!(unused_no_lint_lines, line_number)
             global skipped
             skipped += 1
         else
-            println("$(doc._path):$(line_number):$(character_number): $(diagnostic.message)")
+            println("$(doc._path):$(line_number):$(character_number): $(problem)")
             global errors
             errors += 1
         end

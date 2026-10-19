@@ -2213,6 +2213,58 @@ nested_test("packed_format") do
         end
     end
 
+    # `parallel_foreach_column` reads a lazy matrix one column at a time, allocating much less than a chunk (8 KB) per
+    # column. While a caller holds the materialization, it reads that instead.
+    nested_test("foreach_column") do
+        n_rows = 2 * 2048 + 100
+        n_columns = 40
+        dense_values = Float32[row + column / 10 for row in 1:n_rows, column in 1:n_columns]
+        sparse_values =
+            sparse(Float32[(row + column) % 3 == 0 ? row + column / 10 : 0 for row in 1:n_rows, column in 1:n_columns])
+
+        function column_sums(matrix::AbstractMatrix, columns::AbstractVector{<:Integer})::Vector{Float32}
+            sums = zeros(Float32, length(columns))
+            parallel_foreach_column(matrix; columns, policy = :serial) do position, _, column
+                sums[position] = sum(column)
+                return nothing
+            end
+            return sums
+        end
+
+        for (format_name, create_daf) in (
+            ("files", path -> FilesDaf(joinpath(path, "test.daf"), "w+"; name = "files!", packed = true)),
+            ("zip", path -> ZipDaf(joinpath(path, "test.daf.zip"), "w+"; name = "zip!", packed = true)),
+            ("zarr", path -> ZarrDaf(joinpath(path, "test.daf.zarr"), "w+"; name = "zarr!", packed = true)),
+            ("zarr_zip", path -> ZarrDaf(joinpath(path, "test.daf.zarr.zip"), "w+"; name = "zarr_zip!", packed = true)),
+            ("h5df", path -> H5df(joinpath(path, "test.h5df"), "w+"; name = "h5df!", packed = true)),
+        )
+            nested_test(format_name) do
+                mktempdir() do path
+                    daf = create_daf(path)
+                    add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+                    add_axis!(daf, "column", ["c$(index)" for index in 1:n_columns])
+                    set_matrix!(daf, "row", "column", "dense", dense_values; relayout = false)
+                    set_matrix!(daf, "row", "column", "sparse", sparse_values; relayout = false)
+                    for (name, values) in (("dense", dense_values), ("sparse", sparse_values))
+                        empty_cache!(daf)
+                        lazy = get_matrix(daf, "row", "column", name; relayout = false).array
+                        expected_sums = vec(sum(values; dims = 1))
+                        @test column_scratch(lazy) !== nothing
+                        @test column_sums(lazy, 1:n_columns) ≈ expected_sums
+                        n_few_bytes = @allocated column_sums(lazy, 1:4)
+                        n_many_bytes = @allocated column_sums(lazy, 1:n_columns)
+                        @test (n_many_bytes - n_few_bytes) / (n_columns - 4) < 4096
+                        materialization = plain_array(lazy)
+                        @test column_scratch(lazy) === nothing
+                        @test column_sums(lazy, 1:n_columns) ≈ expected_sums
+                        @test materialization == values
+                    end
+                    return nothing
+                end
+            end
+        end
+    end
+
     # All three ZIP-family backends (FilesDaf, ZipDaf, HttpDaf) read packed shards through the ZIP CD; a
     # shard labeled `packed_format == "zipped"` (foreign FilesDaf-style producer) is structurally
     # indistinguishable on read from the daf-written `"indexed+zipped"` shape. Verify each backend can open

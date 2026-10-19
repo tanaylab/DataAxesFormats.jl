@@ -78,7 +78,7 @@ Optional white space can separate [`Token`](@ref). It is required when there are
 typically optional around operators. White space includes spaces, tabs, line breaks, and a `# ...` comment suffix of a
 line.
 """
-SPACE_REGEX = r"(?:[\s\n\r]|#[^\n\r]*(?:[\r\n]|$))+"sm
+const SPACE_REGEX = r"(?:[\s\n\r]|#[^\n\r]*(?:[\r\n]|$))+"sm
 
 """
     VALUE_REGEX = r"^(?:[0-9a-zA-Z_.+-]|[^\\x00-\\xFF])+"
@@ -88,7 +88,7 @@ chosen to allow expressing numbers, Booleans and simple names. Any other (ASCII,
 be used as an operator (possibly in a future version of the code). Therefore, use [`escape_value`](@ref) to protect any
 value you embed into the expression.
 """
-VALUE_REGEX = r"^(?:[0-9a-zA-Z_.+-]|[^\x00-\xFF])+"
+const VALUE_REGEX = r"^(?:[0-9a-zA-Z_.+-]|[^\x00-\xFF])+"
 
 """
     is_value_char(character::Char)::Bool

@@ -293,6 +293,19 @@ function view_json_key(key::Tuple)::AbstractString
     return string(key)
 end
 
+# The `base_daf_repository` scalar of the `daf`, or `nothing` if it has none.
+function base_daf_repository(daf::DafReader)::Maybe{AbstractString}
+    specification = get_scalar(daf, "base_daf_repository"; default = nothing)
+    if specification !== nothing && !(specification isa AbstractString)
+        error(chomp("""
+            non-string scalar: base_daf_repository
+            with the value: $(specification)
+            in the daf data: $(daf.name)
+            """))
+    end
+    return specification
+end
+
 # The immediate bases a repository records - only its own, never theirs. A repository which rests on several is a
 # JSON array, one which rests on a view of a single one is a JSON object, and the common case of resting on the whole
 # of a single one is the path itself.
@@ -364,7 +377,7 @@ function flatten_dafs(dafs::AbstractVector, name::AbstractString)::Vector{DafRea
             daf = daf.daf
         end
         if daf isa AnyChain
-            append!(expanded_dafs, flatten_dafs(daf.dafs, name))  # NOJET
+            append!(expanded_dafs, flatten_dafs(daf.dafs, name))
         else
             push!(expanded_dafs, daf)
         end
@@ -450,7 +463,7 @@ function name_suffix(name::Maybe{AbstractString})::String
     end
 end
 
-AnyChain = Union{ReadOnlyChain, WriteChain}
+const AnyChain = Union{ReadOnlyChain, WriteChain}
 
 function Formats.begin_data_read_lock(chain::AnyChain, what::Any...)::Nothing
     invoke(Formats.begin_data_read_lock, Tuple{DafReader, Vararg{Any}}, chain, what...)
@@ -1209,7 +1222,7 @@ function Readers.complete_path(chain::AnyChain)::Maybe{AbstractString}
     while !isempty(unvisited)
         daf_path = pop!(unvisited)
         push!(reached, daf_path)
-        specification = get_scalar(daf_of_path[daf_path], "base_daf_repository"; default = nothing)
+        specification = base_daf_repository(daf_of_path[daf_path])
         if specification !== nothing
             for base in recorded_bases(specification)
                 base_path = abspath(joinpath(dirname(daf_path), base.path))

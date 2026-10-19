@@ -23,13 +23,13 @@ using TanayLabUtilities
 """
 Map property names to a default value. This can be specified as a dictionary, a vector of pairs, or a named tuple.
 """
-PropertiesDefaults = Union{AbstractDict, AbstractVector, NamedTuple}
+const PropertiesDefaults = Union{AbstractDict, AbstractVector, NamedTuple}
 
 """
 The value(s) of a property which mean "there is no value". This can be specified as a single value, or as a vector, set
 or tuple of them, for data which spells "no value" in more than one way (e.g., both `Outliers` and `Doublet`).
 """
-EmptyImplicit = Union{
+const EmptyImplicit = Union{
     StorageScalar,
     AbstractVector{<:StorageScalarBase},
     AbstractSet{<:StorageScalarBase},

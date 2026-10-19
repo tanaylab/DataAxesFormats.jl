@@ -60,14 +60,14 @@ expanded to all the relevant properties. For matrices, merge is done separately 
 the key `(rows_axis, columns_axis, matrix_name)` key *does* matter in the `MergeData`, which is different from how
 [`ViewData`](@ref) works.
 """
-MergeDatum = Union{Pair{<:PropertyKey, <:MergeAction}, Tuple{PropertyKey, MergeAction}}
+const MergeDatum = Union{Pair{<:PropertyKey, <:MergeAction}, Tuple{PropertyKey, MergeAction}}
 
 """
 Specify all the data to merge. This can be specified as a vector or a named tuple. We would have liked to specify this
 as `AbstractVector{<:MergeDatum}` but Julia in its infinite wisdom considers `["a" => "b", ("c", "d") => "e"]` to be a
 `Vector{Any}`, which would require literals to be annotated with the type.
 """
-MergeData = Union{AbstractVector, NamedTuple}
+const MergeData = Union{AbstractVector, NamedTuple}
 
 """
     concatenate!(
@@ -1243,9 +1243,9 @@ function get_merge_action(
     return SkipProperty
 end
 
-FLOAT_TYPES = (Float32, Float64)
-SIGNED_TYPES = (Int8, Int16, Int32, Int64)
-UNSIGNED_TYPES = (UInt8, UInt16, UInt32, UInt64)
+const FLOAT_TYPES = (Float32, Float64)
+const SIGNED_TYPES = (Int8, Int16, Int32, Int64)
+const UNSIGNED_TYPES = (UInt8, UInt16, UInt32, UInt64)
 
 function merge_dtypes(left_dtype::Type, right_dtype::Any)::Type
     while right_dtype isa AbstractArray

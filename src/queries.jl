@@ -1044,7 +1044,7 @@ abstract type Query <: QueryOperation end
 Most operations that take a query allow passing a string to be parsed into a query, or an actual [`Query`](@ref) object.
 This type is used as a convenient notation for such query parameters.
 """
-QueryString = Union{Query, AbstractString}
+const QueryString = Union{Query, AbstractString}
 
 """
     struct QuerySequence <: Query
@@ -1366,9 +1366,11 @@ function get_query(
                 return get_query_result(daf, query_sequence)
             end
         else
-            result = Formats.valid_result_from_cache(daf, cache_key)
-            if result === nothing
+            cached = Formats.valid_result_from_cache(daf, cache_key)
+            if cached === nothing
                 result, _ = get_query_result(daf, query_sequence)
+            else
+                result = cached::Union{AbstractSet{<:AbstractString}, StorageScalar, NamedArray}
             end
         end
         @debug (
@@ -1513,7 +1515,7 @@ function print_query_stack_entry(matrix_state::MatrixState)::Nothing  # UNTESTED
     return nothing
 end
 
-QueryStackElement = Union{NamesState, ScalarState, VectorState, MatrixState, QueryOperation}
+const QueryStackElement = Union{NamesState, ScalarState, VectorState, MatrixState, QueryOperation}
 
 mutable struct QueryState
     daf::Maybe{DafReader}
@@ -2257,7 +2259,7 @@ function Base.show(io::IO, begin_negated_mask::BeginNegatedMask)::Nothing
     return print(io, "[ ! $(escape_value(begin_negated_mask.property_name))")
 end
 
-BeginAnyMask = Union{BeginMask, BeginNegatedMask}
+const BeginAnyMask = Union{BeginMask, BeginNegatedMask}
 
 """
     struct EndMask <: QueryOperation end
@@ -2431,7 +2433,8 @@ function compute_comparison(compared_value::AbstractString, ::IsNotMatch, compar
     return !occursin(comparison_regex, compared_value)
 end
 
-ComparisonOperation = Union{IsLess, IsLessEqual, IsEqual, IsNotEqual, IsGreaterEqual, IsGreater, IsMatch, IsNotMatch}
+const ComparisonOperation =
+    Union{IsLess, IsLessEqual, IsEqual, IsNotEqual, IsGreaterEqual, IsGreater, IsMatch, IsNotMatch}
 
 function Base.show(io::IO, comparison_operation::ComparisonOperation)::Nothing
     print(
@@ -2633,7 +2636,7 @@ function combine_masks(
     return Vector{Bool}(@. xor(first_mask, .!second_mask))
 end
 
-MaskOperation = Union{AndMask, AndNegatedMask, OrMask, OrNegatedMask, XorMask, XorNegatedMask}
+const MaskOperation = Union{AndMask, AndNegatedMask, OrMask, OrNegatedMask, XorMask, XorNegatedMask}
 
 """
     struct GroupBy <: QueryOperation
@@ -2686,7 +2689,7 @@ function Base.show(io::IO, group_rows_by::GroupRowsBy)::Nothing
     return nothing
 end
 
-GroupAnyBy = Union{GroupColumnsBy, GroupRowsBy}
+const GroupAnyBy = Union{GroupColumnsBy, GroupRowsBy}
 
 """
     struct ReduceToRow <: QueryOperation
@@ -2797,11 +2800,11 @@ function reduce_matrix_to_scalar(
     return nothing
 end
 
-QUERY_OPERATIONS_REGEX = r"^(?:[!<>]=|!~|[\|-]/|[&^\|]!|\?\?|@[-\|]|=@|::|>[->\|]|\|\||[!&*%./:<=>?@\[\]^\|~])"
+const QUERY_OPERATIONS_REGEX = r"^(?:[!<>]=|!~|[\|-]/|[&^\|]!|\?\?|@[-\|]|=@|::|>[->\|]|\|\||[!&*%./:<=>?@\[\]^\|~])"
 
 struct NotModifier end
 
-QUERY_OPERATIONS_DICT = Dict(
+const QUERY_OPERATIONS_DICT = Dict(
     "!" => (NotModifier, nothing),
     "!=" => (IsNotEqual, true),
     "!~" => (IsNotMatch, true),
@@ -3367,6 +3370,7 @@ function get_lookup_matrix(
     end
     named_matrix =
         get_matrix(daf, rows_axis_name, columns_axis_name, name; default = default_value(if_missing), relayout = false)
+    @assert named_matrix !== nothing
     push!(query_state.dependency_keys, Formats.matrix_cache_key(rows_axis_name, columns_axis_name, name))  # NOJET
     return (named_matrix, is_flipped)
 end
@@ -3993,7 +3997,8 @@ function reduce_grouped_vector(
         name = loop_name,
         progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = loop_name),
     ) do group_index
-        @views is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
+        is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
+        @assert is_in_group_per_value !== nothing
         group_value = unique_group_values[group_index]
         is_in_group_per_value .= group_state.vector_values .== group_value
         if any(is_in_group_per_value)
@@ -4381,6 +4386,7 @@ function matrix_lookup(
             lookup_matrix.property_name;
             default,
         )
+        @assert named_matrix_values !== nothing
         push!(  # NOJET
             query_state.dependency_keys,
             Formats.matrix_cache_key(
@@ -4764,7 +4770,8 @@ function compute_grouped_matrix(
         name = loop_name,
         progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = loop_name),
     ) do group_index
-        @views is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
+        is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
+        @assert is_in_group_per_value !== nothing
         group_value = unique_group_values[group_index]
         is_in_group_per_value .= group_state.vector_values .== group_value
         if any(is_in_group_per_value)
@@ -4869,7 +4876,8 @@ function compute_grouped_matrix(
             name = loop_name,
             progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = loop_name),
         ) do group_index
-            @views is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
+            is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
+            @assert is_in_group_per_value !== nothing
             group_value = unique_group_values[group_index]
             is_in_group_per_value .= group_state.vector_values .== group_value
             if any(is_in_group_per_value)
@@ -5402,7 +5410,7 @@ struct Phrase
     output::Any  # NTuple{O, Union{Type, Function}}
 end
 
-PHRASES = [  # Order matters - first one wins, longer matches should win.
+const PHRASES = [  # Order matters - first one wins, longer matches should win.
     # Names
 
     Phrase(
@@ -5714,7 +5722,7 @@ which do not have the concept of a `Pair`.
 The query is combined with the axis query as follows (using [`full_vector_query`](@ref)). The (full) query result should
 be a vector with one value for each entry of the axis query result.
 """
-FrameColumn = Union{
+const FrameColumn = Union{
     AbstractString,
     Tuple{AbstractString, Union{QueryString, QueryOperation}},
     Pair{<:AbstractString, <:Union{QueryString, QueryOperation}},
@@ -5725,7 +5733,7 @@ Specify all the columns to collect for a frame. We would have liked to specify t
 but Julia in its infinite wisdom considers `["a", "b" => "c"]` to be a `Vector{Any}`, which would require literals
 to be annotated with the type.
 """
-FrameColumns = AbstractVector
+const FrameColumns = AbstractVector
 
 """
     get_frame(

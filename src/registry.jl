@@ -184,10 +184,10 @@ in total. The values that weren't seen are zeros (the implicit zeros of a sparse
 function final_reduction_value end
 
 # A global registry of all the known element-wise operations.
-ELTWISE_REGISTERED_OPERATIONS = Dict{String, RegisteredOperation}()
+const ELTWISE_REGISTERED_OPERATIONS = Dict{String, RegisteredOperation}()  # NOLINT
 
 # A global registry of all the known reduction operations.
-REDUCTION_REGISTERED_OPERATIONS = Dict{String, RegisteredOperation}()
+const REDUCTION_REGISTERED_OPERATIONS = Dict{String, RegisteredOperation}()  # NOLINT
 
 """
     register_query_operation(
@@ -207,11 +207,9 @@ function register_query_operation(
     source_line::Integer,
 )::Nothing
     if type <: EltwiseOperation
-        global ELTWISE_REGISTERED_OPERATIONS
         registered_operations = ELTWISE_REGISTERED_OPERATIONS
         kind = "eltwise"
     elseif type <: ReductionOperation
-        global REDUCTION_REGISTERED_OPERATIONS
         registered_operations = REDUCTION_REGISTERED_OPERATIONS
         kind = "reduction"
     else

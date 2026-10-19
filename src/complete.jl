@@ -41,6 +41,7 @@ using ..ZipFormat
 
 using TanayLabUtilities
 
+import ..Chains.base_daf_repository
 import ..Chains.RecordedBase
 import ..Chains.recorded_bases
 
@@ -103,7 +104,7 @@ function collect_dafs(;
     @debug "$(indent)- Open $(path) $(mode)" _group = :daf_repose
     daf = open_daf(path, mode; packed = is_packed)
 
-    specification = get_scalar(daf, "base_daf_repository"; default = nothing)
+    specification = base_daf_repository(daf)
     if specification === nothing
         return DafReader[daf]
     end

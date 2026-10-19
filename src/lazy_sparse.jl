@@ -18,11 +18,14 @@ using SparseArrays
 using TanayLabUtilities
 
 import ..Formats
+import ..PackedFormat.ChunkedArray
+import ..PackedFormat.ChunkReadScratch
 import ..PackedFormat.clear_materialization!
 import ..PackedFormat.existing_materialization
 import ..PackedFormat.materialization!
 import ..PackedFormat.MaterializationCell
 import ..PackedFormat.pinned_materialization!
+import ..PackedFormat.read_chunks!
 import ..PackedFormat.require_unmodified
 import SparseArrays.AbstractSparseMatrixCSC  # NOLINT
 import SparseArrays.AbstractSparseMatrixCSCInclAdjointAndTranspose
@@ -47,6 +50,9 @@ packed.
 Reading a subset of the columns reads only those columns. This covers `lazy[:, columns]`, `lazy[rows, columns]`,
 `lazy[:, column]`, `lazy[rows, column]`, and a `view` of any of these. It returns a new `SparseMatrixCSC` (or
 `SparseVector`) owned by the caller, which is not cached.
+
+The TanayLabUtilities `parallel_foreach_column` reads all or some of the columns one at a time, into a buffer per
+thread. It never holds the whole matrix, and allocates nothing per column.
 
 Any other access reads the whole matrix into a `SparseMatrixCSC`, its materialization. All readers share it while any of
 them holds it. Once no reader holds it, its memory is freed, and the next access reads the matrix again. This includes
@@ -164,6 +170,75 @@ end
 function read_source_range!(destination::AbstractVector, source::AbstractVector, range::UnitRange{Int})::Nothing
     copyto!(destination, view(source, range))
     return nothing
+end
+
+# Copy a `range` of a component source into `destination`, through the `scratch` of a chunked source, which bypasses
+# the pool. A source that isn't chunked has no scratch.
+function read_source_range!(
+    destination::AbstractVector,
+    source::ChunkedArray{T, 1},
+    range::UnitRange{Int},
+    scratch::ChunkReadScratch{T, 1},
+)::Nothing where {T}
+    require_unmodified(source)
+    read_chunks!(source, destination, (range,), scratch)
+    return nothing
+end
+
+function read_source_range!(
+    destination::AbstractVector,
+    source::AbstractVector,
+    range::UnitRange{Int},
+    ::Nothing,
+)::Nothing
+    read_source_range!(destination, source, range)
+    return nothing
+end
+
+# The scratch for reading ranges of a component source, or `nothing` if it isn't chunked.
+function source_read_scratch(source::ChunkedArray{T, 1})::ChunkReadScratch{T, 1} where {T}
+    return ChunkReadScratch(source)
+end
+
+function source_read_scratch(::AbstractVector)::Nothing
+    return nothing
+end
+
+# `parallel_foreach_column` reads each column of a lazy matrix into a `SparseVector`, whose `nzind` and `nzval` are
+# resized in place to the column's number of stored values, within their capacity of the longest column. The ranges of
+# the sources are read through scratch chunks, bypassing the pool. If a caller holds the materialization, the loop
+# reads it through `plain_array` instead.
+function TanayLabUtilities.ParallelLoops.column_scratch(
+    matrix::LazySparseMatrix{Tv, Ti},
+)::Maybe{NamedTuple} where {Tv, Ti}
+    if is_materialized(matrix)
+        return nothing
+    end
+    colptr = matrix.colptr
+    max_n_stored = maximum(column_index -> colptr[column_index + 1] - colptr[column_index], 1:size(matrix, 2); init = 0)
+    return (
+        column = SparseVector{Tv, Ti}(matrix.n_rows, Vector{Ti}(undef, max_n_stored), Vector{Tv}(undef, max_n_stored)),
+        rowval_scratch = source_read_scratch(matrix.rowval_source),
+        nzval_scratch = source_read_scratch(matrix.nzval_source),
+    )
+end
+
+function TanayLabUtilities.ParallelLoops.read_column!(
+    scratch::NamedTuple,
+    matrix::LazySparseMatrix{Tv, Ti},
+    column_index::Integer,
+)::SparseVector{Tv, Ti} where {Tv, Ti}
+    column = scratch.column
+    first_stored = Int(matrix.colptr[column_index])
+    n_stored = Int(matrix.colptr[column_index + 1]) - first_stored
+    resize!(SparseArrays.nonzeroinds(column), n_stored)
+    resize!(nonzeros(column), n_stored)
+    if n_stored > 0
+        source_range = first_stored:(first_stored + n_stored - 1)
+        read_source_range!(SparseArrays.nonzeroinds(column), matrix.rowval_source, source_range, scratch.rowval_scratch)
+        read_source_range!(nonzeros(column), matrix.nzval_source, source_range, scratch.nzval_scratch)
+    end
+    return column
 end
 
 # Whether a row indexer selects every row, in order. A `NamedArray` passes `:` to its parent as `collect(1:n_rows)`.
@@ -325,9 +400,9 @@ end
 # a `NamedArray` of one. These methods compare the plain storage instead, which uses the efficient sparse methods. The
 # methods with `AbstractSparseMatrixCSC`, with transposed sparse matrices, and with two lazy matrices resolve
 # ambiguities with the `SparseArrays` methods.
-NamedLazySparseMatrix = NamedArray{<:Any, 2, <:LazySparseMatrix}
+const NamedLazySparseMatrix = NamedArray{<:Any, 2, <:LazySparseMatrix}
 
-LazyOrNamedLazySparseMatrix = Union{LazySparseMatrix, NamedLazySparseMatrix}
+const LazyOrNamedLazySparseMatrix = Union{LazySparseMatrix, NamedLazySparseMatrix}
 
 function Base.:(==)(left::LazyOrNamedLazySparseMatrix, right::AbstractArray)::Bool
     return plain_array(left) == plain_array(right)
@@ -353,7 +428,7 @@ function Base.:(==)(left::LazySparseMatrix, right::LazySparseMatrix)::Bool
     return plain_array(left) == plain_array(right)
 end
 
-TransposedSparseMatrix = Union{
+const TransposedSparseMatrix = Union{
     Adjoint{<:Any, <:AbstractSparseMatrixCSCInclAdjointAndTranspose},
     Transpose{<:Any, <:AbstractSparseMatrixCSCInclAdjointAndTranspose},
 }

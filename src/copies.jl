@@ -652,7 +652,7 @@ or a named tuple.
     A [`TensorKey`](@ref) is interpreted as if it as the set of [`MatrixKey`](@ref)s that are included in the tensor.
     These are expanded in an internal copy of the dictionary and will override any other specified [`MatrixKey`](@ref).
 """
-EmptyData = Union{AbstractDict, AbstractVector, NamedTuple}
+const EmptyData = Union{AbstractDict, AbstractVector, NamedTuple}
 
 """
 Specify the data type to use for overriding properties types in a `Daf` data set. This is specified using a
@@ -664,7 +664,7 @@ dictionary, a vector of pairs, or a named tuple.
     A [`TensorKey`](@ref) is interpreted as if it as the set of [`MatrixKey`](@ref)s that are included in the tensor.
     These are expanded in an internal copy of the dictionary and will override any other specified [`MatrixKey`](@ref).
 """
-DataTypes = Union{AbstractDict, AbstractVector, NamedTuple}
+const DataTypes = Union{AbstractDict, AbstractVector, NamedTuple}
 
 """
     copy_all!(;

@@ -728,8 +728,8 @@ function open_or_create_daf_group(
     is_read_only::Bool,
     create_if_missing::Bool,
 )::ZGroup
-    if Zarr.is_zgroup(Zarr.ZarrFormat(3), store, zpath)
-        root =  # NOJET
+    if Zarr.is_zgroup(Zarr.ZarrFormat(3), store, zpath)  # NOJET
+        root =
             Zarr.zopen_noerr(store, is_read_only ? "r" : "w", Zarr.ZarrFormat(3); path = zpath, fill_as_missing = false)
         if !(root isa ZGroup)
             error("not a daf zarr group: $(full_path)")  # UNTESTED
@@ -1026,7 +1026,7 @@ function strip_zarr_zip_consolidated_metadata!(daf::ZarrDaf)::Nothing
     if raw === nothing
         return nothing  # UNTESTED
     end
-    parsed = JSON.parse(String(copy(raw)); dicttype = Dict{String, Any})::Dict{String, Any}  # NOJET
+    parsed = JSON.parse(String(copy(raw)); dicttype = Dict{String, Any})::Dict{String, Any}
     if !haskey(parsed, "consolidated_metadata")
         return nothing
     end
@@ -1543,7 +1543,7 @@ end
 function Formats.format_set_scalar!(daf::ZarrDaf, name::AbstractString, value::StorageScalar)::Maybe{Formats.CacheGroup}
     @assert Formats.has_data_write_lock(daf)
     array = dense_zcreate(typeof(value), scalars_group(daf), name, false, (1,))
-    array[1] = value  # NOJET
+    array[1] = value
     register_consolidated_node!(daf, "scalars/$(name)", Vector{UInt8}(JSON.json(array.metadata)))
     flush_consolidated_metadata!(daf)
     return Formats.MemoryData
@@ -2350,7 +2350,7 @@ end
 # Open the `ZArray` (dense) or `ZGroup` (sparse) of a property in the reorder backup, given its path relative to the
 # data set root.
 function backup_property(daf::ZarrDaf, relative_path::AbstractString)::Union{ZArray, ZGroup}
-    return Zarr.zopen(Zarr.DirectoryStore(reorder_backup_root(daf)), "r"; path = relative_path)  # NOJET
+    return Zarr.zopen(Zarr.DirectoryStore(reorder_backup_root(daf)), "r"; path = relative_path)
 end
 
 function recursive_hardlink(src::AbstractString, dst::AbstractString)::Nothing

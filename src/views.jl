@@ -89,14 +89,14 @@ If the key is `"*"`, then it is replaced by all the names of the axes of the wra
 in this case are `nothing` to hide all the axes or `=` to expose all the axes. The latter is often used as the first
 pair, followed by additional ones to hide or override specific axes.
 """
-ViewAxis = Union{Tuple{AbstractString, Maybe{QueryString}}, Pair{<:AbstractString, <:Maybe{QueryString}}}
+const ViewAxis = Union{Tuple{AbstractString, Maybe{QueryString}}, Pair{<:AbstractString, <:Maybe{QueryString}}}
 
 """
 Specify all the axes to expose from a view. The order of the pairs (or tuples) matters - the last one wins. This can be
 specified as a vector or a named tuple. We would have liked to specify this as `AbstractVector{<:ViewAxis}` but Julia in
 its infinite wisdom does not allow `Pair{String, String}` to be a subtype of `Pair{AbstractString, AbstractString}`.
 """
-ViewAxes = Union{AbstractVector, NamedTuple}
+const ViewAxes = Union{AbstractVector, NamedTuple}
 
 """
 Specify a single datum to expose from view.
@@ -139,7 +139,7 @@ That is, assuming a `gene`, `cell` and `batch` axes were exposed by the `axes` p
 `("batch", "cell", "gene", "is_measured") => "="` will expose the set of per-cell-per-gene matrices
 `batch1_is_measured`, `batch2_is_measured`, etc.
 """
-ViewDatum = Union{Tuple{DataKey, Maybe{QueryString}}, Pair{<:DataKey, <:Maybe{QueryString}}}
+const ViewDatum = Union{Tuple{DataKey, Maybe{QueryString}}, Pair{<:DataKey, <:Maybe{QueryString}}}
 
 """
 Specify all the data to expose from a view. The order of the pairs (or tuples) matters - the last one wins. However,
@@ -150,55 +150,55 @@ This can be specified as a vector or a named tuple. We would have liked to speci
 `AbstractVector{<:ViewDatum}` but Julia in its infinite wisdom does not allow `Pair{String, String}` to be a subtype of
 `Pair{AbstractString, AbstractString}`.
 """
-ViewData = Union{AbstractVector, NamedTuple}
+const ViewData = Union{AbstractVector, NamedTuple}
 
 """
 A key to use in the `axes` parameter of [`viewer`](@ref) to specify all the base data axes.
 """
-ALL_AXES = "*"
+const ALL_AXES = "*"
 
 """
 A pair to use in the `axes` parameter of [`viewer`](@ref) to specify all the base data axes. This is the default, so the
 only reason do this is to say `[VIEW_ALL_AXES, ...]` - that is, follow it by some modifications.
 """
-VIEW_ALL_AXES = ALL_AXES => "="
+const VIEW_ALL_AXES = ALL_AXES => "="
 
 """
 A key to use in the `data` parameter of [`viewer`](@ref) to specify all the base data scalars.
 """
-ALL_SCALARS = "*"
+const ALL_SCALARS = "*"
 
 """
 A pair to use in the `data` parameter of [`viewer`](@ref) to specify all the base data scalars.
 """
-VIEW_ALL_SCALARS = ALL_SCALARS => "="
+const VIEW_ALL_SCALARS = ALL_SCALARS => "="
 
 """
 A key to use in the `data` parameter of [`viewer`](@ref) to specify all the vectors of the exposed axes.
 """
-ALL_VECTORS = ("*", "*")
+const ALL_VECTORS = ("*", "*")
 
 """
 A pair to use in the `data` parameter of [`viewer`](@ref) to specify all the vectors of the exposed axes.
 """
-VIEW_ALL_VECTORS = ALL_VECTORS => "="
+const VIEW_ALL_VECTORS = ALL_VECTORS => "="
 
 """
 A key to use in the `data` parameter of [`viewer`](@ref) to specify all the matrices of the exposed axes.
 """
-ALL_MATRICES = ("*", "*", "*")
+const ALL_MATRICES = ("*", "*", "*")
 
 """
 A pair to use in the `data` parameter of [`viewer`](@ref) to specify all the matrices of the exposed axes.
 """
-VIEW_ALL_MATRICES = ALL_MATRICES => "="
+const VIEW_ALL_MATRICES = ALL_MATRICES => "="
 
 """
 A vector to use in the `data` parameters of [`viewer`](@ref) to specify the view exposes all the data of the exposed
 axes. This is the default, so the only reason do this is to say `[VIEW_ALL_DATA..., ...]` - that is, follow it by some
 modifications.
 """
-VIEW_ALL_DATA = [VIEW_ALL_SCALARS, VIEW_ALL_VECTORS, VIEW_ALL_MATRICES]
+const VIEW_ALL_DATA = [VIEW_ALL_SCALARS, VIEW_ALL_VECTORS, VIEW_ALL_MATRICES]
 
 """
     viewer(
@@ -835,7 +835,7 @@ function is_identity_matrix(
     @assert false
 end
 
-QUERY_TYPE_BY_DIMENSIONS = ["scalar", "vector", "matrix"]
+const QUERY_TYPE_BY_DIMENSIONS = ["scalar", "vector", "matrix"]
 
 # The query of each property depends on what the base daf contains, which may change at any time. So it is computed on
 # each access rather than cached.
@@ -857,7 +857,7 @@ end
 function fetch_scalar_data(view::DafView, name::AbstractString)::StorageScalar
     query = fetch_scalar_query(view, name)
     @assert query !== nothing
-    return get_query(view.daf, query; cache = true)
+    return get_query(view.daf, query; cache = true)::StorageScalar
 end
 
 function fetch_axis_query(view::DafView, axis::AbstractString)::Maybe{QueryOperation}
@@ -877,7 +877,7 @@ end
 function fetch_axis_data(view::DafView, axis::AbstractString)::AbstractVector{<:AbstractString}
     query = fetch_axis_query(view, axis)
     @assert query !== nothing
-    return get_query(view.daf, query; cache = true)
+    return get_query(view.daf, query; cache = true)::AbstractVector{<:AbstractString}
 end
 
 function fetch_vector_query(view::DafView, axis::AbstractString, name::AbstractString)::Maybe{QueryOperation}
@@ -903,7 +903,7 @@ end
 function fetch_vector_data(view::DafView, axis::AbstractString, name::AbstractString)::StorageVector
     query = fetch_vector_query(view, axis, name)
     @assert query !== nothing
-    return get_query(view.daf, query; cache = true)
+    return get_query(view.daf, query; cache = true)::StorageVector
 end
 
 function fetch_matrix_query(
@@ -980,7 +980,7 @@ function fetch_matrix_data(
 )::StorageMatrix
     query = fetch_matrix_query(view, rows_axis, columns_axis, name)
     @assert query !== nothing
-    return get_query(view.daf, query; cache = true)
+    return get_query(view.daf, query; cache = true)::StorageMatrix
 end
 
 function collect_view_scalars(view::DafView)::AbstractSet{<:AbstractString}
@@ -1005,6 +1005,7 @@ function collect_view_vectors(view::DafView, axis::AbstractString)::AbstractSet{
     seen_vectors = Set{AbstractString}()
     vectors = Set{AbstractString}()
     axis_query = fetch_axis_query(view, axis)
+    @assert axis_query !== nothing
     base_axis = query_axis_name(axis_query)
     for (key, query) in view.reversed_view_vectors
         key_axis, key_name = key
@@ -1022,6 +1023,8 @@ function collect_view_matrices(
     matrices = Set{AbstractString}()
     rows_axis_query = fetch_axis_query(view, rows_axis)
     columns_axis_query = fetch_axis_query(view, columns_axis)
+    @assert rows_axis_query !== nothing
+    @assert columns_axis_query !== nothing
     base_rows_axis = query_axis_name(rows_axis_query)
     base_columns_axis = query_axis_name(columns_axis_query)
     for (key, query) in view.reversed_view_matrices

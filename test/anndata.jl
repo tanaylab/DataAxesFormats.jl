@@ -53,6 +53,16 @@ nested_test("anndata") do
         return nothing
     end
 
+    nested_test("non_string_scalar") do
+        numbers = MemoryDaf(; name = "numbers!")
+        add_axis!(numbers, "cell", ["A", "B"])
+        add_axis!(numbers, "gene", ["X", "Y", "Z"])
+        set_matrix!(numbers, "cell", "gene", "UMIs", [0 1 2; 3 4 5]; relayout = true)
+        set_scalar!(numbers, "X_is", 1)
+        @test_throws "non-string scalar: X_is" daf_as_anndata(numbers; obs_is = "cell", var_is = "gene")
+        return nothing
+    end
+
     nested_test("anndata_as_daf") do
         nested_test("name") do
             adata = daf_as_anndata(memory; obs_is = "cell", var_is = "gene")

@@ -112,6 +112,16 @@ nested_test("complete") do
     end
 
     nested_test("reopen") do
+        nested_test("non_string_base") do
+            mktempdir() do path
+                cells = FilesDaf("$(path)/cells", "w"; name = "cells!")
+                populate_complete_cells!(cells)
+                set_scalar!(cells, "base_daf_repository", 1)
+                @test_throws "non-string scalar: base_daf_repository" complete_daf("$(path)/cells")
+                return nothing
+            end
+        end
+
         nested_test("single") do
             mktempdir() do path
                 cells = FilesDaf("$(path)/cells", "w"; name = "cells!")

@@ -843,12 +843,14 @@ end
 #   `UInt16(0)` for flat / shard-index readers.
 # - `byte_fetcher(offset::Int, n_bytes::Int) -> Vector{UInt8}` reads one byte slab from the underlying
 #   resource.
-struct EncodedChunkReader
-    decode_chunk!::Function
+#
+# The function types are parameters, so a read calls them directly, without boxing their arguments for every chunk.
+struct EncodedChunkReader{D <: Function, E <: Function, R <: Function, F <: Function}
+    decode_chunk!::D
     is_padded::Bool
-    ensure_index::Function
-    chunk_byte_range::Function
-    byte_fetcher::Function
+    ensure_index::E
+    chunk_byte_range::R
+    byte_fetcher::F
 end
 
 # `DiskArrays.AbstractDiskArray` wrapper for an N-dimensional array stored in chunks. `readblock!` enumerates the chunks
@@ -987,6 +989,44 @@ function TanayLabUtilities.MatrixLayouts.plain_array(
     return shared_materialization!(array)
 end
 
+# Reusable buffers for reading chunks of a `ChunkedArray` with no allocation: one stored chunk, for the chunks a read
+# uses only part of, and the lists of the chunks a read needs.
+struct ChunkReadScratch{T, N}  # NOLINT
+    chunk::Array{T, N}
+    missing_chunk_coords::Vector{CartesianIndex{N}}
+    empty_chunk_coords::Vector{CartesianIndex{N}}
+    nonempty_with_offset::Vector{Tuple{CartesianIndex{N}, Int, Int, UInt16}}
+end
+
+function ChunkReadScratch(array::ChunkedArray{T, N})::ChunkReadScratch{T, N} where {T, N}
+    return ChunkReadScratch{T, N}(
+        Array{T, N}(undef, array.chunk_shape),
+        CartesianIndex{N}[],
+        CartesianIndex{N}[],
+        Tuple{CartesianIndex{N}, Int, Int, UInt16}[],
+    )
+end
+
+# `parallel_foreach_column` reads each column of a lazy matrix into a buffer, decoding whole chunks straight into it and
+# the trailing-edge chunk through a scratch chunk, bypassing the pool. If a caller holds the materialization, the loop
+# reads it through `plain_array` instead.
+function TanayLabUtilities.ParallelLoops.column_scratch(array::ChunkedArray{T, 2})::Maybe{NamedTuple} where {T}
+    if existing_materialization(array.materialization_cell) !== nothing
+        return nothing
+    end
+    return (column = Matrix{T}(undef, array.shape[1], 1), read_scratch = ChunkReadScratch(array))
+end
+
+function TanayLabUtilities.ParallelLoops.read_column!(
+    scratch::NamedTuple{(:column, :read_scratch), Tuple{Matrix{T}, ChunkReadScratch{T, 2}}},
+    array::ChunkedArray{T, 2},
+    column_index::Integer,
+)::AbstractVector{T} where {T}
+    require_unmodified(array)
+    read_chunks!(array, scratch.column, (1:array.shape[1], column_index:column_index), scratch.read_scratch)
+    return view(scratch.column, :, 1)
+end
+
 # A `ChunkedArray` rejects writes, so it needs no read-only wrapper. Without one, broadcasting, `view` and `similar` see
 # the lazy array itself.
 function TanayLabUtilities.ReadOnlyArrays.read_only_array(array::ChunkedArray)::ChunkedArray
@@ -1027,28 +1067,44 @@ function DiskArrays.readblock!(
         destination .= view(materialization, ranges...)
         return nothing
     end
+    read_chunks!(array, destination, ranges, nothing)
+    return nothing
+end
 
+# Read the chunks of the requested `ranges` into the `destination`. Without a `scratch`, chunks are looked up in the
+# pool, and the chunks the read uses only part of are decoded into new chunks and pooled. With a `scratch`, the pool is
+# neither read nor written, and such chunks are decoded into the scratch chunk.
+function read_chunks!(
+    array::ChunkedArray{T, N},
+    destination::AbstractArray{<:Any, N},
+    ranges::NTuple{N, <:AbstractUnitRange},
+    scratch::Maybe{ChunkReadScratch{T, N}},
+)::Nothing where {T, N}
     first_chunk_coords = ntuple(dim -> (first(ranges[dim]) - 1) ÷ array.chunk_shape[dim] + 1, N)
     last_chunk_coords = ntuple(dim -> (last(ranges[dim]) - 1) ÷ array.chunk_shape[dim] + 1, N)
     chunk_range = CartesianIndices(ntuple(dim -> first_chunk_coords[dim]:last_chunk_coords[dim], N))
 
-    # The pool is never read back after fetching: a read may span more chunks than it holds, and other threads may
-    # evict chunks at any time. So each chunk is copied into the destination as soon as it is at hand.
-    missing_chunk_coords = CartesianIndex{N}[]
-    for chunk_coords in chunk_range
-        chunk = get(array.pool.chunks, chunk_key(array, chunk_coords), nothing)  # NOJET
-        if chunk === nothing
-            push!(missing_chunk_coords, chunk_coords)
-        else
-            copy_chunk_into_destination!(destination, chunk, chunk_coords, array.chunk_shape, ranges)
+    if scratch === nothing
+        # The pool is never read back after fetching: a read may span more chunks than it holds, and other threads
+        # may evict chunks at any time. So each chunk is copied into the destination as soon as it is at hand.
+        missing_chunk_coords = CartesianIndex{N}[]
+        for chunk_coords in chunk_range
+            chunk = get(array.pool.chunks, chunk_key(array, chunk_coords), nothing)  # NOJET
+            if chunk === nothing
+                push!(missing_chunk_coords, chunk_coords)
+            else
+                copy_chunk_into_destination!(destination, chunk, chunk_coords, array.chunk_shape, ranges)
+            end
         end
+    else
+        missing_chunk_coords = append!(empty!(scratch.missing_chunk_coords), chunk_range)
     end
 
     chunk_reader = array.chunk_reader
     if chunk_reader isa EncodedChunkReader
-        fetch_chunks_coalesced!(array, chunk_reader, missing_chunk_coords, destination, ranges)
+        fetch_chunks_coalesced!(array, chunk_reader, missing_chunk_coords, destination, ranges, scratch)
     else
-        read_decoded_chunks!(array, chunk_reader, missing_chunk_coords, destination, ranges)
+        read_decoded_chunks!(array, chunk_reader, missing_chunk_coords, destination, ranges, scratch)
     end
     return nothing
 end
@@ -1061,6 +1117,7 @@ function read_decoded_chunks!(
     missing_chunk_coords::Vector{CartesianIndex{N}},
     destination::AbstractArray{<:Any, N},
     ranges::NTuple{N, <:AbstractUnitRange},
+    scratch::Maybe{ChunkReadScratch{T, N}},
 )::Nothing where {T, N}
     for chunk_coords in missing_chunk_coords
         chunk_shape = chunk_shape_in_array(array, chunk_coords)
@@ -1068,7 +1125,7 @@ function read_decoded_chunks!(
             first_in_array = (chunk_coords[dim] - 1) * array.chunk_shape[dim] + 1
             return first_in_array:(first_in_array + chunk_shape[dim] - 1)
         end
-        read_chunk_into_destination!(array, destination, chunk_coords, ranges, false) do chunk_destination
+        read_chunk_into_destination!(array, destination, chunk_coords, ranges, false, scratch) do chunk_destination
             read_chunk!(chunk_destination, chunk_ranges)
             return nothing
         end
@@ -1082,7 +1139,8 @@ end
 #
 # A chunk the read uses whole is filled straight into its slice of the `destination`, if that slice is contiguous in
 # memory and has the shape of the stored chunk. Otherwise the chunk is filled into a new array, then copied into the
-# `destination`, and pooled if the read used only part of it.
+# `destination`, and pooled if the read used only part of it. With a `scratch`, such a chunk is filled into the scratch
+# chunk instead, and isn't pooled.
 function read_chunk_into_destination!(
     fill_chunk!::Function,
     array::ChunkedArray{T, N},
@@ -1090,6 +1148,7 @@ function read_chunk_into_destination!(
     chunk_coords::CartesianIndex{N},
     ranges::NTuple{N, <:AbstractUnitRange},
     is_padded::Bool,
+    scratch::Maybe{ChunkReadScratch{T, N}},
 )::Nothing where {T, N}
     chunk_shape = chunk_shape_in_array(array, chunk_coords)
     stored_chunk_shape = is_padded ? array.chunk_shape : chunk_shape
@@ -1105,8 +1164,19 @@ function read_chunk_into_destination!(
             return first_in_destination:(first_in_destination + chunk_shape[dim] - 1)
         end
         destination_slice = view(destination, destination_ranges...)
-        if is_contiguous_memory(destination_slice)
+        if is_contiguous_array(destination_slice)
             fill_chunk!(destination_slice)
+            return nothing
+        end
+    end
+
+    if scratch !== nothing
+        # The slice of the scratch chunk is contiguous for the `(n,)` and `(n, 1)` chunks of vectors and matrices.
+        scratch_slice = view(scratch.chunk, Base.OneTo.(stored_chunk_shape)...)
+        if is_contiguous_array(scratch_slice)
+            fill_chunk!(scratch_slice)
+            chunk = view(scratch_slice, Base.OneTo.(chunk_shape)...)
+            copy_chunk_into_destination!(destination, chunk, chunk_coords, array.chunk_shape, ranges)
             return nothing
         end
     end
@@ -1119,25 +1189,10 @@ function read_chunk_into_destination!(
         chunk = stored_chunk[ntuple(dim -> 1:chunk_shape[dim], N)...]
     end
     copy_chunk_into_destination!(destination, chunk, chunk_coords, array.chunk_shape, ranges)
-    if !is_whole_chunk_used
+    if !is_whole_chunk_used && scratch === nothing
         pool_chunk!(array, chunk, chunk_coords)
     end
     return nothing
-end
-
-# Whether the `array` occupies one contiguous block of memory, in column-major order.
-function is_contiguous_memory(array::AbstractArray)::Bool
-    if !(array isa StridedArray)
-        return false
-    end
-    expected_stride = 1
-    for dim in 1:ndims(array)
-        if size(array, dim) > 1 && stride(array, dim) != expected_stride
-            return false
-        end
-        expected_stride *= size(array, dim)
-    end
-    return true
 end
 
 # Clamped chunk extent (in elements) along each dim. For interior chunks this equals `array.chunk_shape`; for
@@ -1180,7 +1235,7 @@ end
 # `destination`.
 function copy_chunk_into_destination!(
     destination::AbstractArray{<:Any, N},
-    chunk::Array{T, N},
+    chunk::AbstractArray{T, N},
     chunk_coords::CartesianIndex{N},
     chunk_shape::NTuple{N, Int},
     ranges::NTuple{N, <:AbstractUnitRange},
@@ -1211,13 +1266,19 @@ function fetch_chunks_coalesced!(
     missing_chunk_coords::Vector{CartesianIndex{N}},
     destination::AbstractArray{<:Any, N},
     ranges::NTuple{N, <:AbstractUnitRange},
+    scratch::Maybe{ChunkReadScratch{T, N}},
 )::Nothing where {T, N}
     if isempty(missing_chunk_coords)
         return nothing
     end
     chunk_reader.ensure_index()
-    empty_chunk_coords = CartesianIndex{N}[]
-    nonempty_with_offset = Tuple{CartesianIndex{N}, Int, Int, UInt16}[]
+    if scratch === nothing
+        empty_chunk_coords = CartesianIndex{N}[]
+        nonempty_with_offset = Tuple{CartesianIndex{N}, Int, Int, UInt16}[]
+    else
+        empty_chunk_coords = empty!(scratch.empty_chunk_coords)
+        nonempty_with_offset = empty!(scratch.nonempty_with_offset)
+    end
     for chunk_coords in missing_chunk_coords
         range = chunk_reader.chunk_byte_range(chunk_coords)
         if range === nothing
@@ -1227,8 +1288,15 @@ function fetch_chunks_coalesced!(
         end
     end
     for chunk_coords in empty_chunk_coords
-        read_chunk_into_destination!(array, destination, chunk_coords, ranges, false) do chunk_destination  # UNTESTED
-            fill!(chunk_destination, shard_fill_value(T))  # UNTESTED
+        read_chunk_into_destination!(  # UNTESTED
+            array,
+            destination,
+            chunk_coords,
+            ranges,
+            false,
+            scratch,
+        ) do chunk_destination
+            fill!(chunk_destination, shard_fill_value(T))  # NOJET # UNTESTED
             return nothing  # UNTESTED
         end
     end
@@ -1236,7 +1304,10 @@ function fetch_chunks_coalesced!(
     if isempty(nonempty_with_offset)
         return nothing  # UNTESTED
     end
-    sort!(nonempty_with_offset; by = entry -> entry[2])
+    # The chunks are usually stored in order, which is cheaper to check than to sort.
+    if !issorted(nonempty_with_offset; by = entry -> entry[2])
+        sort!(nonempty_with_offset; by = entry -> entry[2])
+    end
     max_gap_bytes = packed_http_max_coalesce_gap_bytes()
 
     span_first_index = 1
@@ -1255,6 +1326,7 @@ function fetch_chunks_coalesced!(
                 nonempty_with_offset,
                 span_first_index,
                 next_index - 1,
+                scratch,
             )
             span_first_index = next_index
             span_last_byte_end = nonempty_with_offset[next_index][3]
@@ -1268,6 +1340,7 @@ function fetch_chunks_coalesced!(
         nonempty_with_offset,
         span_first_index,
         length(nonempty_with_offset),
+        scratch,
     )
     return nothing
 end
@@ -1283,6 +1356,7 @@ function fetch_chunk_span!(
     nonempty_with_offset::Vector{Tuple{CartesianIndex{N}, Int, Int, UInt16}},
     span_first_index::Int,
     span_last_index::Int,
+    scratch::Maybe{ChunkReadScratch{T, N}},
 )::Nothing where {T, N}
     first_offset = nonempty_with_offset[span_first_index][2]
     last_end = nonempty_with_offset[span_last_index][3]
@@ -1298,6 +1372,7 @@ function fetch_chunk_span!(
             chunk_coords,
             ranges,
             chunk_reader.is_padded,
+            scratch,
         ) do chunk_destination
             chunk_reader.decode_chunk!(chunk_destination, chunk_bytes, chunk_method)
             return nothing
@@ -1454,7 +1529,11 @@ function PackedDenseArray(
 
     function chunk_byte_range(chunk_coords::CartesianIndex{N})::Maybe{Tuple{Int, Int, UInt16}}
         range = Zarr.Codecs.V3Codecs.get_chunk_slice(shard_index(), Tuple(chunk_coords))
-        return range === nothing ? nothing : (range[1], range[2], UInt16(0))
+        if range === nothing
+            return nothing
+        end
+        # Zarr's result isn't inferred, so the reads of every chunk would box it.
+        return (Int(range[1])::Int, Int(range[2])::Int, UInt16(0))
     end
 
     # The sharding codec pads trailing-edge chunks to the full inner-chunk shape with the array's fill value.
@@ -1501,7 +1580,8 @@ function ZipShardArray(
     suffix_byte_fetcher::Function;
     pool::ChunkPool = HTTP_CHUNK_POOL,
 )::ChunkedArray{T, N} where {T, N}
-    chunks_per_shard = Zarr.Codecs.V3Codecs.calculate_chunks_per_shard(shape, chunk_shape)
+    # Zarr's result isn't inferred. A concrete type keeps the closures below, which capture it, type-stable.
+    chunks_per_shard = NTuple{N, Int}(Zarr.Codecs.V3Codecs.calculate_chunks_per_shard(shape, chunk_shape))
     inner_pipeline = build_inner_pipeline(T, v3_bytes_codecs_for(codec, T))
     method = zip_method_for_pipeline(inner_pipeline)
     cd_entry_size =
@@ -1530,7 +1610,7 @@ function ZipShardArray(
         return nothing
     end
 
-    function chunk_byte_range(chunk_coords::CartesianIndex{N})::Maybe{Tuple{Int, Int, UInt16}}
+    function chunk_byte_range(chunk_coords::CartesianIndex{N})::Tuple{Int, Int, UInt16}
         chunk_index = LinearIndices(chunk_indices)[chunk_coords]
         cd_buffer_bytes = cd_buffer()
         position = (chunk_index - 1) * cd_entry_size + 1

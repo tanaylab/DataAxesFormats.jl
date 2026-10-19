@@ -920,23 +920,23 @@ function Formats.format_set_vector!(
     elseif vector isa StorageScalar
         @assert vector isa StorageReal
         zip_daf.store[entry_key(zip_daf, "vectors/", axis, "/", name, ".json")] = dense_array_json_bytes(typeof(vector))
-        zip_daf.store[entry_key(zip_daf, "vectors/", axis, "/", name, ".data")] =  # NOJET
+        zip_daf.store[entry_key(zip_daf, "vectors/", axis, "/", name, ".data")] =
             repeated_value_bytes(vector, n_elements)
 
     elseif issparse(vector)
-        packed_format_write_sparse_numeric_vector!(zip_daf, axis, name, vector, is_packed)  # NOJET
+        packed_format_write_sparse_numeric_vector!(zip_daf, axis, name, vector, is_packed)
 
     elseif eltype(vector) <: AbstractString
-        packed_format_write_string_vector!(zip_daf, axis, name, vector, is_packed)  # NOJET
+        packed_format_write_string_vector!(zip_daf, axis, name, vector, is_packed)
 
     else
         chunk_shape = chunks_for(is_packed, size(vector), eltype(vector))
         if chunk_shape !== nothing
-            packed_format_write_dense_array!(zip_daf, "vectors/$(axis)/$(name)", vector, chunk_shape)  # NOJET
+            packed_format_write_dense_array!(zip_daf, "vectors/$(axis)/$(name)", vector, chunk_shape)
         else
             zip_daf.store[entry_key(zip_daf, "vectors/", axis, "/", name, ".json")] =
                 dense_array_json_bytes(eltype(vector))
-            zip_daf.store[entry_key(zip_daf, "vectors/", axis, "/", name, ".data")] = typed_array_to_bytes(vector)  # NOJET
+            zip_daf.store[entry_key(zip_daf, "vectors/", axis, "/", name, ".data")] = typed_array_to_bytes(vector)
         end
     end
     return nothing
@@ -1110,7 +1110,7 @@ function Formats.format_set_matrix!(
     if matrix isa StorageReal
         zip_daf.store[entry_key(zip_daf, "matrices/", rows_axis, "/", columns_axis, "/", name, ".json")] =
             dense_array_json_bytes(typeof(matrix))
-        zip_daf.store[entry_key(zip_daf, "matrices/", rows_axis, "/", columns_axis, "/", name, ".data")] =  # NOJET
+        zip_daf.store[entry_key(zip_daf, "matrices/", rows_axis, "/", columns_axis, "/", name, ".data")] =
             repeated_value_bytes(matrix, nrows * ncols)
 
     elseif matrix isa AbstractString
@@ -1124,13 +1124,13 @@ function Formats.format_set_matrix!(
         packed_format_write_sparse_numeric_matrix!(zip_daf, rows_axis, columns_axis, name, matrix, is_packed)
 
     elseif eltype(matrix) <: AbstractString
-        packed_format_write_string_matrix!(zip_daf, rows_axis, columns_axis, name, matrix, is_packed)  # NOJET
+        packed_format_write_string_matrix!(zip_daf, rows_axis, columns_axis, name, matrix, is_packed)
 
     else
         @assert eltype(matrix) <: Real
         chunk_shape = chunks_for(is_packed, (nrows, ncols), eltype(matrix))
         if chunk_shape !== nothing
-            packed_format_write_dense_array!(  # NOJET
+            packed_format_write_dense_array!(
                 zip_daf,
                 "matrices/$(rows_axis)/$(columns_axis)/$(name)",
                 matrix,
@@ -1139,7 +1139,7 @@ function Formats.format_set_matrix!(
         else
             zip_daf.store[entry_key(zip_daf, "matrices/", rows_axis, "/", columns_axis, "/", name, ".json")] =
                 dense_array_json_bytes(eltype(matrix))
-            zip_daf.store[entry_key(zip_daf, "matrices/", rows_axis, "/", columns_axis, "/", name, ".data")] =  # NOJET
+            zip_daf.store[entry_key(zip_daf, "matrices/", rows_axis, "/", columns_axis, "/", name, ".data")] =
                 typed_array_to_bytes(matrix)
         end
     end

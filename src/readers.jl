@@ -1427,7 +1427,7 @@ function vectors_description(
             n_entries = axis_length(daf, axis)
             for vector in vectors
                 metadata = vector_metadata(daf, axis, vector)
-                n_true = metadata.eltype == Bool ? sum(get_vector(daf, axis, vector)) : nothing
+                n_true = metadata.eltype == Bool ? sum(get_vector(daf, axis, vector).array) : nothing
                 text = property_description(delimited_number(n_entries), metadata, n_entries, n_true)
                 push!(lines, "$(indent)    $(vector): $(text)")
             end
@@ -1466,7 +1466,7 @@ function n_true_matrix_values(
     metadata::PropertyMetadata,
 )::Maybe{Int}
     if metadata.eltype == Bool
-        return sum(get_matrix(daf, rows_axis, columns_axis, name; relayout = false))
+        return sum(get_matrix(daf, rows_axis, columns_axis, name; relayout = false).array)
     else
         return nothing
     end

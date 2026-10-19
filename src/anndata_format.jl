@@ -190,8 +190,8 @@ function by_annotation(
     return value
 end
 
-SupportedVector{T} = AbstractVector{T} where {T <: Union{StorageScalar, Nothing, Missing}}
-SupportedMatrix{T} = AbstractMatrix{T} where {T <: Union{StorageScalar, Nothing, Missing}}
+const SupportedVector{T} = AbstractVector{T} where {T <: Union{StorageScalar, Nothing, Missing}}
+const SupportedMatrix{T} = AbstractMatrix{T} where {T <: Union{StorageScalar, Nothing, Missing}}
 
 function verify_unsupported(
     adata::AnnData,
@@ -621,11 +621,18 @@ function by_scalar(
     name::AbstractString,
     default::AbstractString,
 )::AbstractString
-    if value === nothing
-        value = get_scalar(daf, name; default)
-        @assert value !== nothing
+    if value !== nothing
+        return value
     end
-    return value
+    scalar = get_scalar(daf, name; default)
+    if !(scalar isa AbstractString)
+        error(chomp("""
+            non-string scalar: $(name)
+            with the value: $(scalar)
+            in the daf data: $(daf.name)
+            """))
+    end
+    return scalar
 end
 
 function copy_scalars(daf::DafReader, dict::AbstractDict)::Nothing

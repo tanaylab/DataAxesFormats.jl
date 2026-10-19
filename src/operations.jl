@@ -59,7 +59,7 @@ import ..Tokens.Token
 import Base.MathConstants.e
 import Base.MathConstants.pi
 
-FLOAT_DTYPE_FOR = Dict{Type, Type{<:AbstractFloat}}(
+const FLOAT_DTYPE_FOR = Dict{Type, Type{<:AbstractFloat}}(
     Bool => Float32,
     Int8 => Float32,
     Int16 => Float32,
@@ -84,14 +84,13 @@ point values (e.g., [`Log`](@ref)). If `type` isn't  `nothing`, it is returned i
 """
 function float_type_for(element_type::Type{<:StorageReal}, type::Maybe{Type{<:StorageReal}})::Type{<:AbstractFloat}
     if type === nothing
-        global FLOAT_DTYPE_FOR
         return FLOAT_DTYPE_FOR[element_type]
     else
         return type
     end
 end
 
-INT_DTYPE_FOR = Dict{Type, Type{<:Integer}}(
+const INT_DTYPE_FOR = Dict{Type, Type{<:Integer}}(
     Bool => Bool,
     Int8 => Int8,
     Int16 => Int16,
@@ -116,14 +115,13 @@ values (e.g., [`Round`](@ref)). If `type` isn't `nothing`, it is returned instea
 """
 function int_type_for(element_type::Type{<:StorageReal}, type::Maybe{Type{<:StorageReal}})::Type{<:Integer}
     if type === nothing
-        global INT_DTYPE_FOR
         return INT_DTYPE_FOR[element_type]
     else
         return type
     end
 end
 
-SUM_DTYPE_FOR = Dict{Type, Type{<:StorageReal}}(
+const SUM_DTYPE_FOR = Dict{Type, Type{<:StorageReal}}(
     Bool => UInt32,
     Int8 => Int32,
     Int16 => Int32,
@@ -151,14 +149,13 @@ This keeps floating point and 64-bit types as-is, but increases any small intege
 """
 function sum_type_for(element_type::Type{<:StorageReal}, type::Maybe{Type{<:StorageReal}})::Type{<:StorageReal}
     if type === nothing
-        global SUM_DTYPE_FOR
         return SUM_DTYPE_FOR[element_type]
     else
         return type
     end
 end
 
-UNSIGNED_DTYPE_FOR = Dict{Type, Type}(
+const UNSIGNED_DTYPE_FOR = Dict{Type, Type}(
     Bool => Bool,
     Int8 => UInt8,
     Int16 => UInt16,
@@ -183,7 +180,6 @@ value (e.g., [`Abs`](@ref)). If `type` isn't `nothing`, it is returned instead.
 """
 function unsigned_type_for(element_type::Type{<:StorageReal}, type::Maybe{Type{<:StorageReal}})::Type
     if type === nothing
-        global UNSIGNED_DTYPE_FOR
         return UNSIGNED_DTYPE_FOR[element_type]
     else
         return type
@@ -217,7 +213,7 @@ function error_invalid_parameter_value(
     )
 end
 
-DTYPE_BY_NAME = Dict{String, Maybe{Type}}(
+const DTYPE_BY_NAME = Dict{String, Maybe{Type}}(  # NOLINT
     "bool" => Bool,
     "Bool" => Bool,
     "int" => Int,
@@ -262,7 +258,6 @@ function parse_number_type_value(
     parameter_value::Token,
 )::Maybe{Type}
     type_name = parameter_value.value
-    global DTYPE_BY_NAME
     type = get(DTYPE_BY_NAME, type_name, missing)
     if type === missing
         error_invalid_parameter_value(operation_name, parameter_name, parameter_value, "a number type")
@@ -891,7 +886,7 @@ function compute_eltwise(operation::Log, input::StorageMatrix)::StorageMatrix
     input = plain_array(densify(input))
     if major_axis(input) == Rows
         # The result has the same layout as the input, and is computed along its columns.
-        return flip(compute_eltwise(operation, flip(input)))
+        return flip(compute_eltwise(operation, flip(input)::StorageMatrix))
     end
     @assert major_axis(input) == Columns
     type = float_type_for(eltype(input), operation.type)
@@ -1700,7 +1695,7 @@ end
 
 # The state of Welford's online algorithm, shared by the variance reductions: the number of values seen, their mean, and
 # the sum of the squared differences from that mean.
-MomentsState = Tuple{Int, Float64, Float64}
+const MomentsState = Tuple{Int, Float64, Float64}
 
 function empty_moments_state()::MomentsState
     return (0, 0.0, 0.0)

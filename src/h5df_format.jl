@@ -321,7 +321,8 @@ function H5df(
         end
 
         shared_handle = get_through_global_weak_cache(abspath(root), key; purge) do _
-            file = h5open(root, mode == "w+" ? "cw" : mode; fapl = HDF5.FileAccessProperties(; alignment = (1, 8)))
+            file_access_properties = HDF5.FileAccessProperties(; alignment = (1, 8))
+            file = h5open(root, mode == "w+" ? "cw" : mode; fapl = file_access_properties)  # NOJET
             return SharedH5dfHandle(file, ExtendedReadWriteLock(), !is_read_only)
         end
         if !is_read_only && !shared_handle.is_writable
@@ -336,7 +337,7 @@ function H5df(
             if haskey(root, group)
                 if truncate_if_exists
                     delete_object(root, group)
-                    create_group(root, group)  # NOJET
+                    create_group(root, group)
                 end
             else
                 if create_if_missing  # UNTESTED
@@ -418,7 +419,7 @@ function verify_alignment(root::HDF5.Group)::Nothing
 end
 
 function verify_alignment(root::HDF5.File)::Nothing
-    file_access_properties = HDF5.get_access_properties(root)  # NOJET
+    file_access_properties = HDF5.get_access_properties(root)
     alignment = file_access_properties.alignment
     if alignment[1] > 1 || alignment[2] != 8
         @warn """
@@ -463,7 +464,7 @@ function verify_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
 end
 
 function delete_content(root::Union{HDF5.File, HDF5.Group})::Nothing
-    attribute_names = collect(keys(HDF5.attributes(root)))  # NOJET
+    attribute_names = collect(keys(HDF5.attributes(root)))
     for attribute_name in attribute_names
         HDF5.delete_attribute(root, attribute_name)
     end
@@ -1792,7 +1793,7 @@ function Reorder.format_replace_reorder!(
     @assert isfile(backup_path)
 
     needs_compaction = Ref(false)
-    backup_file = h5open(backup_path, "r")  # NOJET
+    backup_file = h5open(backup_path, "r")
     try
         group_path = h5df_group_path(h5df)
         backup_root = group_path == "/" ? backup_file : backup_file[group_path]

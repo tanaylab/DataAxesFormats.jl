@@ -48,11 +48,11 @@ Whether to enforce contracts. By defaults, contracts are *not* enforced, as this
 computational pipelines. You can set this manually to `true`, or set the environment variable `DAF_ENFORCE_CONTRACTS` to
 a "truthy" value.
 """
-DAF_ENFORCE_CONTRACTS = false
+DAF_ENFORCE_CONTRACTS::Bool = false
 
 function __init__()::Nothing
     global DAF_ENFORCE_CONTRACTS
-    DAF_ENFORCE_CONTRACTS = get_bool_env("DAF_ENFORCE_CONTRACTS", false)
+    DAF_ENFORCE_CONTRACTS = get_bool_env("DAF_ENFORCE_CONTRACTS", false; throw = true)
     if DAF_ENFORCE_CONTRACTS
         @info "Will enforce Daf contracts" _group = :daf_env
     end
@@ -83,27 +83,27 @@ the existence of optional input and/or the value of parameters to the computatio
 The specification of an axis in a [`Contract`](@ref), which is the [`ContractExpectation`](@ref) for enforcement and a
 string description for the generated documentation.
 """
-AxisSpecification = Tuple{ContractExpectation, AbstractString}
+const AxisSpecification = Tuple{ContractExpectation, AbstractString}
 
 """
 A pair where the key is the axis name and the value is a tuple of the [`ContractExpectation`](@ref) and a description of
 the axis (for documentation). We also allow specifying a tuple instead of a pairs to make it easy to invoke the API from
 other languages such as Python which do not have the concept of a `Pair`.
 """
-ContractAxis = Union{Pair{<:AxisKey, <:AxisSpecification}, Tuple{AxisKey, AxisSpecification}}
+const ContractAxis = Union{Pair{<:AxisKey, <:AxisSpecification}, Tuple{AxisKey, AxisSpecification}}
 
 """
 Specify all the axes for a contract. This can be specified as a vector or a named tuple. We would have liked to specify
 this as `AbstractVector{<:ContractAxis}` but Julia in its infinite wisdom considers `["a" => "b", ("c", "d")]` to be a
 `Vector{Any}`, which would require literals to be annotated with the type.
 """
-ContractAxes = Union{AbstractVector, NamedTuple}
+const ContractAxes = Union{AbstractVector, NamedTuple}
 
 """
 The specification of some property in a [`Contract`](@ref), which is the [`ContractExpectation`](@ref) and the type for
 enforcement, and a string description for the generated documentation.
 """
-DataSpecification = Tuple{ContractExpectation, Type, AbstractString}
+const DataSpecification = Tuple{ContractExpectation, Type, AbstractString}
 
 """
 A vector of pairs where the key is a [`DataKey`](@ref) identifying some data property, and the value is a tuple of the
@@ -111,14 +111,14 @@ A vector of pairs where the key is a [`DataKey`](@ref) identifying some data pro
 tuple instead of a pairs to make it easy to invoke the API from other languages such as Python which do not have the
 concept of a `Pair`.
 """
-ContractDatum = Union{Pair{<:DataKey, <:DataSpecification}, Tuple{DataKey, DataSpecification}}
+const ContractDatum = Union{Pair{<:DataKey, <:DataSpecification}, Tuple{DataKey, DataSpecification}}
 
 """
 Specify all the data for a contract. This can be specified as a vector or a named tuple. We would have liked to specify
 this as `AbstractVector{<:ContractDatum}` but Julia in its infinite wisdom considers `["a" => "b", ("c", "d") => "e"]`
 to be a `Vector{Any}`, which would require literals to be annotated with the type.
 """
-ContractData = Union{AbstractVector, NamedTuple}
+const ContractData = Union{AbstractVector, NamedTuple}
 
 """
     @kwdef struct Contract
@@ -184,7 +184,7 @@ function linked(description::AbstractString, link::Union{Nothing, Symbol, Module
 end
 
 # A `@ref` link in a description, whose text is the name of whatever it refers to.
-LINK_PATTERN = r"\[`([^`]*)`\]\(@ref[^)]*\)"
+const LINK_PATTERN = r"\[`([^`]*)`\]\(@ref[^)]*\)"
 
 # The same link, into the documentation of another package. A `@ref` names what it refers to the way the package
 # writing it sees it, which is the bare name; the inventory an `@extref` is resolved against holds the full path, so
@@ -734,7 +734,7 @@ function verify_contract(contract_daf::ContractDaf; is_for_output::Bool)::Nothin
 
     for (data_key, tracker) in contract_daf.data
         if data_key isa ScalarKey
-            verify_scalar_data(contract_daf, data_key, tracker; is_for_output)  # NOJET
+            verify_scalar_data(contract_daf, data_key, tracker; is_for_output)
         elseif data_key isa VectorKey
             verify_vector_data(contract_daf, data_key..., tracker; is_for_output)
         elseif data_key isa MatrixKey
@@ -747,7 +747,7 @@ function verify_contract(contract_daf::ContractDaf; is_for_output::Bool)::Nothin
     if is_for_output
         for (data_key, tracker) in contract_daf.data
             if data_key isa ScalarKey
-                verify_scalar_access(contract_daf, data_key, tracker)  # NOJET
+                verify_scalar_access(contract_daf, data_key, tracker)
             elseif data_key isa VectorKey
                 verify_vector_access(contract_daf, data_key..., tracker)
             elseif data_key isa MatrixKey
@@ -1570,7 +1570,7 @@ function Formats.format_get_matrix(
     columns_axis::AbstractString,
     name::AbstractString,
 )::Tuple{StorageMatrix, Maybe{Formats.CacheGroup}}
-    return Formats.format_get_matrix(contract_daf.daf, rows_axis, columns_axis, name)
+    return Formats.format_get_matrix(contract_daf.daf, rows_axis, columns_axis, name)  # NOJET
 end
 
 function Formats.format_matrix_metadata(

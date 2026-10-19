@@ -5,6 +5,13 @@ end
 nested_test("contracts") do
     daf = MemoryDaf(; name = "memory!")
 
+    nested_test("invalid_enforce_environment") do
+        withenv("DAF_ENFORCE_CONTRACTS" => "maybe") do
+            @test_throws "could not be parsed as Boolean" DataAxesFormats.Contracts.__init__()
+        end
+        @test DataAxesFormats.Contracts.DAF_ENFORCE_CONTRACTS isa Bool
+    end
+
     nested_test("add") do
         nested_test("axes") do
             nested_test("left") do
