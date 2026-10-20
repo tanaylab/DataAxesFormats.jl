@@ -181,10 +181,8 @@ function add_axis!(
         delete_axis!(daf, axis; must_exist = false)
     end
 
-    entries = base_array(entries)
-    if issparse(entries)
-        entries = Vector(entries)  # UNTESTED
-    end
+    entries_array = base_array(entries)
+    entries = issparse(entries_array) ? Vector(entries_array) : entries_array
 
     return Formats.with_data_write_lock(daf, "add_axis! of:", axis) do
         # Formats.assert_valid_cache(daf)
@@ -328,53 +326,66 @@ function set_vector!(
 )::Nothing
     @assert Base.eltype(vector) <: AbstractString || isbitstype(Base.eltype(vector))
     return Formats.with_data_write_lock(daf, "set_vector! of:", name, "of:", axis) do
-        # Formats.assert_valid_cache(daf)
-        @debug (
-            "set_vector! daf: $(brief(daf)) axis: $(axis) name: $(name) vector: $(brief(vector)) " *
-            "overwrite: $(overwrite)"
-        ) _group = :daf_sets
-
-        require_not_reserved(daf, axis, name)
-        require_axis(daf, "for the vector: $(name)", axis)
-
-        if vector isa StorageVector
-            require_axis_length(daf, length(vector), "vector: $(name)", axis)
-            require_axis_length(daf, length(vector), "vector: $(name)", axis)
-            if vector isa NamedVector
-                require_axis_names(daf, axis, "entry names of the: vector", names(vector, 1))
-            end
-            vector = base_array(vector)
-            if eltype === nothing
-                eltype = Base.eltype(vector)
-            end
-            if vector isa BitVector || Base.eltype(vector) != eltype
-                if issparse(vector)
-                    vector = SparseVector{eltype}(vector)
-                else
-                    vector = Vector{eltype}(vector)
-                end
-            end
-        else
-            @assert vector isa StorageScalar
-            if eltype !== nothing
-                vector = eltype(vector)
-            end
-        end
-
-        if !overwrite
-            require_no_vector(daf, axis, name)
-        end
-
-        update_before_set_vector(daf, axis, name)
-        if occursin("Chain", "$(brief(daf))")
-        end
-        if Base.eltype(vector) <: AbstractString
-            vector = String.(vector)
-        end
-        Formats.format_set_vector!(daf, axis, name, vector, resolve_packed(packed, daf))
-        # Formats.assert_valid_cache(daf)
-        return nothing
+        return locked_set_vector!(daf, axis, name, vector, eltype, overwrite, packed)
     end
+end
+
+# Set the vector of `set_vector!`, while holding the data write lock of the `daf`.
+function locked_set_vector!(
+    daf::DafWriter,
+    axis::AbstractString,
+    name::AbstractString,
+    vector::Union{StorageScalar, StorageVector},
+    eltype::Maybe{Type{<:StorageReal}},
+    overwrite::Bool,
+    packed::Maybe{Bool},
+)::Nothing
+    # Formats.assert_valid_cache(daf)
+    @debug (
+        "set_vector! daf: $(brief(daf)) axis: $(axis) name: $(name) vector: $(brief(vector)) " *
+        "overwrite: $(overwrite)"
+    ) _group = :daf_sets
+
+    require_not_reserved(daf, axis, name)
+    require_axis(daf, "for the vector: $(name)", axis)
+
+    if vector isa StorageVector
+        require_axis_length(daf, length(vector), "vector: $(name)", axis)
+        require_axis_length(daf, length(vector), "vector: $(name)", axis)
+        if vector isa NamedVector
+            require_axis_names(daf, axis, "entry names of the: vector", names(vector, 1))
+        end
+        vector = base_array(vector)
+        if eltype === nothing
+            eltype = Base.eltype(vector)
+        end
+        if vector isa BitVector || Base.eltype(vector) != eltype
+            if issparse(vector)
+                vector = SparseVector{eltype}(vector)
+            else
+                vector = Vector{eltype}(vector)
+            end
+        end
+    else
+        @assert vector isa StorageScalar
+        if eltype !== nothing
+            vector = eltype(vector)
+        end
+    end
+
+    if !overwrite
+        require_no_vector(daf, axis, name)
+    end
+
+    update_before_set_vector(daf, axis, name)
+    if occursin("Chain", "$(brief(daf))")
+    end
+    if Base.eltype(vector) <: AbstractString
+        vector = String.(vector)
+    end
+    Formats.format_set_vector!(daf, axis, name, vector, resolve_packed(packed, daf))
+    # Formats.assert_valid_cache(daf)
+    return nothing
 end
 
 """
@@ -763,57 +774,72 @@ function set_matrix!(
     packed::Maybe{Bool} = nothing,
 )::Nothing
     Formats.with_data_write_lock(daf, "set_matrix! of:", name, "of:", rows_axis, "and:", columns_axis) do
-        # Formats.assert_valid_cache(daf)
-        relayout = relayout && rows_axis != columns_axis
-        @debug (
-            "set_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) " *
-            "matrix: $(brief(matrix)) overwrite: $(overwrite) relayout: $(relayout)"
-        ) _group = :daf_sets
-
-        require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
-        require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
-
-        if matrix isa StorageMatrix
-            require_column_major(matrix)
-            require_axis_length(daf, size(matrix, Rows), "rows of the matrix: $(name)", rows_axis)
-            require_axis_length(daf, size(matrix, Columns), "columns of the matrix: $(name)", columns_axis)
-            if matrix isa NamedMatrix
-                require_axis_names(daf, rows_axis, "row names of the: matrix", names(matrix, 1))
-                require_axis_names(daf, columns_axis, "column names of the: matrix", names(matrix, 2))
-            end
-            matrix = base_array(matrix)
-            if eltype === nothing
-                eltype = Base.eltype(matrix)
-            end
-            if matrix isa BitMatrix || Base.eltype(matrix) != eltype
-                if issparse(matrix)
-                    matrix = SparseMatrixCSC{eltype}(matrix)
-                else
-                    matrix = Matrix{eltype}(matrix)
-                end
-            end
-        elseif matrix isa StorageReal
-            if eltype !== nothing
-                matrix = eltype(matrix)
-            end
-        elseif matrix isa AbstractString
-            matrix = string(matrix)
-        else
-            @assert false
-        end
-
-        if !overwrite
-            require_no_matrix(daf, rows_axis, columns_axis, name; relayout)
-        end
-
-        is_resolved_packed = resolve_packed(packed, daf)
-        update_before_set_matrix(daf, rows_axis, columns_axis, name)
-        Formats.format_set_matrix!(daf, rows_axis, columns_axis, name, matrix, is_resolved_packed)
-        return relayout_stored_matrix!(daf, rows_axis, columns_axis, name, matrix, relayout, is_resolved_packed)
-        # Formats.assert_valid_cache(daf)
+        return locked_set_matrix!(daf, rows_axis, columns_axis, name, matrix, eltype, overwrite, relayout, packed)
     end
 
     return nothing
+end
+
+# Set the matrix of `set_matrix!`, while holding the data write lock of the `daf`.
+function locked_set_matrix!(
+    daf::DafWriter,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    matrix::Union{StorageScalarBase, StorageMatrix},
+    eltype::Maybe{Type{<:StorageScalarBase}},
+    overwrite::Bool,
+    relayout::Bool,
+    packed::Maybe{Bool},
+)::Nothing
+    # Formats.assert_valid_cache(daf)
+    relayout = relayout && rows_axis != columns_axis
+    @debug (
+        "set_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) " *
+        "matrix: $(brief(matrix)) overwrite: $(overwrite) relayout: $(relayout)"
+    ) _group = :daf_sets
+
+    require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
+    require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
+
+    if matrix isa StorageMatrix
+        require_column_major(matrix)
+        require_axis_length(daf, size(matrix, Rows), "rows of the matrix: $(name)", rows_axis)
+        require_axis_length(daf, size(matrix, Columns), "columns of the matrix: $(name)", columns_axis)
+        if matrix isa NamedMatrix
+            require_axis_names(daf, rows_axis, "row names of the: matrix", names(matrix, 1))
+            require_axis_names(daf, columns_axis, "column names of the: matrix", names(matrix, 2))
+        end
+        matrix = base_array(matrix)
+        if eltype === nothing
+            eltype = Base.eltype(matrix)
+        end
+        if matrix isa BitMatrix || Base.eltype(matrix) != eltype
+            if issparse(matrix)
+                matrix = SparseMatrixCSC{eltype}(matrix)
+            else
+                matrix = Matrix{eltype}(matrix)
+            end
+        end
+    elseif matrix isa StorageReal
+        if eltype !== nothing
+            matrix = eltype(matrix)
+        end
+    elseif matrix isa AbstractString
+        matrix = string(matrix)
+    else
+        @assert false
+    end
+
+    if !overwrite
+        require_no_matrix(daf, rows_axis, columns_axis, name; relayout)
+    end
+
+    is_resolved_packed = resolve_packed(packed, daf)
+    update_before_set_matrix(daf, rows_axis, columns_axis, name)
+    Formats.format_set_matrix!(daf, rows_axis, columns_axis, name, matrix, is_resolved_packed)
+    return relayout_stored_matrix!(daf, rows_axis, columns_axis, name, matrix, relayout, is_resolved_packed)
+    # Formats.assert_valid_cache(daf)
 end
 
 """
@@ -1311,9 +1337,9 @@ function delete_matrix!(
     must_exist::Bool = true,
     relayout::Bool = true,
 )::Nothing
+    relayout = relayout && rows_axis != columns_axis
     Formats.with_data_write_lock(daf, "delete_matrix! of:", name, "of:", rows_axis, "and:", columns_axis) do
         # Formats.assert_valid_cache(daf)
-        relayout = relayout && rows_axis != columns_axis
         @debug (
             "delete_matrix! daf: $(brief(daf)) rows_axis: $(rows_axis) columns_axis: $(columns_axis) name: $(name) " *
             "must exist: $(must_exist)"

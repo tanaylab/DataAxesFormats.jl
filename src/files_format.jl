@@ -580,9 +580,7 @@ function Formats.format_set_vector!(
     is_packed::Bool,
 )::Nothing
     @assert Formats.has_data_write_lock(files)
-    if vector == 0
-        vector = spzeros(typeof(vector), Formats.format_axis_length(files, axis))
-    end
+    vector = vector == 0 ? spzeros(typeof(vector), Formats.format_axis_length(files, axis)) : vector
 
     # Contract: callers must have invoked `update_before_set_vector` (which delegates to `format_delete_vector!`)
     # before reaching here, so the per-property files have already been removed from disk. The public `set_vector!`
@@ -805,9 +803,7 @@ function Formats.format_set_matrix!(
     @assert Formats.has_data_write_lock(files)
     nrows = Formats.format_axis_length(files, rows_axis)
     ncols = Formats.format_axis_length(files, columns_axis)
-    if matrix == 0
-        matrix = spzeros(typeof(matrix), nrows, ncols)
-    end
+    matrix = matrix == 0 ? spzeros(typeof(matrix), nrows, ncols) : matrix
 
     # Contract: callers must have invoked `update_before_set_matrix` (which delegates to `format_delete_matrix!`)
     # before reaching here, so the per-property files have already been removed from disk. The public `set_matrix!`
@@ -1154,8 +1150,8 @@ function fill_file(path::AbstractString, value::StorageScalar, size::Integer)::N
         else
             buffer_size = min(div(8192, sizeof(value)), size)
             buffer = fill(value, buffer_size)
-            written = 0
             open(path, "w") do file
+                written = 0
                 while written < size
                     write(file, buffer)
                     written += buffer_size
@@ -1316,9 +1312,7 @@ end
 # Append `"key":<descriptor>` to `metadata.json` via byte-level surgery on the trailing `}`. A trailing newline in
 # `descriptor` is stripped so the verbatim sidecar bytes can be passed through.
 function metadata_json_append!(files::FilesDaf, key::AbstractString, descriptor::AbstractVector{UInt8})::Nothing
-    if !isempty(descriptor) && descriptor[end] == UInt8('\n')
-        descriptor = @view descriptor[1:(end - 1)]
-    end
+    descriptor = !isempty(descriptor) && descriptor[end] == UInt8('\n') ? @view(descriptor[1:(end - 1)]) : descriptor
     metadata_path = "$(files.path)/$(METADATA_JSON)"
     encoded_key = Vector{UInt8}(JSON.json(String(key)))
     file_size = filesize(metadata_path)
@@ -1349,7 +1343,7 @@ function metadata_json_rebuild!(files::FilesDaf)::Nothing
         for name in sort!(readdir(axes_directory))
             if endswith(name, ".txt")
                 axis = chop(name; tail = 4)
-                n_entries = count_lines("$(axes_directory)/$(name)")
+                n_entries = countlines("$(axes_directory)/$(name)")
                 push!(entries, "axes/$(axis)" => Dict("format" => "axis", "n_entries" => n_entries))
             end
         end
@@ -1438,19 +1432,6 @@ function metadata_json_descriptor(base_path::AbstractString, sidecar::AbstractDi
         json_bytes = sparse_matrix_json_bytes(eltype, ind_type, nnz, n_columns; nzval_present)
     end
     return JSON.parse(String(json_bytes))
-end
-
-# Count newline-terminated lines in `path`. Used by [`metadata_json_rebuild!`](@ref) to populate the `n_entries`
-# field of each axis descriptor without round-tripping through `mmap_file_lines`.
-function count_lines(path::AbstractString)::Int
-    n = 0
-    open(path, "r") do io
-        for _ in eachline(io)
-            n += 1
-        end
-        return nothing
-    end
-    return n
 end
 
 # Ensure `metadata.json` exists and parses; rebuild if missing or torn. Any error in read-only mode is silently

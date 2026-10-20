@@ -225,21 +225,24 @@ source axis contains entries that do not exist in the target, they are discarded
         value = TanayLabUtilities.MatrixFormats.bestify(value; min_sparse_saving_fraction, eltype)  # UNTESTED
     end
 
+    # Assigned once, so the closures below capture it without a box.
+    copied_value = value
+
     if relation == :same
-        if Base.eltype(value) <: abstract_eltype
-            set_vector!(destination, reaxis, rename, value; overwrite, packed)
-        elseif issparse(value.array)
+        if Base.eltype(copied_value) <: abstract_eltype
+            set_vector!(destination, reaxis, rename, copied_value; overwrite, packed)
+        elseif issparse(copied_value.array)
             @assert isbitstype(concrete_eltype) "not a bits type: $(concrete_eltype)"
             empty_sparse_vector!(
                 destination,
                 reaxis,
                 rename,
                 concrete_eltype,
-                nnz(value.array);
+                nnz(copied_value.array);
                 overwrite,
                 packed,
             ) do sparse_nzind, sparse_nzval
-                sparse_value = plain_array(value)
+                sparse_value = plain_array(copied_value)
                 sparse_nzind .= nzind(sparse_value)
                 sparse_nzval .= nzval(sparse_value)
                 return nothing
@@ -247,7 +250,7 @@ source axis contains entries that do not exist in the target, they are discarded
         else
             @assert isbitstype(concrete_eltype) "not a bits type: $(concrete_eltype)"
             empty_dense_vector!(destination, reaxis, rename, concrete_eltype; overwrite, packed) do empty_vector
-                empty_vector .= value
+                empty_vector .= copied_value
                 return nothing
             end
         end
@@ -264,18 +267,19 @@ source axis contains entries that do not exist in the target, they are discarded
     )
 
     with_data_write_lock(destination) do
-        if issparse(value.array) || concrete_eltype <: AbstractString
+        if issparse(copied_value.array) || concrete_eltype <: AbstractString
             dense = Vector{concrete_eltype}(undef, axis_length(destination, reaxis))
             named = as_named_vector(destination, reaxis, dense)
             named .= empty
-            named[names(value, 1)] .= value
-            value = issparse(value.array) && !(concrete_eltype <: AbstractString) ? sparse_vector(dense) : dense
-            set_vector!(destination, reaxis, rename, value; overwrite, packed)
+            named[names(copied_value, 1)] .= copied_value
+            filled_value =
+                issparse(copied_value.array) && !(concrete_eltype <: AbstractString) ? sparse_vector(dense) : dense
+            set_vector!(destination, reaxis, rename, filled_value; overwrite, packed)
         else
             empty_dense_vector!(destination, reaxis, rename, concrete_eltype; overwrite, packed) do empty_vector
                 empty_vector .= empty
                 named_vector = Formats.as_named_vector(destination, reaxis, empty_vector)
-                named_vector[names(value, 1)] .= value
+                named_vector[names(copied_value, 1)] .= copied_value
                 return nothing
             end
         end
@@ -445,23 +449,36 @@ axis contains entries that do not exist in the target, they are discarded (not c
 
     concrete_eltype, _ = target_types(eltype === nothing ? Base.eltype(value) : eltype)
 
+    # Assigned once, so the closures below capture them without a box.
+    copied_value = value
+    copied_relayout = relayout
+
     if rows_relation == :same && columns_relation == :same
-        if Base.eltype(value) == concrete_eltype || concrete_eltype <: AbstractString
-            set_matrix!(destination, rows_reaxis, columns_reaxis, rename, value; overwrite, relayout, packed)
+        if Base.eltype(copied_value) == concrete_eltype || concrete_eltype <: AbstractString
+            set_matrix!(
+                destination,
+                rows_reaxis,
+                columns_reaxis,
+                rename,
+                copied_value;
+                overwrite,
+                relayout = copied_relayout,
+                packed,
+            )
         else
-            if issparse(value)
+            if issparse(copied_value)
                 empty_sparse_matrix!(
                     destination,
                     rows_reaxis,
                     columns_reaxis,
                     rename,
                     concrete_eltype,
-                    nnz(value);
+                    nnz(copied_value);
                     overwrite,
-                    relayout,
+                    relayout = copied_relayout,
                     packed,
                 ) do sparse_colptr, sparse_rowval, sparse_nzval
-                    sparse_value = plain_array(value)
+                    sparse_value = plain_array(copied_value)
                     sparse_colptr .= colptr(sparse_value)
                     sparse_rowval .= rowval(sparse_value)
                     sparse_nzval .= nzval(sparse_value)
@@ -475,10 +492,10 @@ axis contains entries that do not exist in the target, they are discarded (not c
                     rename,
                     concrete_eltype;
                     overwrite,
-                    relayout,
+                    relayout = copied_relayout,
                     packed,
                 ) do empty_matrix
-                    empty_matrix .= value
+                    empty_matrix .= copied_value
                     return nothing
                 end
             end
@@ -490,12 +507,12 @@ axis contains entries that do not exist in the target, they are discarded (not c
 
     with_data_write_lock(destination) do
         if empty == 0 && !(concrete_eltype <: AbstractString)
-            rows_indices = axis_indices(destination, rows_reaxis, names(value, 1))
-            columns_indices = axis_indices(destination, columns_reaxis, names(value, 2))
+            rows_indices = axis_indices(destination, rows_reaxis, names(copied_value, 1))
+            columns_indices = axis_indices(destination, columns_reaxis, names(copied_value, 2))
             n_rows = axis_length(destination, rows_reaxis)
             n_columns = axis_length(destination, columns_reaxis)
-            if issparse(value)
-                sparse_value = sparse_matrix_csc(value)
+            if issparse(copied_value)
+                sparse_value = sparse_matrix_csc(copied_value)
                 embedded = embed_sparse_matrix_in_sparse_matrix(
                     convert(SparseMatrixCSC{concrete_eltype, Base.eltype(sparse_value.colptr)}, sparse_value);
                     rows_indices,
@@ -504,15 +521,24 @@ axis contains entries that do not exist in the target, they are discarded (not c
                     n_columns,
                 )
             else
-                dense_value = plain_array(value)
+                dense_value = plain_array(copied_value)
                 if Base.eltype(dense_value) != concrete_eltype
                     dense_value = Matrix{concrete_eltype}(dense_value)
                 end
                 embedded =
                     embed_dense_matrix_in_sparse_matrix(dense_value; rows_indices, n_rows, columns_indices, n_columns)
             end
-            set_matrix!(destination, rows_reaxis, columns_reaxis, rename, embedded; overwrite, relayout, packed)
-        elseif issparse(value) || concrete_eltype <: AbstractString
+            set_matrix!(
+                destination,
+                rows_reaxis,
+                columns_reaxis,
+                rename,
+                embedded;
+                overwrite,
+                relayout = copied_relayout,
+                packed,
+            )
+        elseif issparse(copied_value) || concrete_eltype <: AbstractString
             dense = Matrix{concrete_eltype}(
                 undef,
                 axis_length(destination, rows_reaxis),
@@ -520,12 +546,30 @@ axis contains entries that do not exist in the target, they are discarded (not c
             )
             named = as_named_matrix(destination, rows_reaxis, columns_reaxis, dense)
             named .= empty
-            named[names(value, 1), names(value, 2)] .= value
+            named[names(copied_value, 1), names(copied_value, 2)] .= copied_value
             if concrete_eltype <: AbstractString
-                set_matrix!(destination, rows_reaxis, columns_reaxis, rename, dense; overwrite, relayout, packed)  # UNTESTED
+                set_matrix!(  # UNTESTED
+                    destination,
+                    rows_reaxis,
+                    columns_reaxis,
+                    rename,
+                    dense;
+                    overwrite,
+                    relayout = copied_relayout,
+                    packed,
+                )
             else
                 sparse = sparse_matrix_csc(dense)
-                set_matrix!(destination, rows_reaxis, columns_reaxis, rename, sparse; overwrite, relayout, packed)
+                set_matrix!(
+                    destination,
+                    rows_reaxis,
+                    columns_reaxis,
+                    rename,
+                    sparse;
+                    overwrite,
+                    relayout = copied_relayout,
+                    packed,
+                )
             end
         else
             empty_dense_matrix!(
@@ -535,21 +579,21 @@ axis contains entries that do not exist in the target, they are discarded (not c
                 rename,
                 concrete_eltype;
                 overwrite,
-                relayout,
+                relayout = copied_relayout,
                 packed,
             ) do empty_matrix
                 # Each column is written once, whole, as a packed destination requires.
-                rows_indices = axis_indices(destination, rows_reaxis, names(value, 1))
-                columns_indices = axis_indices(destination, columns_reaxis, names(value, 2))
+                filled_rows_indices = axis_indices(destination, rows_reaxis, names(copied_value, 1))
+                filled_columns_indices = axis_indices(destination, columns_reaxis, names(copied_value, 2))
                 value_column_per_column = zeros(Int, size(empty_matrix, 2))
-                value_column_per_column[columns_indices] .= 1:length(columns_indices)
-                values = parent(value)
+                value_column_per_column[filled_columns_indices] .= 1:length(filled_columns_indices)
+                values = parent(copied_value)
                 for column in 1:size(empty_matrix, 2)
                     fill_column!(empty_matrix, column) do column_values
                         column_values .= empty
                         value_column = value_column_per_column[column]
                         if value_column > 0
-                            column_values[rows_indices] .= view(values, :, value_column)
+                            column_values[filled_rows_indices] .= view(values, :, value_column)
                         end
                         return nothing
                     end

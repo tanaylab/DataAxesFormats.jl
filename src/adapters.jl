@@ -95,18 +95,14 @@ parameter values, and store the different results in the same data set under dif
     overwrite::Bool = false,
 )::Any
     flame_timed(name) do
-        local adapted
-        local base_name
-        flame_timed("input") do
-            base_name = daf.name
-            @assert input_axes !== nothing ||
-                    input_data !== nothing ||
-                    output_axes !== nothing ||
-                    output_data !== nothing "no-op adapter"
+        base_name = daf.name
+        adapted = flame_timed("input") do
+            is_no_op =
+                input_axes === nothing && input_data === nothing && output_axes === nothing && output_data === nothing
+            @assert !is_no_op "no-op adapter"
             input = viewer(daf; axes = input_axes, data = input_data, name = base_name * ".input")
             captured = capture(; name = base_name * ".capture")
-            adapted = chain_writer([input, captured]; name = base_name * ".adapted")  # NOLINT
-            return nothing
+            return chain_writer([input, captured]; name = base_name * ".adapted")
         end
         result = computation(adapted)
         flame_timed("output") do

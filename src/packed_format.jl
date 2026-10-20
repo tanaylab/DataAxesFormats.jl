@@ -754,9 +754,9 @@ function materialization!(build::Function, cell::MaterializationCell{T})::T wher
         return existing
     end
     return lock(cell.build_lock) do
-        existing = existing_materialization(cell)
-        if existing !== nothing
-            return existing
+        rechecked = existing_materialization(cell)
+        if rechecked !== nothing
+            return rechecked
         end
         built = build()::T
         @atomic :release cell.held[1] = weakly_held(built)
@@ -2844,7 +2844,7 @@ function packed_format_read_sparse_string_nzval(
     n_nonempty::Integer,
 )::AbstractVector{<:AbstractString}
     if is_packed_component(get(json, "nzval", nothing))
-        nzval_strings, _, _ =
+        nzval_strings, _, _ =  # NOJET
             packed_format_open_sparse_component_eager(daf, base_key, "nzval", String, json, n_nonempty)
         return nzval_strings
     else

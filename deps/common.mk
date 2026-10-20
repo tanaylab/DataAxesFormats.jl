@@ -42,7 +42,7 @@ deps/.did.prepare: *.toml
 # -j`). The formatter rewrites the sources, so it runs first. The check that everything is staged runs after everything
 # which writes files, and the check of the tools runs last. A stage run by itself is not affected.
 ifeq ($(if $(MAKECMDGOALS),$(filter ci,$(MAKECMDGOALS)),ci),ci)
-deps/.did.static_analysis deps/.did.jet deps/.did.aqua tracefile.info docs/$(DOCS_VERSION)/index.html: \
+deps/.did.lint deps/.did.floss deps/.did.jet deps/.did.aqua tracefile.info docs/$(DOCS_VERSION)/index.html: \
     | deps/.did.format deps/.did.prepare
 deps/.did.$(TODO_X): | deps/.did.format
 unindexed_files: format check coverage docs $(TODO_X)
@@ -50,14 +50,21 @@ check_tools: unindexed_files
 endif
 
 .PHONY: check
-check: static_analysis jet aqua untested_lines
+check: lint floss jet aqua untested_lines
 
-.PHONY: static_analysis
-static_analysis: deps/.did.static_analysis
+.PHONY: lint
+lint: deps/.did.lint
 
-deps/.did.static_analysis: *.toml src/*.jl test/*.toml test/*.jl deps/static_analysis.sh deps/static_analysis.jl
-	deps/static_analysis.sh
-	@touch deps/.did.static_analysis
+deps/.did.lint: *.toml src/*.jl test/*.toml test/*.jl deps/lint.sh deps/lint.jl
+	deps/lint.sh
+	@touch deps/.did.lint
+
+.PHONY: floss
+floss: deps/.did.floss
+
+deps/.did.floss: *.toml src/*.jl test/*.toml test/*.jl deps/floss.sh deps/floss.jl
+	deps/floss.sh
+	@touch deps/.did.floss
 
 .PHONY: jet
 jet: deps/.did.jet

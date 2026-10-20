@@ -388,8 +388,10 @@ function parse_existing_zip_archive(
         overlay_file_on_range!(reservation_base, io_stream, Int(file_size))
         disable_transparent_huge_pages(reservation_base, Int(max_file_size))
         file_mmap = unsafe_wrap(Array, Ptr{UInt8}(reservation_base), Int(max_file_size); own = false)
-        finalizer(file_mmap) do _
-            return ccall(:munmap, Cint, (Ptr{Cvoid}, Csize_t), reservation_base, Csize_t(max_file_size))
+        let captured_base = reservation_base
+            finalizer(file_mmap) do _
+                return ccall(:munmap, Cint, (Ptr{Cvoid}, Csize_t), captured_base, Csize_t(max_file_size))
+            end
         end
         reservation_length = max_file_size
         overlay_length = file_size

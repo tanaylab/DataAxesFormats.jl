@@ -3948,6 +3948,17 @@ function allocate_is_in_group_per_value_per_thread(n_values::Integer)::Vector{Ma
     return is_in_group_per_value_per_thread
 end
 
+# The value of each group: the entries of the axis the groups are, or else the sorted unique values of the groups
+# vector.
+function group_values(query_state::QueryState, group_state::VectorState)::AbstractVector
+    if group_state.property_axis_name === nothing
+        return sort!(unique(group_state.vector_values))
+    else
+        @assert query_state.daf !== nothing
+        return axis_vector(query_state.daf, group_state.property_axis_name)  # NOJET
+    end
+end
+
 function reduce_grouped_vector(
     query_state::QueryState,
     base_state::VectorState,
@@ -3971,12 +3982,7 @@ function reduce_grouped_vector(
     named_values = NamedArray(base_state.vector_values, (Formats.names_dict(base_state.vector_entries),))  # NOJET
     vector_values = named_values[group_state.vector_entries].array  # NOJET
 
-    if group_state.property_axis_name === nothing
-        unique_group_values = sort!(unique(group_state.vector_values))
-    else
-        @assert query_state.daf !== nothing
-        unique_group_values = axis_vector(query_state.daf, group_state.property_axis_name)  # NOJET
-    end
+    unique_group_values = group_values(query_state, group_state)
 
     if eltype(vector_values) <: AbstractString && !supports_strings(reduction_operation)
         error_at_state(
@@ -4743,12 +4749,7 @@ function compute_grouped_matrix(
     )
     matrix_values = named_values[:, group_state.vector_entries].array
 
-    if group_state.property_axis_name === nothing
-        unique_group_values = sort!(unique(group_state.vector_values))
-    else
-        @assert query_state.daf !== nothing
-        unique_group_values = axis_vector(query_state.daf, group_state.property_axis_name)  # NOJET
-    end
+    unique_group_values = group_values(query_state, group_state)
 
     if eltype(matrix_values) <: AbstractString && !supports_strings(reduce_to_column.reduction_operation)
         error_at_state(
@@ -4836,12 +4837,7 @@ function compute_grouped_matrix(
     )
     matrix_values = named_values[group_state.vector_entries, :].array
 
-    if group_state.property_axis_name === nothing
-        unique_group_values = sort!(unique(group_state.vector_values))
-    else
-        @assert query_state.daf !== nothing
-        unique_group_values = axis_vector(query_state.daf, group_state.property_axis_name)  # NOJET
-    end
+    unique_group_values = group_values(query_state, group_state)
 
     if eltype(matrix_values) <: AbstractString && !supports_strings(reduce_to_row.reduction_operation)
         error_at_state(

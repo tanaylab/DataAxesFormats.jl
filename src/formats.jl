@@ -1091,74 +1091,85 @@ function write_slow_through_cache(
     ::Type{T},
     cache_group::CacheGroup,
 )::Maybe{T} where {T}
-    result = with_cache_write_lock(format, "for get_through_cache:", cache_key) do
-        cache_entry = get(format.internal.cache, cache_key, nothing)
-        if cache_entry !== nothing
-            if cache_entry.data isa PendingResult  # UNTESTED
+    cached = with_cache_write_lock(format, "for get_through_cache:", cache_key) do
+        existing_entry = get(format.internal.cache, cache_key, nothing)
+        if existing_entry !== nothing
+            if existing_entry.data isa PendingResult  # UNTESTED
                 return nothing  # UNTESTED
             else
-                return cache_entry.data  # UNTESTED
+                return existing_entry.data::T  # UNTESTED
             end
         else
-            cache_entry = CacheEntry(cache_group, PendingResult())
-            format.internal.cache[cache_key] = cache_entry
+            pending_entry = CacheEntry(cache_group, PendingResult())
+            format.internal.cache[cache_key] = pending_entry
             lock(format.internal.pending_condition) do
                 format.internal.pending_count[1] += 1
                 return nothing
             end
-            return cache_entry
+            return pending_entry
         end
     end
-    if result isa CacheEntry
-        cache_entry = result
-        pending_result = cache_entry.data
-        @assert pending_result isa PendingResult
-        try
-            result, dependency_keys = getter()
-            # The versions may come from other dafs (e.g., the bases of a chain), so they are collected before taking
-            # the cache lock.
-            if dependency_keys !== nothing
-                dependency_versions = Dict{CacheKey, UInt32}(
-                    dependency_key => format_get_version_counter(format, dependency_key) for
-                    dependency_key in dependency_keys
-                )
-            else
-                dependency_versions = nothing
-            end
-            with_cache_write_lock(format, "for slow:", cache_key) do
-                if dependency_versions !== nothing
-                    for dependency_key in keys(dependency_versions)
-                        put_cached_dependency_key!(format, cache_key, dependency_key)
-                    end
-                    format.internal.dependency_versions_of_cache_keys[cache_key] = dependency_versions
-                end
-                cache_entry.data = result
-                lock(format.internal.pending_condition) do
-                    format.internal.pending_count[1] -= 1
-                    if format.internal.pending_count[1] == 0
-                        notify(format.internal.pending_condition)
-                    end
-                end
-                return nothing
-            end
-        catch
-            with_cache_write_lock(format, "for slow error:", cache_key) do  # FLAKY TESTED
-                delete!(format.internal.cache, cache_key)
-                lock(format.internal.pending_condition) do
-                    format.internal.pending_count[1] -= 1
-                    if format.internal.pending_count[1] == 0
-                        notify(format.internal.pending_condition)
-                    end
-                end
-                return nothing
-            end
-            rethrow()
-        finally
-            pending_result.is_done[] = true
-            notify(pending_result.done_event)
-        end
+    if cached isa CacheEntry
+        return fill_pending_cache_entry!(getter, format, cache_key, cached)::T
     end
-    return result
+    return cached
+end
+
+# Compute the data of the pending `cache_entry` of the `cache_key` using the `getter`, store it in the entry, and return
+# it. If the `getter` fails, the entry is deleted. Either way, any tasks waiting for the entry are released.
+function fill_pending_cache_entry!(
+    getter::Function,
+    format::FormatReader,
+    cache_key::CacheKey,
+    cache_entry::CacheEntry,
+)::Any
+    pending_result = cache_entry.data
+    @assert pending_result isa PendingResult
+    try
+        result, dependency_keys = getter()
+        # The versions may come from other dafs (e.g., the bases of a chain), so they are collected before taking the
+        # cache lock.
+        dependency_versions = if dependency_keys === nothing
+            nothing
+        else
+            Dict{CacheKey, UInt32}(
+                dependency_key => format_get_version_counter(format, dependency_key) for
+                dependency_key in dependency_keys
+            )
+        end
+        with_cache_write_lock(format, "for slow:", cache_key) do
+            if dependency_versions !== nothing
+                for dependency_key in keys(dependency_versions)
+                    put_cached_dependency_key!(format, cache_key, dependency_key)
+                end
+                format.internal.dependency_versions_of_cache_keys[cache_key] = dependency_versions
+            end
+            cache_entry.data = result
+            lock(format.internal.pending_condition) do
+                format.internal.pending_count[1] -= 1
+                if format.internal.pending_count[1] == 0
+                    notify(format.internal.pending_condition)
+                end
+            end
+            return nothing
+        end
+        return result
+    catch
+        with_cache_write_lock(format, "for slow error:", cache_key) do  # FLAKY TESTED
+            delete!(format.internal.cache, cache_key)
+            lock(format.internal.pending_condition) do
+                format.internal.pending_count[1] -= 1
+                if format.internal.pending_count[1] == 0
+                    notify(format.internal.pending_condition)
+                end
+            end
+            return nothing
+        end
+        rethrow()
+    finally
+        pending_result.is_done[] = true
+        notify(pending_result.done_event)
+    end
 end
 
 function get_scalars_set_through_cache(format::FormatReader)::AbstractSet{<:AbstractString}
@@ -1278,11 +1289,10 @@ function get_relayout_matrix_through_cache(
     # The stored layout says which format that is, since that is the one holding the data being transposed.
     format = format_matrix_cache_format(format, columns_axis, rows_axis, name)
     @assert !format_has_matrix(format, rows_axis, columns_axis, name)
-    matrix = get_matrix_through_cache(format, columns_axis, rows_axis, name).array
+    stored_matrix = get_matrix_through_cache(format, columns_axis, rows_axis, name).array
     return get_slow_through_cache(format, matrix_cache_key(rows_axis, columns_axis, name), NamedArray, MemoryData) do
-        matrix = flipped(matrix)
-        matrix = as_named_matrix(format, rows_axis, columns_axis, read_only_array(matrix))
-        return (matrix, Set{CacheKey}([matrix_cache_key(columns_axis, rows_axis, name)]))
+        relayout_matrix = as_named_matrix(format, rows_axis, columns_axis, read_only_array(flipped(stored_matrix)))
+        return (relayout_matrix, Set{CacheKey}([matrix_cache_key(columns_axis, rows_axis, name)]))
     end
 end
 

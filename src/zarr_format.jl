@@ -1996,11 +1996,12 @@ function packed_streaming_dense_matrix(
     if !(storage isa Zarr.DirectoryStore || storage isa MmapZipStore)
         # Stores with no incremental sink (e.g. `DictStore`) fall back to per-column chunk files. Columns may be written
         # from several tasks at once, and such a store (e.g. a `Dict`) isn't thread-safe.
-        array = numeric_zcreate(T, group, name, (nrows, ncols), (nrows, 1), v3_bytes_codecs_for(compressor_for(), T))
+        fallback_array =
+            numeric_zcreate(T, group, name, (nrows, ncols), (nrows, 1), v3_bytes_codecs_for(compressor_for(), T))
         array_lock = ReentrantLock()
         encoder = (column::Int, chunk_buffer::Vector{T}) -> begin
             lock(array_lock) do
-                array[:, column] = chunk_buffer
+                fallback_array[:, column] = chunk_buffer
                 return nothing
             end
             return nothing

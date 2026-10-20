@@ -434,11 +434,7 @@ function stream_permuted_dense_matrix(
     )
     for column in 1:n_columns
         source_column = planned_columns === nothing ? column : planned_columns.permutation[column]
-        if source isa DenseMatrix
-            source_values = view(source, :, source_column)
-        else
-            source_values = source[:, source_column]
-        end
+        source_values = source isa DenseMatrix ? view(source, :, source_column) : source[:, source_column]
         fill_column!(destination, column) do destination_column
             permute_vector!(;
                 destination = destination_column,

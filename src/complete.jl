@@ -71,19 +71,17 @@ function complete_daf(
     packed::Bool = false,
 )::Union{DafReader, DafWriter}
     return flame_timed("complete_daf") do
-        if name === nothing
-            name = leaf
-        end
+        daf_name = name === nothing ? leaf : name
         @assert mode in ("r", "r+")
-        @debug "Open complete $(name):" _group = :daf_repose
+        @debug "Open complete $(daf_name):" _group = :daf_repose
         dafs = flame_timed("complete_daf.collect_dafs") do
-            return collect_dafs(; name, path = leaf, mode, is_packed = packed, indent = "", index = 0)
+            return collect_dafs(; name = daf_name, path = leaf, mode, is_packed = packed, indent = "", index = 0)
         end
         return flame_timed("complete_daf.chain") do
             if mode == "r+"
-                return chain_writer(dafs; name = name * ".complete")
+                return chain_writer(dafs; name = daf_name * ".complete")
             else
-                return chain_reader(dafs; name = name * ".complete")
+                return chain_reader(dafs; name = daf_name * ".complete")
             end
         end
     end

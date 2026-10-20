@@ -832,19 +832,19 @@ function Log(operation_name::Token, parameters_values::Dict{String, Token})::Log
     end
 
     base = parse_parameter_value(operation_name, "eltwise", parameters_values, "base", Float64(e)) do parameter_value
-        base = parse_number_value(operation_name, "base", parameter_value, Float64)
-        if base <= 0
+        value = parse_number_value(operation_name, "base", parameter_value, Float64)
+        if value <= 0
             error_invalid_parameter_value(operation_name, "base", parameter_value, "positive")
         end
-        return base
+        return value
     end
 
     eps = parse_parameter_value(operation_name, "eltwise", parameters_values, "eps", 0.0) do parameter_value
-        eps = parse_number_value(operation_name, "eps", parameter_value, Float64)
-        if eps < 0
+        value = parse_number_value(operation_name, "eps", parameter_value, Float64)
+        if value < 0
             error_invalid_parameter_value(operation_name, "eps", parameter_value, "not negative")
         end
-        return eps
+        return value
     end
 
     return Log(type, base, eps)
@@ -956,22 +956,22 @@ end
 
 function Significant(operation_name::Token, parameters_values::Dict{String, Token})::Significant
     high = parse_parameter_value(operation_name, "eltwise", parameters_values, "high", missing) do parameter_value
-        high = parse_number_value(operation_name, "high", parameter_value, Float64)
-        if high <= 0
+        value = parse_number_value(operation_name, "high", parameter_value, Float64)
+        if value <= 0
             error_invalid_parameter_value(operation_name, "high", parameter_value, "positive")
         end
-        return high
+        return value
     end
 
     low = parse_parameter_value(operation_name, "eltwise", parameters_values, "low", high) do parameter_value
-        low = parse_number_value(operation_name, "low", parameter_value, Float64)
-        if low < 0  # NOJET
+        value = parse_number_value(operation_name, "low", parameter_value, Float64)
+        if value < 0
             error_invalid_parameter_value(operation_name, "low", parameter_value, "not negative")
         end
-        if low > high  # NOJET
+        if value > high
             error_invalid_parameter_value(operation_name, "low", parameter_value, "at most high ($(high))")
         end
-        return low  # NOJET
+        return value
     end
 
     return Significant(high, low)
@@ -1467,14 +1467,14 @@ function Quantile(operation_name::Token, parameters_values::Dict{String, Token})
         return parse_float_type_value(operation_name, "type", parameter_value)
     end
     p = parse_parameter_value(operation_name, "eltwise", parameters_values, "p", missing) do parameter_value
-        p = parse_number_value(operation_name, "p", parameter_value, Float64)
-        if p < 0
+        value = parse_number_value(operation_name, "p", parameter_value, Float64)
+        if value < 0
             error_invalid_parameter_value(operation_name, "p", parameter_value, "at least 0")
         end
-        if p > 1
+        if value > 1
             error_invalid_parameter_value(operation_name, "p", parameter_value, "at most 1")
         end
-        return p
+        return value
     end
     return Quantile(type, p)
 end
@@ -1613,11 +1613,11 @@ function GeoMean(operation_name::Token, parameters_values::Dict{String, Token}):
         return parse_float_type_value(operation_name, "type", parameter_value)
     end
     eps = parse_parameter_value(operation_name, "eltwise", parameters_values, "eps", 0.0) do parameter_value
-        eps = parse_number_value(operation_name, "eps", parameter_value, Float64)
-        if eps < 0
+        value = parse_number_value(operation_name, "eps", parameter_value, Float64)
+        if value < 0
             error_invalid_parameter_value(operation_name, "eps", parameter_value, "not negative")
         end
-        return eps
+        return value
     end
     return GeoMean(type, eps)
 end
@@ -1815,11 +1815,11 @@ function VarN(operation_name::Token, parameters_values::Dict{String, Token})::Va
         return parse_float_type_value(operation_name, "type", parameter_value)
     end
     eps = parse_parameter_value(operation_name, "eltwise", parameters_values, "eps", 0.0) do parameter_value
-        eps = parse_number_value(operation_name, "eps", parameter_value, Float64)
-        if eps < 0
+        value = parse_number_value(operation_name, "eps", parameter_value, Float64)
+        if value < 0
             error_invalid_parameter_value(operation_name, "eps", parameter_value, "not negative")
         end
-        return eps
+        return value
     end
     return VarN(type, eps)
 end
@@ -1965,11 +1965,11 @@ function StdN(operation_name::Token, parameters_values::Dict{String, Token})::St
         return parse_float_type_value(operation_name, "type", parameter_value)
     end
     eps = parse_parameter_value(operation_name, "eltwise", parameters_values, "eps", 0.0) do parameter_value
-        eps = parse_number_value(operation_name, "eps", parameter_value, Float64)
-        if eps < 0
+        value = parse_number_value(operation_name, "eps", parameter_value, Float64)
+        if value < 0
             error_invalid_parameter_value(operation_name, "eps", parameter_value, "not negative")
         end
-        return eps
+        return value
     end
     return StdN(type, eps)
 end

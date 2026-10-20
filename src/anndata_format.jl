@@ -575,34 +575,7 @@ stored in the returned new `AnnData` object.
     h5ad::Maybe{AbstractString} = nothing,
 )::AnnData
     adata = Formats.with_data_read_lock(daf, "daf_as_anndata") do
-        obs_is = by_scalar(daf, obs_is, "obs_is", "obs")
-        var_is = by_scalar(daf, var_is, "var_is", "var")
-        X_is = by_scalar(daf, X_is, "X_is", "X")
-
-        @assert obs_is != var_is
-        require_matrix(daf, obs_is, var_is, X_is; relayout = true)
-
-        matrix = muon_flipped_matrix(get_matrix(daf, var_is, obs_is, X_is).array)
-        if X_eltype !== nothing && X_eltype != eltype(matrix)
-            matrix = X_eltype.(matrix)  # UNTESTED
-        end
-        adata = AnnData(; X = matrix, obs_names = axis_vector(daf, obs_is), var_names = axis_vector(daf, var_is))
-
-        copy_scalars(daf, adata.uns)
-
-        store_rename_scalar(adata.uns, obs_is, "obs_is", "obs")
-        store_rename_scalar(adata.uns, var_is, "var_is", "var")
-        store_rename_scalar(adata.uns, X_is, "X_is", "X")
-
-        copy_square_matrices(daf, obs_is, adata.obsp)
-        copy_square_matrices(daf, var_is, adata.varp)
-
-        copy_vectors(daf, obs_is, adata.obs)
-        copy_vectors(daf, var_is, adata.var)
-
-        copy_matrices(daf, obs_is, var_is, X_is, adata.layers)
-
-        return adata
+        return locked_daf_as_anndata(daf, obs_is, var_is, X_is, X_eltype)
     end
 
     if h5ad !== nothing
@@ -611,6 +584,44 @@ stored in the returned new `AnnData` object.
             return nothing
         end
     end
+
+    return adata
+end
+
+# The `AnnData` of `daf_as_anndata`, created while holding the data read lock of the `daf`.
+function locked_daf_as_anndata(
+    daf::DafReader,
+    obs_is::Maybe{AbstractString},
+    var_is::Maybe{AbstractString},
+    X_is::Maybe{AbstractString},
+    X_eltype::Maybe{Type},
+)::AnnData
+    obs_is = by_scalar(daf, obs_is, "obs_is", "obs")
+    var_is = by_scalar(daf, var_is, "var_is", "var")
+    X_is = by_scalar(daf, X_is, "X_is", "X")
+
+    @assert obs_is != var_is
+    require_matrix(daf, obs_is, var_is, X_is; relayout = true)
+
+    matrix = muon_flipped_matrix(get_matrix(daf, var_is, obs_is, X_is).array)
+    if X_eltype !== nothing && X_eltype != eltype(matrix)
+        matrix = X_eltype.(matrix)  # UNTESTED
+    end
+    adata = AnnData(; X = matrix, obs_names = axis_vector(daf, obs_is), var_names = axis_vector(daf, var_is))
+
+    copy_scalars(daf, adata.uns)
+
+    store_rename_scalar(adata.uns, obs_is, "obs_is", "obs")
+    store_rename_scalar(adata.uns, var_is, "var_is", "var")
+    store_rename_scalar(adata.uns, X_is, "X_is", "X")
+
+    copy_square_matrices(daf, obs_is, adata.obsp)
+    copy_square_matrices(daf, var_is, adata.varp)
+
+    copy_vectors(daf, obs_is, adata.obs)
+    copy_vectors(daf, var_is, adata.var)
+
+    copy_matrices(daf, obs_is, var_is, X_is, adata.layers)
 
     return adata
 end

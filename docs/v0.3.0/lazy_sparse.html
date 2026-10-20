@@ -397,6 +397,10 @@ end
 <code>SparseVector
 </code>) owned by the caller, which is not cached.
 </p>
+<p>The TanayLabUtilities 
+<code>parallel_foreach_column
+</code> reads all or some of the columns one at a time, into a buffer per thread. It never holds the whole matrix, and allocates nothing per column.
+</p>
 <p>Any other access reads the whole matrix into a 
 <code>SparseMatrixCSC
 </code>, its materialization. All readers share it while any of them holds it. Once no reader holds it, its memory is freed, and the next access reads the matrix again. This includes row access and any generic 

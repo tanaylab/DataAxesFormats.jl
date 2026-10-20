@@ -320,9 +320,11 @@ function H5df(
             purge = false
         end
 
-        shared_handle = get_through_global_weak_cache(abspath(root), key; purge) do _
+        file_path = root
+        file_mode = mode == "w+" ? "cw" : mode
+        shared_handle = get_through_global_weak_cache(abspath(file_path), key; purge) do _
             file_access_properties = HDF5.FileAccessProperties(; alignment = (1, 8))
-            file = h5open(root, mode == "w+" ? "cw" : mode; fapl = file_access_properties)  # NOJET
+            file = h5open(file_path, file_mode; fapl = file_access_properties)  # NOJET
             return SharedH5dfHandle(file, ExtendedReadWriteLock(), !is_read_only)
         end
         if !is_read_only && !shared_handle.is_writable
@@ -334,10 +336,10 @@ function H5df(
         root = shared_handle.file
 
         if group !== nothing
-            if haskey(root, group)
+            if haskey(root, group)  # NOJET
                 if truncate_if_exists
                     delete_object(root, group)
-                    create_group(root, group)
+                    create_group(root, group)  # NOJET
                 end
             else
                 if create_if_missing  # UNTESTED
@@ -345,6 +347,7 @@ function H5df(
                 end
             end
             root = root[group]
+            @assert root isa HDF5.Group
         end
     end
 
@@ -675,29 +678,29 @@ function Formats.format_set_vector!(
     else
         @assert vector isa AbstractVector
 
-        vector = plain_array(vector)
+        plain_vector = plain_array(vector)
 
-        if issparse(vector)
+        if issparse(plain_vector)
             flame_timed("H5df.write_sparse_vector") do
-                @assert vector isa AbstractVector
+                @assert plain_vector isa AbstractVector
                 vector_group = create_group(axis_vectors_group, name)
-                write_packed_dense_dataset!(vector_group, "nzind", nzind(vector), is_packed)
-                if eltype(vector) != Bool || !all(nzval(vector))
-                    if eltype(vector) <: AbstractString
-                        vector_group["nzval"] = String.(nzval(vector))  # NOJET # UNTESTED
+                write_packed_dense_dataset!(vector_group, "nzind", nzind(plain_vector), is_packed)
+                if eltype(plain_vector) != Bool || !all(nzval(plain_vector))
+                    if eltype(plain_vector) <: AbstractString
+                        vector_group["nzval"] = String.(nzval(plain_vector))  # NOJET # UNTESTED
                     else
-                        write_packed_dense_dataset!(vector_group, "nzval", nzval(vector), is_packed)
+                        write_packed_dense_dataset!(vector_group, "nzval", nzval(plain_vector), is_packed)
                     end
                 end
                 return close(vector_group)
             end
 
-        elseif eltype(vector) <: AbstractString
-            write_string_vector(axis_vectors_group, name, vector, is_packed)
+        elseif eltype(plain_vector) <: AbstractString
+            write_string_vector(axis_vectors_group, name, plain_vector, is_packed)
 
         else
             flame_timed("H5df.write_dense_vector") do
-                return write_packed_dense_dataset!(axis_vectors_group, name, vector, is_packed)
+                return write_packed_dense_dataset!(axis_vectors_group, name, plain_vector, is_packed)
             end
         end
     end
@@ -802,11 +805,11 @@ function create_empty_dense_vector_in(
     axis_vectors_group = vectors_group[axis]
     @assert axis_vectors_group isa HDF5.Group
 
-    local vector_dataset
-    flame_timed("H5df.create_empty_dense_vector") do
-        vector_dataset = create_dataset(axis_vectors_group, name, T, (size,))
-        @assert vector_dataset isa HDF5.Dataset
-        return vector_dataset[:] = 0
+    vector_dataset = flame_timed("H5df.create_empty_dense_vector") do
+        new_vector_dataset = create_dataset(axis_vectors_group, name, T, (size,))
+        @assert new_vector_dataset isa HDF5.Dataset
+        new_vector_dataset[:] = 0
+        return new_vector_dataset
     end
 
     vector, cache_group = dataset_as_vector(vector_dataset)
@@ -869,17 +872,16 @@ function create_empty_sparse_vector_in(
     @assert axis_vectors_group isa HDF5.Group
     vector_group = create_group(axis_vectors_group, name)
 
-    local nzind_dataset
-    local nzval_dataset
-    flame_timed("H5df.create_empty_sparse_vector") do
-        nzind_dataset = create_dataset(vector_group, "nzind", I, (nnz,))
-        nzval_dataset = create_dataset(vector_group, "nzval", T, (nnz,))
+    nzind_dataset, nzval_dataset = flame_timed("H5df.create_empty_sparse_vector") do
+        new_nzind_dataset = create_dataset(vector_group, "nzind", I, (nnz,))
+        new_nzval_dataset = create_dataset(vector_group, "nzval", T, (nnz,))
 
-        @assert nzind_dataset isa HDF5.Dataset
-        @assert nzval_dataset isa HDF5.Dataset
+        @assert new_nzind_dataset isa HDF5.Dataset
+        @assert new_nzval_dataset isa HDF5.Dataset
 
-        nzind_dataset[:] = 0
-        return nzval_dataset[:] = 0
+        new_nzind_dataset[:] = 0
+        new_nzval_dataset[:] = 0
+        return (new_nzind_dataset, new_nzval_dataset)
     end
 
     nzind_vector, _ = dataset_as_vector(nzind_dataset)
@@ -1114,19 +1116,19 @@ function Formats.format_set_matrix!(
         @assert matrix isa AbstractMatrix
         @assert major_axis(matrix) != Rows
 
-        matrix = plain_array(matrix)
+        plain_matrix = plain_array(matrix)
 
-        if issparse(matrix)
+        if issparse(plain_matrix)
             flame_timed("H5df.write_sparse_matrix") do
-                @assert matrix isa AbstractMatrix
+                @assert plain_matrix isa AbstractMatrix
                 matrix_group = create_group(columns_axis_group, name)
-                write_packed_dense_dataset!(matrix_group, "colptr", colptr(matrix), is_packed)
-                write_packed_dense_dataset!(matrix_group, "rowval", rowval(matrix), is_packed)
-                if eltype(matrix) != Bool || !all(nzval(matrix))
-                    if eltype(matrix) <: AbstractString
-                        matrix_group["nzval"] = String.(nzval(matrix))  # UNTESTED
+                write_packed_dense_dataset!(matrix_group, "colptr", colptr(plain_matrix), is_packed)
+                write_packed_dense_dataset!(matrix_group, "rowval", rowval(plain_matrix), is_packed)
+                if eltype(plain_matrix) != Bool || !all(nzval(plain_matrix))
+                    if eltype(plain_matrix) <: AbstractString
+                        matrix_group["nzval"] = String.(nzval(plain_matrix))  # UNTESTED
                     else
-                        write_packed_dense_dataset!(matrix_group, "nzval", nzval(matrix), is_packed)
+                        write_packed_dense_dataset!(matrix_group, "nzval", nzval(plain_matrix), is_packed)
                     end
                 end
                 return close(matrix_group)
@@ -1134,7 +1136,7 @@ function Formats.format_set_matrix!(
 
         else
             flame_timed("H5df.write_dense_matrix") do
-                return write_packed_dense_dataset!(columns_axis_group, name, matrix, is_packed)
+                return write_packed_dense_dataset!(columns_axis_group, name, plain_matrix, is_packed)
             end
         end
     end
@@ -1302,10 +1304,10 @@ function create_empty_dense_matrix_in(
     columns_axis_group = rows_axis_group[columns_axis]
     @assert columns_axis_group isa HDF5.Group
 
-    local matrix_dataset
-    flame_timed("H5df.create_empty_dense_matrix") do
-        matrix_dataset = create_dataset(columns_axis_group, name, T, (nrows, ncols))
-        return matrix_dataset[:, :] = 0
+    matrix_dataset = flame_timed("H5df.create_empty_dense_matrix") do
+        new_matrix_dataset = create_dataset(columns_axis_group, name, T, (nrows, ncols))
+        new_matrix_dataset[:, :] = 0
+        return new_matrix_dataset
     end
 
     matrix, cache_group = dataset_as_matrix(matrix_dataset)
@@ -1386,19 +1388,16 @@ function create_empty_sparse_matrix_in(
     @assert columns_axis_group isa HDF5.Group
     matrix_group = create_group(columns_axis_group, name)
 
-    local colptr_dataset
-    local rowval_dataset
-    local nzval_dataset
+    colptr_dataset, rowval_dataset, nzval_dataset = flame_timed("H5df.create_empty_sparse_matrix") do
+        new_colptr_dataset = create_dataset(matrix_group, "colptr", I, ncols + 1)
+        new_rowval_dataset = create_dataset(matrix_group, "rowval", I, Int(nnz))
+        new_nzval_dataset = create_dataset(matrix_group, "nzval", T, Int(nnz))
 
-    flame_timed("H5df.create_empty_sparse_matrix") do
-        colptr_dataset = create_dataset(matrix_group, "colptr", I, ncols + 1)
-        rowval_dataset = create_dataset(matrix_group, "rowval", I, Int(nnz))
-        nzval_dataset = create_dataset(matrix_group, "nzval", T, Int(nnz))
-
-        colptr_dataset[:] = nnz + 1
-        colptr_dataset[1] = 1
-        rowval_dataset[:] = 1
-        return nzval_dataset[:] = 0
+        new_colptr_dataset[:] = nnz + 1
+        new_colptr_dataset[1] = 1
+        new_rowval_dataset[:] = 1
+        new_nzval_dataset[:] = 0
+        return (new_colptr_dataset, new_rowval_dataset, new_nzval_dataset)
     end
 
     colptr_vector, _ = dataset_as_vector(colptr_dataset)

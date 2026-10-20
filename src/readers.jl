@@ -796,9 +796,8 @@ function has_matrix(
     name::AbstractString;
     relayout::Bool = true,
 )::Bool
+    relayout = relayout && rows_axis != columns_axis
     return Formats.with_data_read_lock(daf, "has_matrix of:", name, "of:", rows_axis, "and:", columns_axis) do
-        relayout = relayout && rows_axis != columns_axis
-
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
         require_axis(daf, "for the columns of the matrix: $(name)", columns_axis)
 
@@ -853,9 +852,9 @@ function matrices_set(
     tensors::Bool = true,
     relayout::Bool = true,
 )::AbstractSet{<:AbstractString}
+    relayout = relayout && rows_axis != columns_axis
     return Formats.with_data_read_lock(daf, "matrices_set of:", rows_axis, "and:", columns_axis) do
         # Formats.assert_valid_cache(daf)
-        relayout = relayout && rows_axis != columns_axis
 
         require_axis(daf, "for the rows of: matrices_set", rows_axis)
         require_axis(daf, "for the columns of: matrices_set", columns_axis)
@@ -1020,8 +1019,8 @@ function get_matrix(
     default::Union{StorageScalarBase, StorageMatrix, Nothing, UndefInitializer} = undef,
     relayout::Bool = true,
 )::Maybe{NamedArray}
+    relayout = relayout && rows_axis != columns_axis
     return Formats.with_data_read_lock(daf, "get_matrix of:", name, "of:", rows_axis, "and:", columns_axis) do
-        relayout = relayout && rows_axis != columns_axis
         # Formats.assert_valid_cache(daf)
 
         require_axis(daf, "for the rows of the matrix: $(name)", rows_axis)
@@ -1595,8 +1594,8 @@ function tensors_description(
 end
 
 function cache_description(daf::DafReader, indent::AbstractString, lines::Vector{String})::Nothing
-    is_first = true
     Formats.with_cache_read_lock(daf, "cache for: description") do
+        is_first = true
         cache_keys = collect(keys(daf.internal.cache))
         sort!(cache_keys; lt = cache_key_is_less)
         for key in cache_keys

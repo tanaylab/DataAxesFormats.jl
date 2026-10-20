@@ -494,16 +494,21 @@ function contractor(
 )::DafReader
     if DAF_ENFORCE_CONTRACTS
         return flame_timed("contractor") do
-            if name === nothing
-                name = daf.name
-            else
-                name = split(name, '.')[end]
-            end
-            name = unique_name("$(name).for.$(split(computation, '.')[end])")
-            axes = collect_axes(contract, name)
-            data = collect_data(computation, contract, name, axes)
+            base_name = name === nothing ? daf.name : split(name, '.')[end]
+            contract_name = unique_name("$(base_name).for.$(split(computation, '.')[end])")
+            axes = collect_axes(contract, contract_name)
+            data = collect_data(computation, contract, contract_name, axes)
             expand_input_tensors(data, daf)
-            return ContractDaf(name, daf.internal, computation, contract.is_relaxed, axes, data, daf, overwrite)
+            return ContractDaf(
+                contract_name,
+                daf.internal,
+                computation,
+                contract.is_relaxed,
+                axes,
+                data,
+                daf,
+                overwrite,
+            )
         end
     else
         return daf  # UNTESTED
@@ -1886,7 +1891,8 @@ function dedent(string::AbstractString; indent::AbstractString = "")::String
     if first_non_space === nothing
         return indent * string  # UNTESTED
     else
-        return join([indent * line[first_non_space:end] for line in lines], "\n")  # NOJET
+        first_kept_index = first_non_space
+        return join([indent * line[first_kept_index:end] for line in lines], "\n")  # NOJET
     end
 end
 
