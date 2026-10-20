@@ -1072,7 +1072,7 @@ function write_through_cache(getter::Function, format::FormatReader, cache_key::
             if cache_entry.data isa PendingResult  # UNTESTED
                 return nothing  # UNTESTED
             else
-                return cache_entry.data  # UNTESTED
+                return cache_entry.data::T  # UNTESTED
             end
         else
             result, cache_group = getter()

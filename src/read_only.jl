@@ -118,7 +118,8 @@ function Formats.format_axis_vector(
     axis::AbstractString,
 )::Tuple{AbstractVector{<:AbstractString}, Maybe{Formats.CacheGroup}}
     @assert Formats.has_data_read_lock(read_only_view)
-    return Formats.format_axis_vector(read_only_view.daf, axis)
+    axis_vector, cache_group = Formats.format_axis_vector(read_only_view.daf, axis)
+    return (axis_vector, cache_group)
 end
 
 function Formats.format_axis_length(read_only_view::DafReadOnlyWrapper, axis::AbstractString)::Int64

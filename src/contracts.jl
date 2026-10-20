@@ -1309,7 +1309,8 @@ function Formats.format_axis_vector(
     contract_daf::ContractDaf,
     axis::AbstractString,
 )::Tuple{AbstractVector{<:AbstractString}, Maybe{Formats.CacheGroup}}
-    return Formats.format_axis_vector(contract_daf.daf, axis)
+    axis_vector, cache_group = Formats.format_axis_vector(contract_daf.daf, axis)
+    return (axis_vector, cache_group)
 end
 
 function Readers.axis_length(contract_daf::ContractDaf, axis::AbstractString)::Int64
@@ -1417,7 +1418,8 @@ function Formats.format_get_vector(
     axis::AbstractString,
     name::AbstractString,
 )::Tuple{StorageVector, Maybe{Formats.CacheGroup}}
-    return Formats.format_get_vector(contract_daf.daf, axis, name)
+    vector, cache_group = Formats.format_get_vector(contract_daf.daf, axis, name)
+    return (vector, cache_group)
 end
 
 function Formats.format_vector_metadata(
@@ -1570,7 +1572,8 @@ function Formats.format_get_matrix(
     columns_axis::AbstractString,
     name::AbstractString,
 )::Tuple{StorageMatrix, Maybe{Formats.CacheGroup}}
-    return Formats.format_get_matrix(contract_daf.daf, rows_axis, columns_axis, name)  # NOJET
+    matrix, cache_group = Formats.format_get_matrix(contract_daf.daf, rows_axis, columns_axis, name)
+    return (matrix, cache_group)
 end
 
 function Formats.format_matrix_metadata(
