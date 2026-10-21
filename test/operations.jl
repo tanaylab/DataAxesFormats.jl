@@ -413,6 +413,51 @@ nested_test("operations") do
             return nothing
         end
 
+        nested_test("buffered") do
+            compute_reduction = DataAxesFormats.Registry.compute_reduction
+            reduction_result_type = DataAxesFormats.Registry.reduction_result_type
+            supports_buffer_reduction = DataAxesFormats.Registry.supports_buffer_reduction
+            supports_grouped_reduction = DataAxesFormats.Registry.supports_grouped_reduction
+            group_index_per_row = [1, 2, 3, 1, 2, 3, 1, 0]
+            integers = [
+                0 0 0 2 1
+                1 0 3 0 0
+                0 6 0 0 2
+                9 0 0 4 0
+                0 0 1 0 0
+                3 0 0 0 0
+                0 2 0 5 0
+                0 0 0 0 3
+            ]
+            floats = integers .* 0.5
+            for operation in (Median(), Quantile(; p = 0.3), Mode())
+                @test !supports_grouped_reduction(operation)
+                @test supports_buffer_reduction(operation)
+                for values in (integers, floats, sparse(integers), sparse(floats))
+                    result = compute_grouped_reduction(operation, values, group_index_per_row, 3)
+                    @test size(result) == (3, 5)
+                    @test eltype(result) == reduction_result_type(operation, eltype(values))
+                    for group_index in 1:3
+                        expected = compute_reduction(operation, values[group_index_per_row .== group_index, :], 1)
+                        @test result[group_index, :] ≈ expected
+                    end
+                end
+            end
+            strings = ["a" "b"; "b" "b"; "a" "c"; "c" "c"]
+            @test compute_grouped_reduction(Mode(), strings, [1, 1, 2, 2], 2) == ["a" "b"; "a" "c"]
+            return nothing
+        end
+
+        nested_test("mode_ties") do
+            compute_reduction = DataAxesFormats.Registry.compute_reduction
+            @test compute_reduction(Mode(), [3, 1, 3, 1]) == 1
+            @test compute_reduction(Mode(), sparse([0, 2, 0, 2])) == 0
+            @test compute_reduction(Mode(), sparse([0, 0, -1, -1])) == -1
+            @test compute_reduction(Mode(), ["b", "a", "b", "a"]) == "a"
+            @test compute_reduction(Mode(), sparse([0 2; 0 2; 2 0; 0 2]), 1) == [0, 2]
+            return nothing
+        end
+
         nested_test("packed") do
             mktempdir() do path
                 packed = FilesDaf(path * "/packed.daf", "w+"; name = "packed!", packed = true)

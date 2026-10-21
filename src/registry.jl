@@ -13,12 +13,15 @@ export @query_operation
 export EltwiseOperation
 export QueryOperation
 export ReductionOperation
+export buffer_reduction_eltype
 export compute_eltwise
 export compute_reduction
 export empty_reduction_state
 export final_reduction_value
+export reduce_buffer!
 export reduction_result_type
 export register_query_operation
+export supports_buffer_reduction
 export supports_grouped_reduction
 export supports_strings
 export update_reduction_state
@@ -152,7 +155,8 @@ function reduction_result_type end
 Whether the reduction `operation` can be computed one value at a time, which allows reducing the rows of a matrix per
 group in a single pass over each column (see `compute_grouped_reduction` in the query operations module). Such an
 operation implements [`empty_reduction_state`](@ref), [`update_reduction_state`](@ref) and
-[`final_reduction_value`](@ref). By default this is `false`, and the reduction is applied to each group's values.
+[`final_reduction_value`](@ref). By default this is `false`. An operation which needs all the values at once may instead
+[`supports_buffer_reduction`](@ref). Otherwise, the reduction is applied to each group's values.
 """
 function supports_grouped_reduction(::ReductionOperation)::Bool
     return false
@@ -182,6 +186,36 @@ in total. The values that weren't seen are zeros (the implicit zeros of a sparse
 [`reduction_result_type`](@ref). Only needed if [`supports_grouped_reduction`](@ref).
 """
 function final_reduction_value end
+
+"""
+    supports_buffer_reduction(operation::ReductionOperation)::Bool
+
+Whether the reduction `operation` can be computed from a buffer holding all the stored values, plus a count of the
+implicit zeros of a sparse matrix that aren't in the buffer. This allows reducing the rows of a matrix per group in a
+single pass over each column (see `compute_grouped_reduction` in the query operations module), for an operation which
+needs all the values at once (e.g., a median). Such an operation implements [`buffer_reduction_eltype`](@ref) and
+[`reduce_buffer!`](@ref). By default this is `false`.
+"""
+function supports_buffer_reduction(::ReductionOperation)::Bool
+    return false
+end
+
+"""
+    buffer_reduction_eltype(operation::ReductionOperation, eltype::Type)::Type
+
+The element type of the buffer given to [`reduce_buffer!`](@ref), when reducing values of the specified `eltype`. Only
+needed if [`supports_buffer_reduction`](@ref).
+"""
+function buffer_reduction_eltype end
+
+"""
+    reduce_buffer!(operation::ReductionOperation, buffer::AbstractVector, n_implicit_zero::Integer)::StorageScalar
+
+The result of the reduction `operation` of the values in the `buffer`, together with `n_implicit_zero` zero values that
+aren't in it. This may reorder the `buffer`. The result is converted to the [`reduction_result_type`](@ref). Only needed
+if [`supports_buffer_reduction`](@ref).
+"""
+function reduce_buffer! end
 
 # A global registry of all the known element-wise operations.
 const ELTWISE_REGISTERED_OPERATIONS = Dict{String, RegisteredOperation}()  # NOLINT

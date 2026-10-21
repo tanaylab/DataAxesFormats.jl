@@ -1014,7 +1014,7 @@
 <code class="language-julia hljs">Mode()
 </code>
 </pre>
-<p>Reduction operation that returns the most frequent value in the input (the &quot;mode&quot;).
+<p>Reduction operation that returns the most frequent value in the input (the &quot;mode&quot;). If several values are the most frequent, this returns the smallest of them, so the result doesn&#39;t depend on the order of the values.
 </p>
 <div class="admonition is-info" id="Note-4acbcd00233aa3f4">
 <header class="admonition-header">Note
@@ -1089,10 +1089,10 @@
 <pre>
 <code class="language-julia hljs">compute_grouped_reduction(
     operation::ReductionOperation,
-    matrix::StorageMatrix{&lt;:StorageReal},
+    matrix::StorageMatrix,
     group_index_per_row::AbstractVector{&lt;:Integer},
     n_groups::Integer,
-)::Matrix{&lt;:StorageReal}
+)::Matrix
 </code>
 </pre>
 <p>Reduce the rows of a column-major 
@@ -1107,9 +1107,17 @@
 <a href="registry.html#DataAxesFormats.Registry.supports_grouped_reduction">
 <code>supports_grouped_reduction
 </code>
+</a> or 
+<a href="registry.html#DataAxesFormats.Registry.supports_buffer_reduction">
+<code>supports_buffer_reduction
+</code>
 </a>.
 </p>
-<p>Each column is visited once, so the time is proportional to the number of values, plus the number of groups for each column. For a sparse matrix only the stored values are visited.
+<p>Each column is visited once, so the time is proportional to the number of values, plus the number of groups for each column. For a sparse matrix only the stored values are visited. The columns are read using the TanayLabUtilities 
+<code>parallel_foreach_column
+</code>, so a lazy 
+<code>matrix
+</code> is read one column at a time.
 </p>
 </div>
 </section>

@@ -22,6 +22,9 @@ DataAxesFormats.Registry.supports_grouped_reduction
 DataAxesFormats.Registry.empty_reduction_state
 DataAxesFormats.Registry.update_reduction_state
 DataAxesFormats.Registry.final_reduction_value
+DataAxesFormats.Registry.supports_buffer_reduction
+DataAxesFormats.Registry.buffer_reduction_eltype
+DataAxesFormats.Registry.reduce_buffer!
 ```
 
 ## Registering operations

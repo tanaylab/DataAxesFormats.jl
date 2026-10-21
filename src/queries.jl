@@ -4852,9 +4852,11 @@ function compute_grouped_matrix(
     result_type = reduction_result_type(reduce_to_row.reduction_operation, eltype(matrix_values))
     reduced_values =
         Matrix{result_type}(undef, length(unique_group_values), length(base_state.columns_state.vector_entries))
-    if eltype(matrix_values) <: StorageReal &&
-       supports_grouped_reduction(reduce_to_row.reduction_operation) &&
-       major_axis(matrix_values) == Columns
+    reduction_operation = reduce_to_row.reduction_operation
+    if major_axis(matrix_values) == Columns && (
+        (eltype(matrix_values) <: StorageReal && supports_grouped_reduction(reduction_operation)) ||
+        supports_buffer_reduction(reduction_operation)
+    )
         reduce_grouped_rows!(
             query_state,
             reduced_values,

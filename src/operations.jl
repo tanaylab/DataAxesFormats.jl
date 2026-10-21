@@ -46,16 +46,20 @@ using StatsBase
 using LoopVectorization
 using TanayLabUtilities
 
+import ..Registry.buffer_reduction_eltype
 import ..Registry.compute_eltwise
 import ..Registry.compute_reduction
 import ..Registry.empty_reduction_state
 import ..Registry.final_reduction_value
+import ..Registry.reduce_buffer!
 import ..Registry.reduction_result_type
+import ..Registry.supports_buffer_reduction
 import ..Registry.supports_grouped_reduction
 import ..Registry.supports_strings
 import ..Registry.update_reduction_state
 import ..Tokens.error_at_token
 import ..Tokens.Token
+import Base.Threads.maxthreadid
 import Base.MathConstants.e
 import Base.MathConstants.pi
 
@@ -1124,7 +1128,8 @@ end
 """
     Mode()
 
-Reduction operation that returns the most frequent value in the input (the "mode").
+Reduction operation that returns the most frequent value in the input (the "mode"). If several values are the most
+frequent, this returns the smallest of them, so the result doesn't depend on the order of the values.
 
 !!! note
 
@@ -1142,13 +1147,17 @@ function compute_reduction(operation::Mode, input::StorageMatrix, axis::Integer)
     type = reduction_result_type(operation, eltype(input))
     output = Vector{type}(undef, size(input, other_axis(axis)))
     if axis == 1
-        parallel_loop_wo_rng(
-            1:length(output);
+        n_rows = size(input, 1)
+        buffer_per_thread = [Vector{eltype(input)}(undef, n_rows) for _ in 1:maxthreadid()]
+        parallel_foreach_column(
+            input;
             name = "Mode",
             progress = DebugProgress(length(output); group = :daf_loops, desc = "Mode"),
-        ) do column_index
-            column_vector = @view input[:, column_index]
-            output[column_index] = mode(column_vector)
+        ) do _, column_index, column
+            values = issparse(column) ? nonzeros(column) : column
+            buffer = view(buffer_per_thread[threadid()], 1:length(values))
+            copyto!(buffer, values)
+            output[column_index] = mode_of_buffer!(buffer, n_rows - length(values))
             return nothing
         end
     else
@@ -1157,8 +1166,7 @@ function compute_reduction(operation::Mode, input::StorageMatrix, axis::Integer)
             name = "Mode",
             progress = DebugProgress(length(output); group = :daf_loops, desc = "Mode"),
         ) do row_index
-            row_vector = @view input[row_index, :]
-            output[row_index] = mode(row_vector)
+            output[row_index] = mode_of_buffer!(collect(view(input, row_index, :)), 0)
             return nothing
         end
     end
@@ -1166,7 +1174,60 @@ function compute_reduction(operation::Mode, input::StorageMatrix, axis::Integer)
 end
 
 function compute_reduction(::Mode, input::Union{StorageVector, StorageMatrix})::StorageScalar
-    return mode(input)
+    plain_input = plain_array(input)
+    if issparse(plain_input)
+        values = copy(nonzeros(plain_input))
+        return mode_of_buffer!(values, length(plain_input) - length(values))
+    else
+        return mode_of_buffer!(vec(collect(plain_input)), 0)
+    end
+end
+
+function supports_buffer_reduction(::Mode)::Bool
+    return true
+end
+
+function buffer_reduction_eltype(::Mode, eltype::Type)::Type
+    return eltype
+end
+
+function reduce_buffer!(::Mode, buffer::AbstractVector, n_implicit_zero::Integer)::StorageScalar
+    return mode_of_buffer!(buffer, n_implicit_zero)
+end
+
+# The most frequent value of the values in the `buffer` and `n_implicit_zero` more zeros, the smallest of them if
+# several are the most frequent. This sorts the `buffer`.
+function mode_of_buffer!(buffer::AbstractVector, n_implicit_zero::Integer)::StorageScalar
+    @assert !isempty(buffer) || n_implicit_zero > 0 "empty input"
+    sort!(buffer)
+    mode_value = nothing
+    mode_count = 0
+    has_explicit_zero = false
+    run_start = 1
+    while run_start <= length(buffer)
+        run_value = buffer[run_start]
+        run_end = run_start
+        while run_end < length(buffer) && buffer[run_end + 1] == run_value
+            run_end += 1
+        end
+        run_count = run_end - run_start + 1
+        if n_implicit_zero > 0 && iszero(run_value)
+            has_explicit_zero = true
+            run_count += n_implicit_zero
+        end
+        if run_count > mode_count
+            mode_value = run_value
+            mode_count = run_count
+        end
+        run_start = run_end + 1
+    end
+    if n_implicit_zero > 0 && !has_explicit_zero
+        if mode_value === nothing || n_implicit_zero > mode_count || (n_implicit_zero == mode_count && mode_value > 0)
+            mode_value = zero(eltype(buffer))
+        end
+    end
+    @assert mode_value !== nothing
+    return mode_value
 end
 
 function reduction_result_type(::Mode, eltype::Type)::Type
@@ -1438,6 +1499,18 @@ function reduction_result_type(operation::Median, eltype::Type)::Type
     return float_type_for(eltype, operation.type)
 end
 
+function supports_buffer_reduction(::Median)::Bool
+    return true
+end
+
+function buffer_reduction_eltype(::Median, ::Type)::Type
+    return Float64
+end
+
+function reduce_buffer!(::Median, buffer::AbstractVector{Float64}, n_implicit_zero::Integer)::Float64
+    return sparse_quantile!(buffer, 0.5; n_implicit_zero)
+end
+
 """
     Quantile(; type::Maybe{Type} = nothing, p::StorageReal)
 
@@ -1503,6 +1576,18 @@ end
 
 function reduction_result_type(operation::Quantile, eltype::Type)::Type
     return float_type_for(eltype, operation.type)
+end
+
+function supports_buffer_reduction(::Quantile)::Bool
+    return true
+end
+
+function buffer_reduction_eltype(::Quantile, ::Type)::Type
+    return Float64
+end
+
+function reduce_buffer!(operation::Quantile, buffer::AbstractVector{Float64}, n_implicit_zero::Integer)::Float64
+    return sparse_quantile!(buffer, operation.p; n_implicit_zero)
 end
 
 """
@@ -2022,25 +2107,27 @@ end
 """
     compute_grouped_reduction(
         operation::ReductionOperation,
-        matrix::StorageMatrix{<:StorageReal},
+        matrix::StorageMatrix,
         group_index_per_row::AbstractVector{<:Integer},
         n_groups::Integer,
-    )::Matrix{<:StorageReal}
+    )::Matrix
 
 Reduce the rows of a column-major `matrix` per group. The result has one row per group, and one column per column of the
 `matrix`. The group of each row is given by `group_index_per_row`, where 0 means the row is in no group. Each group must
-have at least one row. The `operation` must [`supports_grouped_reduction`](@ref).
+have at least one row. The `operation` must [`supports_grouped_reduction`](@ref) or
+[`supports_buffer_reduction`](@ref).
 
 Each column is visited once, so the time is proportional to the number of values, plus the number of groups for each
-column. For a sparse matrix only the stored values are visited.
+column. For a sparse matrix only the stored values are visited. The columns are read using the TanayLabUtilities
+`parallel_foreach_column`, so a lazy `matrix` is read one column at a time.
 """
 function compute_grouped_reduction(
     operation::ReductionOperation,
-    matrix::StorageMatrix{<:StorageReal},
+    matrix::StorageMatrix,
     group_index_per_row::AbstractVector{<:Integer},
     n_groups::Integer,
-)::Matrix{<:StorageReal}
-    @assert supports_grouped_reduction(operation)
+)::Matrix
+    @assert supports_grouped_reduction(operation) || supports_buffer_reduction(operation)
     @assert length(group_index_per_row) == size(matrix, 1)
     @assert require_major_axis(matrix) == Columns
 
@@ -2052,81 +2139,169 @@ function compute_grouped_reduction(
     end
     @assert all(n_rows_per_group .> 0)
 
-    plain_matrix = plain_array(matrix)
-    element_type = eltype(plain_matrix)
-    n_columns = size(plain_matrix, 2)
-    output = Matrix{reduction_result_type(operation, element_type)}(undef, n_groups, n_columns)
-    empty_state = empty_reduction_state(operation, element_type)
-    buffers = ReusableStorage(() -> (Vector{typeof(empty_state)}(undef, n_groups), Vector{Int}(undef, n_groups)))
+    output = Matrix{reduction_result_type(operation, eltype(matrix))}(undef, n_groups, size(matrix, 2))
+    if supports_grouped_reduction(operation)
+        compute_streamed_grouped_reduction!(output, operation, matrix, group_index_per_row, n_rows_per_group)
+    else
+        compute_buffered_grouped_reduction!(output, operation, matrix, group_index_per_row, n_rows_per_group)
+    end
+    return output
+end
 
-    parallel_loop_wo_rng(
-        1:n_columns;
+# Reduce the rows of the `matrix` per group into the `output` by updating a state per group with each value of each
+# column.
+function compute_streamed_grouped_reduction!(
+    output::AbstractMatrix,
+    operation::ReductionOperation,
+    matrix::StorageMatrix,
+    group_index_per_row::AbstractVector{<:Integer},
+    n_rows_per_group::AbstractVector{<:Integer},
+)::Nothing
+    n_groups = length(n_rows_per_group)
+    empty_state = empty_reduction_state(operation, eltype(matrix))
+    state_per_group_per_thread = [Vector{typeof(empty_state)}(undef, n_groups) for _ in 1:maxthreadid()]
+    n_seen_per_group_per_thread = [Vector{Int}(undef, n_groups) for _ in 1:maxthreadid()]
+
+    parallel_foreach_column(
+        matrix;
         name = "compute_grouped_reduction",
-        progress = DebugProgress(n_columns; group = :daf_loops, desc = "compute_grouped_reduction"),
-    ) do column_index
-        with_reusable(buffers) do (state_per_group, n_seen_per_group)
-            state_per_group .= Ref(empty_state)
-            n_seen_per_group .= 0
-            reduce_column_per_group!(
+        progress = DebugProgress(size(matrix, 2); group = :daf_loops, desc = "compute_grouped_reduction"),
+    ) do _, column_index, column
+        state_per_group = state_per_group_per_thread[threadid()]
+        n_seen_per_group = n_seen_per_group_per_thread[threadid()]
+        state_per_group .= Ref(empty_state)
+        n_seen_per_group .= 0
+        row_index_per_stored, value_per_stored = stored_entries_of_column(column)
+        reduce_column_per_group!(
+            operation,
+            state_per_group,
+            n_seen_per_group,
+            row_index_per_stored,
+            value_per_stored,
+            group_index_per_row,
+        )
+        for group_index in 1:n_groups
+            output[group_index, column_index] = final_reduction_value(
                 operation,
-                state_per_group,
-                n_seen_per_group,
-                plain_matrix,
-                column_index,
-                group_index_per_row,
+                state_per_group[group_index],
+                n_seen_per_group[group_index],
+                n_rows_per_group[group_index],
             )
-            for group_index in 1:n_groups
-                output[group_index, column_index] = final_reduction_value(
-                    operation,
-                    state_per_group[group_index],
-                    n_seen_per_group[group_index],
-                    n_rows_per_group[group_index],
-                )
-            end
-            return nothing
         end
         return nothing
     end
 
-    return output
-end
-
-# Update the state of each group with the stored values of one column of a sparse matrix.
-function reduce_column_per_group!(
-    operation::ReductionOperation,
-    state_per_group::AbstractVector,
-    n_seen_per_group::AbstractVector{<:Integer},
-    matrix::SparseMatrixCSC,
-    column_index::Integer,
-    group_index_per_row::AbstractVector{<:Integer},
-)::Nothing
-    row_index_per_stored = rowvals(matrix)
-    value_per_stored = nonzeros(matrix)
-    @inbounds for stored_index in nzrange(matrix, column_index)
-        group_index = group_index_per_row[row_index_per_stored[stored_index]]
-        if group_index > 0
-            state_per_group[group_index] =
-                update_reduction_state(operation, state_per_group[group_index], value_per_stored[stored_index])
-            n_seen_per_group[group_index] += 1
-        end
-    end
     return nothing
 end
 
-# Update the state of each group with all the values of one column of a dense matrix.
+# The row index and the value of each stored entry of a column of `parallel_foreach_column`: the stored entries of a
+# sparse column, or all the entries of a dense one.
+function stored_entries_of_column(
+    column::SparseArrays.SparseVectorUnion,
+)::Tuple{AbstractVector{<:Integer}, AbstractVector}
+    return (SparseArrays.nonzeroinds(column), nonzeros(column))
+end
+
+function stored_entries_of_column(column::AbstractVector)::Tuple{AbstractVector{<:Integer}, AbstractVector}
+    return (eachindex(column), column)
+end
+
+# Reduce the rows of the `matrix` per group into the `output` by placing the values of each group of each column in a
+# buffer, then reducing each group's slice of it, together with its implicit zeros.
+function compute_buffered_grouped_reduction!(
+    output::AbstractMatrix,
+    operation::ReductionOperation,
+    matrix::StorageMatrix,
+    group_index_per_row::AbstractVector{<:Integer},
+    n_rows_per_group::AbstractVector{<:Integer},
+)::Nothing
+    n_groups = length(n_rows_per_group)
+    buffer_eltype = buffer_reduction_eltype(operation, eltype(matrix))
+    n_grouped_rows = sum(n_rows_per_group)
+    buffer_per_thread = [Vector{buffer_eltype}(undef, n_grouped_rows) for _ in 1:maxthreadid()]
+    n_stored_per_group_per_thread = [Vector{Int}(undef, n_groups) for _ in 1:maxthreadid()]
+    next_position_per_group_per_thread = [Vector{Int}(undef, n_groups) for _ in 1:maxthreadid()]
+
+    parallel_foreach_column(
+        matrix;
+        name = "compute_grouped_reduction",
+        progress = DebugProgress(size(matrix, 2); group = :daf_loops, desc = "compute_grouped_reduction"),
+    ) do _, column_index, column
+        buffer = buffer_per_thread[threadid()]
+        n_stored_per_group = n_stored_per_group_per_thread[threadid()]
+        next_position_per_group = next_position_per_group_per_thread[threadid()]
+        row_index_per_stored, value_per_stored = stored_entries_of_column(column)
+        place_values_per_group!(
+            buffer,
+            n_stored_per_group,
+            next_position_per_group,
+            row_index_per_stored,
+            value_per_stored,
+            group_index_per_row,
+        )
+        for group_index in 1:n_groups
+            n_stored = n_stored_per_group[group_index]
+            last_position = next_position_per_group[group_index] - 1
+            output[group_index, column_index] = reduce_buffer!(
+                operation,
+                view(buffer, (last_position - n_stored + 1):last_position),
+                n_rows_per_group[group_index] - n_stored,
+            )
+        end
+        return nothing
+    end
+
+    return nothing
+end
+
+# Place the stored values of a column in the `buffer`, the values of each group together, in row order. Afterwards, the
+# values of a group end just before its `next_position_per_group`.
+function place_values_per_group!(
+    buffer::AbstractVector,
+    n_stored_per_group::AbstractVector{<:Integer},
+    next_position_per_group::AbstractVector{<:Integer},
+    row_index_per_stored::AbstractVector{<:Integer},
+    value_per_stored::AbstractVector,
+    group_index_per_row::AbstractVector{<:Integer},
+)::Nothing
+    n_stored_per_group .= 0
+    @inbounds for row_index in row_index_per_stored
+        group_index = group_index_per_row[row_index]
+        if group_index > 0
+            n_stored_per_group[group_index] += 1
+        end
+    end
+
+    position = 1
+    @inbounds for group_index in eachindex(n_stored_per_group)
+        next_position_per_group[group_index] = position
+        position += n_stored_per_group[group_index]
+    end
+
+    @inbounds for (row_index, value) in zip(row_index_per_stored, value_per_stored)
+        group_index = group_index_per_row[row_index]
+        if group_index > 0
+            buffer[next_position_per_group[group_index]] = value
+            next_position_per_group[group_index] += 1
+        end
+    end
+
+    return nothing
+end
+
+# Update the state of each group with the stored values of one column.
 function reduce_column_per_group!(
     operation::ReductionOperation,
     state_per_group::AbstractVector,
     n_seen_per_group::AbstractVector{<:Integer},
-    matrix::AbstractMatrix,
-    column_index::Integer,
+    row_index_per_stored::AbstractVector{<:Integer},
+    value_per_stored::AbstractVector,
     group_index_per_row::AbstractVector{<:Integer},
 )::Nothing
-    @inbounds for row_index in axes(matrix, 1)
+    @inbounds for (row_index, value) in zip(row_index_per_stored, value_per_stored)
         group_index = group_index_per_row[row_index]
         if group_index > 0
-            state_per_group[group_index] =
-                update_reduction_state(operation, state_per_group[group_index], matrix[row_index, column_index])
+            state_per_group[group_index] = update_reduction_state(operation, state_per_group[group_index], value)
             n_seen_per_group[group_index] += 1
         end
     end
