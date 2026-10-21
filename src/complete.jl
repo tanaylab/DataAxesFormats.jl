@@ -73,7 +73,7 @@ function complete_daf(
     return flame_timed("complete_daf") do
         daf_name = name === nothing ? leaf : name
         @assert mode in ("r", "r+")
-        @debug "Open complete $(daf_name):" _group = :daf_repose
+        @debug "Open complete $(daf_name):" _group = :daf_repos
         dafs = flame_timed("complete_daf.collect_dafs") do
             return collect_dafs(; name = daf_name, path = leaf, mode, is_packed = packed, indent = "", index = 0)
         end
@@ -99,7 +99,7 @@ function collect_dafs(;
     indent::AbstractString,
     index::Integer,
 )::Vector{DafReader}
-    @debug "$(indent)- Open $(path) $(mode)" _group = :daf_repose
+    @debug "$(indent)- Open $(path) $(mode)" _group = :daf_repos
     daf = open_daf(path, mode; packed = is_packed)
 
     specification = base_daf_repository(daf)
@@ -136,7 +136,7 @@ function collect_base(;
     end
 
     # A view is of the base's own complete chain, so what it exposes is decided before anything is chained on top of it.
-    @debug "$(indent)  View" _group = :daf_repose
+    @debug "$(indent)  View" _group = :daf_repos
     chain = chain_reader(base_dafs; name = "$(name).chain_$(index)")
     view = viewer(chain; name = "$(name).view_$(index)", axes = base.axes, data = base.data)
     push!(view.path, complete_path(base_dafs[end]))  # NOJET

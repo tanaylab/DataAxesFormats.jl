@@ -45,7 +45,7 @@ function read_only(daf::DafReader; name::Maybe{AbstractString} = nothing)::DafRe
     end
     name = unique_name(name)
     wrapper = DafReadOnlyWrapper(name, daf.internal, daf)
-    @debug "Daf: $(brief(wrapper)) base: $(daf)" _group = :daf_repose
+    @debug "Daf: $(brief(wrapper)) base: $(daf)" _group = :daf_repos
     return wrapper
 end
 
@@ -54,7 +54,7 @@ function read_only(daf::DafReadOnly; name::Maybe{AbstractString} = nothing)::Daf
         return daf
     else
         wrapper = DafReadOnlyWrapper(name, daf.internal, daf.daf)
-        @debug "Daf: $(brief(wrapper)) base: $(daf.daf)" _group = :daf_repose
+        @debug "Daf: $(brief(wrapper)) base: $(daf.daf)" _group = :daf_repos
         return wrapper
     end
 end

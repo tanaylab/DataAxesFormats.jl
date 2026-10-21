@@ -64,10 +64,10 @@ function MemoryDaf(; name::AbstractString = "memory", packed::Bool = false)::Mem
     name = unique_name(name)
     if packed
         @debug "Daf: MemoryDaf $(name) ignores packed=true (in-memory storage has no on-disk encoding)" _group =
-            :daf_repose
+            :daf_repos
     end
     memory = MemoryDaf(name, Internal(; is_frozen = false), scalars, axes, vectors, matrices, nothing)
-    @debug "Daf: $(brief(memory))" _group = :daf_repose
+    @debug "Daf: $(brief(memory))" _group = :daf_repos
     return memory
 end
 
