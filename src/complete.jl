@@ -100,7 +100,7 @@ function collect_dafs(;
     @debug "$(indent)- Open $(path) $(mode)" _group = :daf_repos
     daf = open_daf(path, mode; packed = is_packed)
 
-    bases = get_base_daf_repository(daf)
+    bases = get_base_daf_links(daf)
     if bases === nothing
         return DafReader[daf]
     end

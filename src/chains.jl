@@ -11,8 +11,8 @@ export RecordedBase
 export chain_reader
 export chain_writer
 export complete_chain!
-export get_base_daf_repository
-export set_base_daf_repository!
+export get_base_daf_links
+export set_base_daf_links!
 
 using JSON
 using NamedArrays
@@ -171,7 +171,7 @@ end
         data::Maybe{ViewData}
     end
 
-One immediate base of a stored repository, as returned by [`get_base_daf_repository`](@ref). The `path` is as recorded,
+One immediate base of a stored repository, as returned by [`get_base_daf_links`](@ref). The `path` is as recorded,
 that is, relative to the directory of the repository naming it, unless it was recorded as an absolute path. The `axes`
 and `data` are the [`viewer`](@ref) parameters applied to the base, or `nothing` if the whole of it is used.
 """
@@ -200,7 +200,7 @@ several of them when the `new_daf` rests on more than one repository - say, a re
 a repository of the parameters this variant of the analysis uses, both resting in turn on the same raw data. Later bases
 override earlier ones, as in any chain, and a repository reached more than once is used once, at its earliest position.
 
-This records the bases in the `new_daf` (see [`set_base_daf_repository!`](@ref)), so that the chain can be recreated by
+This records the bases in the `new_daf` (see [`set_base_daf_links!`](@ref)), so that the chain can be recreated by
 calling [`complete_daf`](@ref DataAxesFormats.CompleteDaf.complete_daf) in the future. The `absolute` flag is passed
 to it.
 """
@@ -217,13 +217,13 @@ function complete_chain!(;
 end
 
 """
-    get_base_daf_repository(daf::DafReader)::Maybe{Vector{RecordedBase}}
+    get_base_daf_links(daf::DafReader)::Maybe{Vector{RecordedBase}}
 
 The immediate bases recorded in a stored `daf` repository, which [`complete_daf`](@ref
 DataAxesFormats.CompleteDaf.complete_daf) chains it on top of, or `nothing` if it has none. The bases are not opened.
 Only a stored repository has bases: a chain or a view has none of its own.
 """
-function get_base_daf_repository(daf::DafReader)::Maybe{Vector{RecordedBase}}
+function get_base_daf_links(daf::DafReader)::Maybe{Vector{RecordedBase}}
     specification = stored_base_daf_repository(daf)
     if specification === nothing
         return nothing
@@ -233,7 +233,7 @@ function get_base_daf_repository(daf::DafReader)::Maybe{Vector{RecordedBase}}
 end
 
 """
-    set_base_daf_repository!(
+    set_base_daf_links!(
         daf::DafWriter,
         base_daf::Union{Nothing, DafReader, BaseDaf, AbstractVector{<:Union{BaseDaf, DafReader}}};
         absolute::Bool = false,
@@ -250,7 +250,7 @@ By default, the recorded paths are relative to the directory of the `daf`, for t
 repositories is stored under a common root. This allows this root to be renamed or moved somewhere else and still allow
 `complete_daf` to work. If `absolute` is set, then the recorded paths are absolute.
 """
-function set_base_daf_repository!(
+function set_base_daf_links!(
     daf::DafWriter,
     base_daf::Union{Nothing, DafReader, BaseDaf, AbstractVector{<:Union{BaseDaf, DafReader}}};
     absolute::Bool = false,
@@ -1311,7 +1311,7 @@ function Readers.complete_path(chain::AnyChain)::Maybe{AbstractString}
     while !isempty(unvisited)
         daf_path = pop!(unvisited)
         push!(reached, daf_path)
-        bases = get_base_daf_repository(daf_of_path[daf_path])
+        bases = get_base_daf_links(daf_of_path[daf_path])
         if bases !== nothing
             for base in bases
                 base_path = abspath(joinpath(dirname(daf_path), base.path))

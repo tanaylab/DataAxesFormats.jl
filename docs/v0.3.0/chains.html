@@ -530,8 +530,8 @@
 <p>This records the bases in the 
 <code>new_daf
 </code> (see 
-<a href="chains.html#DataAxesFormats.Chains.set_base_daf_repository!">
-<code>set_base_daf_repository!
+<a href="chains.html#DataAxesFormats.Chains.set_base_daf_links!">
+<code>set_base_daf_links!
 </code>
 </a>), so that the chain can be recreated by calling 
 <a href="complete.html#DataAxesFormats.CompleteDaf.complete_daf">
@@ -583,9 +583,9 @@ end
 </article>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.Chains.get_base_daf_repository">
-<a class="docstring-binding" href="#DataAxesFormats.Chains.get_base_daf_repository">
-<code>DataAxesFormats.Chains.get_base_daf_repository
+<summary id="DataAxesFormats.Chains.get_base_daf_links">
+<a class="docstring-binding" href="#DataAxesFormats.Chains.get_base_daf_links">
+<code>DataAxesFormats.Chains.get_base_daf_links
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -594,7 +594,7 @@ end
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">get_base_daf_repository(daf::DafReader)::Maybe{Vector{RecordedBase}}
+<code class="language-julia hljs">get_base_daf_links(daf::DafReader)::Maybe{Vector{RecordedBase}}
 </code>
 </pre>
 <p>The immediate bases recorded in a stored 
@@ -613,9 +613,9 @@ end
 </article>
 <article>
 <details class="docstring" open="true">
-<summary id="DataAxesFormats.Chains.set_base_daf_repository!">
-<a class="docstring-binding" href="#DataAxesFormats.Chains.set_base_daf_repository!">
-<code>DataAxesFormats.Chains.set_base_daf_repository!
+<summary id="DataAxesFormats.Chains.set_base_daf_links!">
+<a class="docstring-binding" href="#DataAxesFormats.Chains.set_base_daf_links!">
+<code>DataAxesFormats.Chains.set_base_daf_links!
 </code>
 </a> — 
 <span class="docstring-category">Function
@@ -624,7 +624,7 @@ end
 <section>
 <div>
 <pre>
-<code class="language-julia hljs">set_base_daf_repository!(
+<code class="language-julia hljs">set_base_daf_links!(
     daf::DafWriter,
     base_daf::Union{Nothing, DafReader, BaseDaf, AbstractVector{&lt;:Union{BaseDaf, DafReader}}};
     absolute::Bool = false,
@@ -688,8 +688,8 @@ end
 </code>
 </pre>
 <p>One immediate base of a stored repository, as returned by 
-<a href="chains.html#DataAxesFormats.Chains.get_base_daf_repository">
-<code>get_base_daf_repository
+<a href="chains.html#DataAxesFormats.Chains.get_base_daf_links">
+<code>get_base_daf_links
 </code>
 </a>. The 
 <code>path
@@ -767,14 +767,14 @@ end
 </a>
 </li>
 <li>
-<a href="chains.html#DataAxesFormats.Chains.get_base_daf_repository">
-<code>DataAxesFormats.Chains.get_base_daf_repository
+<a href="chains.html#DataAxesFormats.Chains.get_base_daf_links">
+<code>DataAxesFormats.Chains.get_base_daf_links
 </code>
 </a>
 </li>
 <li>
-<a href="chains.html#DataAxesFormats.Chains.set_base_daf_repository!">
-<code>DataAxesFormats.Chains.set_base_daf_repository!
+<a href="chains.html#DataAxesFormats.Chains.set_base_daf_links!">
+<code>DataAxesFormats.Chains.set_base_daf_links!
 </code>
 </a>
 </li>

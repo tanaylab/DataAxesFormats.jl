@@ -229,13 +229,13 @@ nested_test("complete") do
                 chain =
                     complete_chain!(; base_daf = BaseDaf(; daf = cells, axes = [VIEW_ALL_AXES]), new_daf = metacells)
 
-                @test get_base_daf_repository(cells) === nothing
-                @test get_base_daf_repository(metacells) == [RecordedBase("cells", [VIEW_ALL_AXES], nothing)]
-                @test get_base_daf_repository(read_only(metacells)) == get_base_daf_repository(metacells)
+                @test get_base_daf_links(cells) === nothing
+                @test get_base_daf_links(metacells) == [RecordedBase("cells", [VIEW_ALL_AXES], nothing)]
+                @test get_base_daf_links(read_only(metacells)) == get_base_daf_links(metacells)
 
                 # Only a stored repository has bases of its own.
-                @test get_base_daf_repository(chain) === nothing
-                @test get_base_daf_repository(viewer(metacells; axes = [VIEW_ALL_AXES])) === nothing
+                @test get_base_daf_links(chain) === nothing
+                @test get_base_daf_links(viewer(metacells; axes = [VIEW_ALL_AXES])) === nothing
                 return nothing
             end
         end
@@ -250,8 +250,8 @@ nested_test("complete") do
                 metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
                 complete_chain!(; base_daf = cells, new_daf = metacells)
 
-                set_base_daf_repository!(metacells, other_cells)
-                @test get_base_daf_repository(metacells) == [RecordedBase("other_cells", nothing, nothing)]
+                set_base_daf_links!(metacells, other_cells)
+                @test get_base_daf_links(metacells) == [RecordedBase("other_cells", nothing, nothing)]
                 @test get_vector(complete_daf("$(path)/metacells"), "cell", "age") == [11, 21, 31]
                 return nothing
             end
@@ -264,8 +264,8 @@ nested_test("complete") do
                 metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
                 complete_chain!(; base_daf = cells, new_daf = metacells)
 
-                set_base_daf_repository!(metacells, nothing)
-                @test get_base_daf_repository(metacells) === nothing
+                set_base_daf_links!(metacells, nothing)
+                @test get_base_daf_links(metacells) === nothing
                 @test !has_axis(complete_daf("$(path)/metacells"), "cell")
                 return nothing
             end
@@ -277,7 +277,7 @@ nested_test("complete") do
                 populate_complete_cells!(cells)
                 metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
                 chain = complete_chain!(; base_daf = cells, new_daf = metacells)
-                @test_throws "not a stored repository: " set_base_daf_repository!(chain, nothing)
+                @test_throws "not a stored repository: " set_base_daf_links!(chain, nothing)
                 return nothing
             end
         end
@@ -293,8 +293,8 @@ nested_test("complete") do
                 add_axis!(metacells, "cell", ["A", "B", "C"])
 
                 # The rebased repository would not reopen, so it is not recorded.
-                @test_throws "different number of entries: 3" set_base_daf_repository!(metacells, other_cells)
-                @test get_base_daf_repository(metacells) == [RecordedBase("cells", nothing, nothing)]
+                @test_throws "different number of entries: 3" set_base_daf_links!(metacells, other_cells)
+                @test get_base_daf_links(metacells) == [RecordedBase("cells", nothing, nothing)]
                 return nothing
             end
         end
