@@ -8,6 +8,9 @@ DataAxesFormats.Chains.ReadOnlyChain
 DataAxesFormats.Chains.WriteChain
 DataAxesFormats.Chains.complete_chain!
 DataAxesFormats.Chains.BaseDaf
+DataAxesFormats.Chains.get_base_daf_repository
+DataAxesFormats.Chains.set_base_daf_repository!
+DataAxesFormats.Chains.RecordedBase
 ```
 
 ## Index

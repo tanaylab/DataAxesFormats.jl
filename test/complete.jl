@@ -220,7 +220,118 @@ nested_test("complete") do
         end
     end
 
+    nested_test("bases") do
+        nested_test("get") do
+            mktempdir() do path
+                cells = FilesDaf("$(path)/cells", "w"; name = "cells!")
+                populate_complete_cells!(cells)
+                metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
+                chain =
+                    complete_chain!(; base_daf = BaseDaf(; daf = cells, axes = [VIEW_ALL_AXES]), new_daf = metacells)
+
+                @test get_base_daf_repository(cells) === nothing
+                @test get_base_daf_repository(metacells) == [RecordedBase("cells", [VIEW_ALL_AXES], nothing)]
+                @test get_base_daf_repository(read_only(metacells)) == get_base_daf_repository(metacells)
+
+                # Only a stored repository has bases of its own.
+                @test get_base_daf_repository(chain) === nothing
+                @test get_base_daf_repository(viewer(metacells; axes = [VIEW_ALL_AXES])) === nothing
+                return nothing
+            end
+        end
+
+        nested_test("rebase") do
+            mktempdir() do path
+                cells = FilesDaf("$(path)/cells", "w"; name = "cells!")
+                populate_complete_cells!(cells)
+                other_cells = FilesDaf("$(path)/other_cells", "w"; name = "other_cells!")
+                populate_complete_cells!(other_cells)
+                set_vector!(other_cells, "cell", "age", [11, 21, 31]; overwrite = true)
+                metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
+                complete_chain!(; base_daf = cells, new_daf = metacells)
+
+                set_base_daf_repository!(metacells, other_cells)
+                @test get_base_daf_repository(metacells) == [RecordedBase("other_cells", nothing, nothing)]
+                @test get_vector(complete_daf("$(path)/metacells"), "cell", "age") == [11, 21, 31]
+                return nothing
+            end
+        end
+
+        nested_test("detach") do
+            mktempdir() do path
+                cells = FilesDaf("$(path)/cells", "w"; name = "cells!")
+                populate_complete_cells!(cells)
+                metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
+                complete_chain!(; base_daf = cells, new_daf = metacells)
+
+                set_base_daf_repository!(metacells, nothing)
+                @test get_base_daf_repository(metacells) === nothing
+                @test !has_axis(complete_daf("$(path)/metacells"), "cell")
+                return nothing
+            end
+        end
+
+        nested_test("!stored") do
+            mktempdir() do path
+                cells = FilesDaf("$(path)/cells", "w"; name = "cells!")
+                populate_complete_cells!(cells)
+                metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
+                chain = complete_chain!(; base_daf = cells, new_daf = metacells)
+                @test_throws "not a stored repository: " set_base_daf_repository!(chain, nothing)
+                return nothing
+            end
+        end
+
+        nested_test("!axes") do
+            mktempdir() do path
+                cells = FilesDaf("$(path)/cells", "w"; name = "cells!")
+                populate_complete_cells!(cells)
+                other_cells = FilesDaf("$(path)/other_cells", "w"; name = "other_cells!")
+                add_axis!(other_cells, "cell", ["D", "E"])
+                metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
+                complete_chain!(; base_daf = cells, new_daf = metacells)
+                add_axis!(metacells, "cell", ["A", "B", "C"])
+
+                # The rebased repository would not reopen, so it is not recorded.
+                @test_throws "different number of entries: 3" set_base_daf_repository!(metacells, other_cells)
+                @test get_base_daf_repository(metacells) == [RecordedBase("cells", nothing, nothing)]
+                return nothing
+            end
+        end
+    end
+
     nested_test("chain") do
+        nested_test("on_view") do
+            mktempdir() do path
+                cells = FilesDaf("$(path)/cells", "w"; name = "cells!")
+                populate_complete_cells!(cells)
+                metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
+                metacells_chain = complete_chain!(; base_daf = cells, new_daf = metacells)
+                set_vector!(metacells_chain, "cell", "metacell", ["M1", "M1", "M2"])
+
+                # The view exposes all the data of the chained metacells, which rests in turn on the cells.
+                focus = FilesDaf("$(path)/focus", "w"; name = "focus!")
+                complete_chain!(;
+                    base_daf = BaseDaf(;
+                        daf = complete_daf("$(path)/metacells"),
+                        axes = [VIEW_ALL_AXES],
+                        data = [VIEW_ALL_SCALARS, VIEW_ALL_VECTORS],
+                    ),
+                    new_daf = focus,
+                )
+
+                reopened_focus = complete_daf("$(path)/focus"; name = "reopened_focus!")
+                @test complete_path(reopened_focus) == abspath("$(path)/focus")
+
+                round = FilesDaf("$(path)/round", "w"; name = "round!")
+                complete_chain!(; base_daf = reopened_focus, new_daf = round)
+                reopened_round = complete_daf("$(path)/round"; name = "reopened_round!")
+                @test get_vector(reopened_round, "cell", "age") == [10, 20, 30]
+                @test get_vector(reopened_round, "cell", "metacell") == ["M1", "M1", "M2"]
+                return nothing
+            end
+        end
+
         nested_test("nested") do
             mktempdir() do path
                 cells = FilesDaf("$(path)/cells", "w"; name = "cells!")

@@ -527,23 +527,19 @@
 <code>new_daf
 </code> rests on more than one repository - say, a repository of shared computed results and a repository of the parameters this variant of the analysis uses, both resting in turn on the same raw data. Later bases override earlier ones, as in any chain, and a repository reached more than once is used once, at its earliest position.
 </p>
-<p>This will set the 
-<code>base_daf_repository
-</code> scalar property of the 
+<p>This records the bases in the 
 <code>new_daf
-</code> to describe the bases, so that the chain can be recreated by calling 
+</code> (see 
+<a href="chains.html#DataAxesFormats.Chains.set_base_daf_repository!">
+<code>set_base_daf_repository!
+</code>
+</a>), so that the chain can be recreated by calling 
 <a href="complete.html#DataAxesFormats.CompleteDaf.complete_daf">
 <code>complete_daf
 </code>
-</a> in the future.
-</p>
-<p>By default, the stored paths will be relative to the 
-<code>new_daf
-</code>, for the common case where a group of repositories is stored under a common root. This allows this root to be renamed or moved somewhere else and still allow 
-<code>complete_daf
-</code> to work. If 
+</a> in the future. The 
 <code>absolute
-</code> is set, then the stored paths will be absolute.
+</code> flag is passed to it.
 </p>
 </div>
 </section>
@@ -585,6 +581,134 @@ end
 </section>
 </details>
 </article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Chains.get_base_daf_repository">
+<a class="docstring-binding" href="#DataAxesFormats.Chains.get_base_daf_repository">
+<code>DataAxesFormats.Chains.get_base_daf_repository
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">get_base_daf_repository(daf::DafReader)::Maybe{Vector{RecordedBase}}
+</code>
+</pre>
+<p>The immediate bases recorded in a stored 
+<code>daf
+</code> repository, which 
+<a href="complete.html#DataAxesFormats.CompleteDaf.complete_daf">
+<code>complete_daf
+</code>
+</a> chains it on top of, or 
+<code>nothing
+</code> if it has none. The bases are not opened. Only a stored repository has bases: a chain or a view has none of its own.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Chains.set_base_daf_repository!">
+<a class="docstring-binding" href="#DataAxesFormats.Chains.set_base_daf_repository!">
+<code>DataAxesFormats.Chains.set_base_daf_repository!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">set_base_daf_repository!(
+    daf::DafWriter,
+    base_daf::Union{Nothing, DafReader, BaseDaf, AbstractVector{&lt;:Union{BaseDaf, DafReader}}};
+    absolute::Bool = false,
+)::Nothing
+</code>
+</pre>
+<p>Record the immediate bases of a stored 
+<code>daf
+</code> repository, replacing any it had (rebase), or record that it has none, if 
+<code>base_daf
+</code> is 
+<code>nothing
+</code> (detach). Each base is a disk based 
+<code>DafReader
+</code>, or a 
+<a href="chains.html#DataAxesFormats.Chains.BaseDaf">
+<code>BaseDaf
+</code>
+</a> when only a view of it is used. Later bases override earlier ones, as in any chain, and a base given more than once is recorded once.
+</p>
+<p>This verifies that the 
+<code>daf
+</code> and its bases form a valid chain (their axes agree, and the 
+<code>daf
+</code> is not a base of itself), so that 
+<a href="complete.html#DataAxesFormats.CompleteDaf.complete_daf">
+<code>complete_daf
+</code>
+</a> will be able to open it.
+</p>
+<p>By default, the recorded paths are relative to the directory of the 
+<code>daf
+</code>, for the common case where a group of repositories is stored under a common root. This allows this root to be renamed or moved somewhere else and still allow 
+<code>complete_daf
+</code> to work. If 
+<code>absolute
+</code> is set, then the recorded paths are absolute.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Chains.RecordedBase">
+<a class="docstring-binding" href="#DataAxesFormats.Chains.RecordedBase">
+<code>DataAxesFormats.Chains.RecordedBase
+</code>
+</a> — 
+<span class="docstring-category">Type
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">struct RecordedBase
+    path::AbstractString
+    axes::Maybe{ViewAxes}
+    data::Maybe{ViewData}
+end
+</code>
+</pre>
+<p>One immediate base of a stored repository, as returned by 
+<a href="chains.html#DataAxesFormats.Chains.get_base_daf_repository">
+<code>get_base_daf_repository
+</code>
+</a>. The 
+<code>path
+</code> is as recorded, that is, relative to the directory of the repository naming it, unless it was recorded as an absolute path. The 
+<code>axes
+</code> and 
+<code>data
+</code> are the 
+<a href="views.html#DataAxesFormats.Views.viewer">
+<code>viewer
+</code>
+</a> parameters applied to the base, or 
+<code>nothing
+</code> if the whole of it is used.
+</p>
+</div>
+</section>
+</details>
+</article>
 <h2 id="Index">
 <a class="docs-heading-anchor" href="#Index">Index
 </a>
@@ -613,6 +737,12 @@ end
 </a>
 </li>
 <li>
+<a href="chains.html#DataAxesFormats.Chains.RecordedBase">
+<code>DataAxesFormats.Chains.RecordedBase
+</code>
+</a>
+</li>
+<li>
 <a href="chains.html#DataAxesFormats.Chains.WriteChain">
 <code>DataAxesFormats.Chains.WriteChain
 </code>
@@ -633,6 +763,18 @@ end
 <li>
 <a href="chains.html#DataAxesFormats.Chains.complete_chain!">
 <code>DataAxesFormats.Chains.complete_chain!
+</code>
+</a>
+</li>
+<li>
+<a href="chains.html#DataAxesFormats.Chains.get_base_daf_repository">
+<code>DataAxesFormats.Chains.get_base_daf_repository
+</code>
+</a>
+</li>
+<li>
+<a href="chains.html#DataAxesFormats.Chains.set_base_daf_repository!">
+<code>DataAxesFormats.Chains.set_base_daf_repository!
 </code>
 </a>
 </li>

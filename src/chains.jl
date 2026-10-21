@@ -7,9 +7,12 @@ data.
 module Chains
 
 export BaseDaf
+export RecordedBase
 export chain_reader
 export chain_writer
 export complete_chain!
+export get_base_daf_repository
+export set_base_daf_repository!
 
 using JSON
 using NamedArrays
@@ -62,6 +65,8 @@ struct WriteChain <: DafWriter
     dafs::Vector{DafReader}
     daf::DafWriter
 end
+
+const AnyChain = Union{ReadOnlyChain, WriteChain}
 
 """
     chain_reader(dafs::AbstractVector{<:DafReader}; name::Maybe{AbstractString} = nothing)::DafReader
@@ -159,8 +164,17 @@ which is the common case.
     data::Maybe{ViewData} = nothing
 end
 
-# One immediate base of a repository, as it is written into and read back from its `base_daf_repository`. The path is
-# as recorded, that is, relative to the repository naming it unless it was stored as an absolute one.
+"""
+    struct RecordedBase
+        path::AbstractString
+        axes::Maybe{ViewAxes}
+        data::Maybe{ViewData}
+    end
+
+One immediate base of a stored repository, as returned by [`get_base_daf_repository`](@ref). The `path` is as recorded,
+that is, relative to the directory of the repository naming it, unless it was recorded as an absolute path. The `axes`
+and `data` are the [`viewer`](@ref) parameters applied to the base, or `nothing` if the whole of it is used.
+"""
 struct RecordedBase  # NOLINT
     path::AbstractString
     axes::Maybe{ViewAxes}
@@ -186,12 +200,9 @@ several of them when the `new_daf` rests on more than one repository - say, a re
 a repository of the parameters this variant of the analysis uses, both resting in turn on the same raw data. Later bases
 override earlier ones, as in any chain, and a repository reached more than once is used once, at its earliest position.
 
-This will set the `base_daf_repository` scalar property of the `new_daf` to describe the bases, so that the chain can be
-recreated by calling [`complete_daf`](@ref DataAxesFormats.CompleteDaf.complete_daf) in the future.
-
-By default, the stored paths will be relative to the `new_daf`, for the common case where a group of repositories is
-stored under a common root. This allows this root to be renamed or moved somewhere else and still allow `complete_daf`
-to work. If `absolute` is set, then the stored paths will be absolute.
+This records the bases in the `new_daf` (see [`set_base_daf_repository!`](@ref)), so that the chain can be recreated by
+calling [`complete_daf`](@ref DataAxesFormats.CompleteDaf.complete_daf) in the future. The `absolute` flag is passed
+to it.
 """
 function complete_chain!(;
     base_daf::Union{DafReader, BaseDaf, AbstractVector{<:Union{BaseDaf, DafReader}}},
@@ -199,15 +210,85 @@ function complete_chain!(;
     name::Maybe{AbstractString} = nothing,
     absolute::Bool = false,
 )::DafWriter
-    new_path = complete_path(new_daf)
-    @assert new_path !== nothing
-
-    bases = immediate_bases(base_daf, dirname(new_path), absolute)
-    set_scalar!(new_daf, "base_daf_repository", base_specification(bases))
-
+    bases = recorded_immediate_bases!(new_daf, base_daf, absolute)
     base_dafs = DafReader[base.second for base in bases]
     push!(base_dafs, new_daf)
     return chain_writer(base_dafs; name)
+end
+
+"""
+    get_base_daf_repository(daf::DafReader)::Maybe{Vector{RecordedBase}}
+
+The immediate bases recorded in a stored `daf` repository, which [`complete_daf`](@ref
+DataAxesFormats.CompleteDaf.complete_daf) chains it on top of, or `nothing` if it has none. The bases are not opened.
+Only a stored repository has bases: a chain or a view has none of its own.
+"""
+function get_base_daf_repository(daf::DafReader)::Maybe{Vector{RecordedBase}}
+    specification = stored_base_daf_repository(daf)
+    if specification === nothing
+        return nothing
+    else
+        return recorded_bases(specification)
+    end
+end
+
+"""
+    set_base_daf_repository!(
+        daf::DafWriter,
+        base_daf::Union{Nothing, DafReader, BaseDaf, AbstractVector{<:Union{BaseDaf, DafReader}}};
+        absolute::Bool = false,
+    )::Nothing
+
+Record the immediate bases of a stored `daf` repository, replacing any it had (rebase), or record that it has none, if
+`base_daf` is `nothing` (detach). Each base is a disk based `DafReader`, or a [`BaseDaf`](@ref) when only a view of it
+is used. Later bases override earlier ones, as in any chain, and a base given more than once is recorded once.
+
+This verifies that the `daf` and its bases form a valid chain (their axes agree, and the `daf` is not a base of itself),
+so that [`complete_daf`](@ref DataAxesFormats.CompleteDaf.complete_daf) will be able to open it.
+
+By default, the recorded paths are relative to the directory of the `daf`, for the common case where a group of
+repositories is stored under a common root. This allows this root to be renamed or moved somewhere else and still allow
+`complete_daf` to work. If `absolute` is set, then the recorded paths are absolute.
+"""
+function set_base_daf_repository!(
+    daf::DafWriter,
+    base_daf::Union{Nothing, DafReader, BaseDaf, AbstractVector{<:Union{BaseDaf, DafReader}}};
+    absolute::Bool = false,
+)::Nothing
+    if base_daf === nothing
+        stored_repository_path(daf)
+        delete_scalar!(daf, "base_daf_repository"; must_exist = false)
+    else
+        recorded_immediate_bases!(daf, base_daf, absolute)
+    end
+    return nothing
+end
+
+# Record the immediate bases of a stored `daf` repository, after verifying they form a valid chain with it, and return
+# them, each with the reader it is reached through.
+function recorded_immediate_bases!(
+    daf::DafWriter,
+    base_daf::Union{DafReader, BaseDaf, AbstractVector{<:Union{BaseDaf, DafReader}}},
+    absolute::Bool,
+)::Vector{Pair{RecordedBase, DafReader}}
+    path = stored_repository_path(daf)
+    bases = immediate_bases(base_daf, dirname(path), absolute)
+    base_dafs = DafReader[base.second for base in bases]
+    push!(base_dafs, daf)
+    chain_reader(base_dafs; name = "$(daf.name).bases")
+    set_scalar!(daf, "base_daf_repository", base_specification(bases); overwrite = true)
+    return bases
+end
+
+# The path of a stored repository, which is the only kind that has bases of its own.
+function stored_repository_path(daf::DafReader)::AbstractString
+    path = daf isa Union{AnyChain, DafView} ? nothing : complete_path(daf)
+    if path === nothing
+        error(chomp("""
+              not a stored repository: $(daf.name)
+              """))
+    end
+    return path
 end
 
 # The immediate bases of a repository: how each is recorded, and the reader it is reached through. Only the immediate
@@ -293,8 +374,17 @@ function view_json_key(key::Tuple)::AbstractString
     return string(key)
 end
 
-# The `base_daf_repository` scalar of the `daf`, or `nothing` if it has none.
-function base_daf_repository(daf::DafReader)::Maybe{AbstractString}
+# The `base_daf_repository` record of a stored `daf` repository, or `nothing` if it has none. A chain or a view has no
+# record of its own: what it rests on is recorded in the repository that names it.
+function stored_base_daf_repository(::Union{AnyChain, DafView})::Nothing
+    return nothing
+end
+
+function stored_base_daf_repository(wrapper::DafReadOnlyWrapper)::Maybe{AbstractString}
+    return stored_base_daf_repository(wrapper.daf)
+end
+
+function stored_base_daf_repository(daf::DafReader)::Maybe{AbstractString}
     specification = get_scalar(daf, "base_daf_repository"; default = nothing)
     if specification !== nothing && !(specification isa AbstractString)
         error(chomp("""
@@ -462,8 +552,6 @@ function name_suffix(name::Maybe{AbstractString})::String
         return ": $(name)"
     end
 end
-
-const AnyChain = Union{ReadOnlyChain, WriteChain}
 
 function Formats.begin_data_read_lock(chain::AnyChain, what::Any...)::Nothing
     invoke(Formats.begin_data_read_lock, Tuple{DafReader, Vararg{Any}}, chain, what...)
@@ -1201,7 +1289,8 @@ end
 # A chain has the path of its last repository only when it holds exactly what reopening that path would give: every
 # repository the records lead to, and nothing besides. Since a repository records only its own immediate bases, this
 # follows them outwards from the last repository rather than comparing the chain link by link, which a repository
-# resting on several bases would not survive.
+# resting on several bases would not survive. A view has no record of its own (what it rests on is part of the record
+# naming it), so it ends the walk.
 function Readers.complete_path(chain::AnyChain)::Maybe{AbstractString}
     path = complete_path(chain.dafs[end])
     if path === nothing
@@ -1222,9 +1311,9 @@ function Readers.complete_path(chain::AnyChain)::Maybe{AbstractString}
     while !isempty(unvisited)
         daf_path = pop!(unvisited)
         push!(reached, daf_path)
-        specification = base_daf_repository(daf_of_path[daf_path])
-        if specification !== nothing
-            for base in recorded_bases(specification)
+        bases = get_base_daf_repository(daf_of_path[daf_path])
+        if bases !== nothing
+            for base in bases
                 base_path = abspath(joinpath(dirname(daf_path), base.path))
                 if !haskey(daf_of_path, base_path)
                     return nothing

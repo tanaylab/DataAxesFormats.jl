@@ -41,9 +41,7 @@ using ..ZipFormat
 
 using TanayLabUtilities
 
-import ..Chains.base_daf_repository
 import ..Chains.RecordedBase
-import ..Chains.recorded_bases
 
 """
     complete_daf(
@@ -102,13 +100,13 @@ function collect_dafs(;
     @debug "$(indent)- Open $(path) $(mode)" _group = :daf_repos
     daf = open_daf(path, mode; packed = is_packed)
 
-    specification = base_daf_repository(daf)
-    if specification === nothing
+    bases = get_base_daf_repository(daf)
+    if bases === nothing
         return DafReader[daf]
     end
 
     dafs = DafReader[]
-    for base in recorded_bases(specification)
+    for base in bases
         append!(dafs, collect_base(; name, base, base_directory = dirname(path), indent, index))
     end
     push!(dafs, daf)
