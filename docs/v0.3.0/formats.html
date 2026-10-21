@@ -843,6 +843,36 @@
 </section>
 </details>
 </article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Formats.format_raise_version!">
+<a class="docstring-binding" href="#DataAxesFormats.Formats.format_raise_version!">
+<code>DataAxesFormats.Formats.format_raise_version!
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">format_raise_version!(format::FormatWriter)::Bool
+</code>
+</pre>
+<p>Raise the version marker of the stored 
+<code>format
+</code> to the version this code writes, if it is lower and the format can change it, and return whether the marker is now at this version. An append-only format (e.g. a ZIP archive) keeps its marker, so it returns 
+<code>false
+</code> if the marker is lower; data is then written as that version expects. A format with no marker (e.g. in memory) returns 
+<code>true
+</code>.
+</p>
+<p>This trusts that we have a write lock on the data set.
+</p>
+</div>
+</section>
+</details>
+</article>
 <h3 id="Data-axes">
 <a class="docs-heading-anchor" href="#Data-axes">Data axes
 </a>
@@ -2687,6 +2717,12 @@ where {T &lt;: StorageReal, I &lt;: StorageInteger}
 <li>
 <a href="formats.html#DataAxesFormats.Formats.format_matrix_metadata">
 <code>DataAxesFormats.Formats.format_matrix_metadata
+</code>
+</a>
+</li>
+<li>
+<a href="formats.html#DataAxesFormats.Formats.format_raise_version!">
+<code>DataAxesFormats.Formats.format_raise_version!
 </code>
 </a>
 </li>

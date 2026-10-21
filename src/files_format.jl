@@ -40,8 +40,11 @@ We use multiple files to store `Daf` data, under some root directory, as follows
     `version` key whose value is an array of two integers. The first is the major version number and the second is the
     minor version number, using [semantic versioning](https://semver.org/). This makes it easy to test whether a
     directory does/n't contain `Daf` data, and which version of the internal structure it is using. Defined versions
-    are `[1,0]` and `[1,1]`. New code emits `[1,1]`; the reader accepts both. The on-disk difference is the JSON
-    descriptor for sparse properties (see below) — the binary data files are unchanged across versions.
+    are `[1,0]`, `[1,1]` and `[1,2]`. New code emits `[1,2]`; the reader accepts all three. Version `[1,1]` changed
+    the JSON descriptor for sparse properties (see below); the binary data files are unchanged across versions. Version
+    `[1,2]` moved the bases the repository rests on (see [`get_base_daf_links`](@ref
+    DataAxesFormats.Chains.get_base_daf_links)) from the `base_daf_repository` scalar to the `_base_daf_links` scalar.
+    Recording the bases raises an earlier version to `[1,2]`.
 
   - The `metadata.json` is a consolidated index of every property's descriptor. After it has been seeded once (by
     walking the tree on a writable open), subsequent opens consume it directly instead of walking the tree, and an
@@ -293,14 +296,14 @@ to access data that is stored in a different major format.
 MAJOR_VERSION::UInt8 = 1
 
 """
-The maximal minor version of the [`FilesDaf`](@ref) format that is supported by this code (`1`). The code will refuse to
+The maximal minor version of the [`FilesDaf`](@ref) format that is supported by this code (`2`). The code will refuse to
 access data that is stored with the expected major version (`1`), but that uses a higher minor version.
 
 !!! note
 
     Modifying data that is stored with a lower minor version number **may** increase its minor version number.
 """
-MINOR_VERSION::UInt8 = 1
+MINOR_VERSION::UInt8 = 2
 
 """
     FilesDaf(
@@ -1666,6 +1669,16 @@ end
 
 function Readers.complete_path(files::FilesDaf)::Maybe{AbstractString}
     return files.path
+end
+
+function Formats.format_raise_version!(files::FilesDaf)::Bool
+    daf_file_path = "$(files.path)/daf.json"
+    daf_version = JSON.parsefile(daf_file_path)["version"]
+    if Int(daf_version[2]) < MINOR_VERSION
+        write(daf_file_path, "{\"version\":[$(MAJOR_VERSION),$(MINOR_VERSION)]}\n")
+        report_modified!(daf_file_path)
+    end
+    return true
 end
 
 end  # module

@@ -108,6 +108,9 @@ false
 ```
 """
 function has_scalar(daf::DafReader, name::AbstractString)::Bool
+    if Formats.is_reserved_scalar(name)
+        return false
+    end
     return Formats.with_data_read_lock(daf, "has_scalar of:", name) do
         result = Formats.format_has_scalar(daf, name)
         @debug "has_scalar daf: $(brief(daf)) name: $(name) result: $(result)" _group = :daf_gets
@@ -137,7 +140,12 @@ String.(scalars_set(example_cells_daf()))
 function scalars_set(daf::DafReader)::AbstractSet{<:AbstractString}
     return Formats.with_data_read_lock(daf, "scalars_set") do
         # Formats.assert_valid_cache(daf)
-        result = Formats.get_scalars_set_through_cache(daf)
+        cached_names = Formats.get_scalars_set_through_cache(daf)
+        result = if any(Formats.is_reserved_scalar, cached_names)
+            filter(!Formats.is_reserved_scalar, cached_names)
+        else
+            cached_names
+        end
         @debug "scalars_set daf: $(brief(daf)) result: $(brief(result))" _group = :daf_gets
         # Formats.assert_valid_cache(daf)
         return result
@@ -177,6 +185,7 @@ function get_scalar(
     name::AbstractString;
     default::Union{StorageScalar, Nothing, UndefInitializer} = undef,
 )::Maybe{StorageScalar}
+    require_unreserved_scalar(daf, name)
     return Formats.with_data_read_lock(daf, "get_scalar of:", name) do
         # Formats.assert_valid_cache(daf)
         if default == undef
@@ -203,6 +212,39 @@ function require_scalar(daf::DafReader, name::AbstractString)::Nothing
             """))
     end
     return nothing
+end
+
+# Raise an error if the scalar `name` is reserved for the bases of a stored repository, which aren't data.
+function require_unreserved_scalar(daf::DafReader, name::AbstractString)::Nothing
+    if Formats.is_reserved_scalar(name)
+        error(chomp("""
+            reserved scalar: $(name)
+            for the bases of a stored repository (see get_base_daf_links)
+            in the daf data: $(daf.name)
+            """))
+    end
+    return nothing
+end
+
+# The record of the bases of a stored `daf` repository, as stored (see `get_base_daf_links`), or `nothing` if it has
+# none. Repositories of earlier format versions hold it in the legacy scalar.
+function stored_base_daf_links(daf::DafReader)::Maybe{AbstractString}
+    return Formats.with_data_read_lock(daf, "stored_base_daf_links") do
+        for name in (Formats.BASE_DAF_LINKS_SCALAR, Formats.LEGACY_BASE_DAF_LINKS_SCALAR)
+            if Formats.format_has_scalar(daf, name)
+                record = Formats.get_scalar_through_cache(daf, name)
+                if !(record isa AbstractString)
+                    error(chomp("""
+                        non-string scalar: $(name)
+                        with the value: $(record)
+                        in the daf data: $(daf.name)
+                        """))
+                end
+                return record
+            end
+        end
+        return nothing
+    end
 end
 
 """
@@ -1346,6 +1388,11 @@ function description(
 
     Formats.format_description_header(daf, indent, lines, deep)
 
+    base_daf_links = stored_base_daf_links(daf)
+    if base_daf_links !== nothing
+        push!(lines, "$(indent)base_daf_links: $(base_daf_links)")
+    end
+
     scalars_description(daf, indent, lines)
 
     axes = collect(axes_set(daf))
@@ -1383,7 +1430,7 @@ function description(
 end
 
 function scalars_description(daf::DafReader, indent::AbstractString, lines::Vector{String})::Nothing
-    scalars = collect(Formats.get_scalars_set_through_cache(daf))
+    scalars = collect(scalars_set(daf))
     if !isempty(scalars)
         sort!(scalars)
         push!(lines, "$(indent)scalars:")

@@ -32,6 +32,7 @@ DataAxesFormats.Formats.format_description_footer
 DataAxesFormats.Formats.format_has_scalar
 DataAxesFormats.Formats.format_scalars_set
 DataAxesFormats.Formats.format_get_scalar
+DataAxesFormats.Formats.format_raise_version!
 ```
 
 ### Data axes

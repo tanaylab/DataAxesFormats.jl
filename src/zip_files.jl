@@ -24,7 +24,9 @@ byte stream. As a consequence:
 Dense numeric blobs (and `colptr` / `rowval` / `nzind` / `nzval` for sparse ones) are served zero-copy via memory-mapped
 views of the archive file when possible; foreign archives whose entries are compressed (DEFLATE, DEFLATE64, BZIP2, or
 ZSTD) or unaligned fall back to in-memory decoded copies. The only modification allowed to writable ZIP repositories is
-appending new data: no entry deletes or overwrites, and no axis reorder.
+appending new data: no entry deletes or overwrites, and no axis reorder. So an archive keeps the format version it was
+created with. In an archive of a version before `[1,2]`, the bases it rests on (see [`get_base_daf_links`](@ref
+DataAxesFormats.Chains.get_base_daf_links)) are recorded in the `base_daf_repository` scalar, as that version expects.
 
 Path conventions, mirroring [`ZarrDaf`](@ref DataAxesFormats.ZarrFormat.ZarrDaf):
 
@@ -449,6 +451,12 @@ function verify_daf_marker(store::MmapZipStore, daf_marker_key::AbstractString, 
                     """))
     end
     return nothing
+end
+
+# The archive is append-only, so its marker can't be raised.
+function Formats.format_raise_version!(zip_daf::ZipDaf)::Bool
+    daf_json = JSON.parse(String(zip_daf.store[zip_daf.group_prefix * "daf.json"]))  # NOJET
+    return Int(daf_json["version"][2]) >= MINOR_VERSION
 end
 
 # Drop FilesDaf sidecar entries from the ZIP central directory; data regions stay as orphans. Idempotent.

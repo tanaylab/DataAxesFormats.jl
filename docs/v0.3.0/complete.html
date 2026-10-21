@@ -322,15 +322,25 @@
 <code>Daf
 </code> is to have multiple repositories in a chain; actually, they typically form a tree where different leaf repositories are based on common ancestor repositories. For example, a base cells repository can be used by multiple alternative metacells repositories.
 </p>
-<p>Tracking this tree manually is possible, by using naming conventions (which is always a good idea). However, this gets tedious. The code here automates this by using an additional convention - each repository contains a scalar property called 
-<code>base_daf_repository
-</code> which identifies the repositories it is immediately based on (if any). Each path is relative to the directory containing the child repository. See 
+<p>Tracking this tree manually is possible, by using naming conventions (which is always a good idea). However, this gets tedious. The code here automates this by using an additional convention - each repository records the repositories it is immediately based on (if any), which 
+<a href="chains.html#DataAxesFormats.Chains.get_base_daf_links">
+<code>get_base_daf_links
+</code>
+</a> returns and 
+<a href="chains.html#DataAxesFormats.Chains.set_base_daf_links!">
+<code>set_base_daf_links!
+</code>
+</a> sets. Each path is relative to the directory containing the child repository. See 
 <a href="complete.html#DataAxesFormats.CompleteDaf.open_daf">
 <code>open_daf
 </code>
 </a> for details.
 </p>
-<p>The property holds only the immediate bases; what each of them in turn is based on is recorded in it, so the shape of the whole is found by following the records. It is one of:
+<p>The record is stored in the 
+<code>_base_daf_links
+</code> scalar (or, in repositories of earlier format versions, in the 
+<code>base_daf_repository
+</code> scalar). It is storage metadata, not data, so the scalar functions don&#39;t expose it. It holds only the immediate bases; what each of them in turn is based on is recorded in it, so the shape of the whole is found by following the records. It is one of:
 </p>
 <ul>
 <li>A path, for the common case of resting on the whole of a single repository.
@@ -383,9 +393,7 @@
 </pre>
 <p>Open a complete chain of 
 <code>Daf
-</code> repositories by tracing back through the 
-<code>base_daf_repository
-</code> of each. Valid modes are only &quot;r&quot; and &quot;r+&quot;; if the latter, only the 
+</code> repositories by tracing back through the recorded bases of each. Valid modes are only &quot;r&quot; and &quot;r+&quot;; if the latter, only the 
 <code>leaf
 </code> repository is opened in write mode.
 </p>

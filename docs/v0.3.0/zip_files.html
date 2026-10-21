@@ -390,7 +390,15 @@
 <code>nzind
 </code> / 
 <code>nzval
-</code> for sparse ones) are served zero-copy via memory-mapped views of the archive file when possible; foreign archives whose entries are compressed (DEFLATE, DEFLATE64, BZIP2, or ZSTD) or unaligned fall back to in-memory decoded copies. The only modification allowed to writable ZIP repositories is appending new data: no entry deletes or overwrites, and no axis reorder.
+</code> for sparse ones) are served zero-copy via memory-mapped views of the archive file when possible; foreign archives whose entries are compressed (DEFLATE, DEFLATE64, BZIP2, or ZSTD) or unaligned fall back to in-memory decoded copies. The only modification allowed to writable ZIP repositories is appending new data: no entry deletes or overwrites, and no axis reorder. So an archive keeps the format version it was created with. In an archive of a version before 
+<code>[1,2]
+</code>, the bases it rests on (see 
+<a href="chains.html#DataAxesFormats.Chains.get_base_daf_links">
+<code>get_base_daf_links
+</code>
+</a>) are recorded in the 
+<code>base_daf_repository
+</code> scalar, as that version expects.
 </p>
 <p>Path conventions, mirroring 
 <a href="zarr_format.html#DataAxesFormats.ZarrFormat.ZarrDaf">

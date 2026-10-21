@@ -1178,7 +1178,7 @@ nested_test("packed_format") do
                     @test sharding.chunk_shape == (2048, 1)
                     @test !isempty(sharding.codecs.bytes_bytes)
                     if daf_marker_for !== nothing
-                        @test daf_marker_for(path) == [1, 0]
+                        @test daf_marker_for(path) == [1, 1]
                     end
                     verify_lazy_dense_matrix_pooling(daf)
                     if !is_append_only
@@ -1311,7 +1311,7 @@ nested_test("packed_format") do
                     @test zarr_array.metadata.chunks == size(zarr_array)
                     @test isempty(zarr_array.metadata.pipeline.bytes_bytes)
                     if daf_marker_for !== nothing
-                        @test daf_marker_for(path) == [1, 0]
+                        @test daf_marker_for(path) == [1, 1]
                     end
                     return nothing
                 end

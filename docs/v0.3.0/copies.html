@@ -793,6 +793,18 @@
 <code>empty
 </code> value for any entries of the main axis which exist in the destination but do not exist in the source.
 </p>
+<p>If the 
+<code>source
+</code> is a stored repository resting on bases (see 
+<a href="chains.html#DataAxesFormats.Chains.get_base_daf_links">
+<code>get_base_daf_links
+</code>
+</a>), the 
+<code>destination
+</code> will rest on the same bases. This requires the 
+<code>destination
+</code> to be a stored repository with no bases of its own. A chain or a view has no bases of its own, so copying it gives a repository holding all its data.
+</p>
 </div>
 </section>
 </details>

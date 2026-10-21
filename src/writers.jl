@@ -33,6 +33,7 @@ using ..PackedFormat
 using ..Readers
 using ..StorageTypes
 using ConcurrentUtils
+using JSON
 using NamedArrays
 using SparseArrays
 using TanayLabUtilities
@@ -47,6 +48,7 @@ import ..Readers.require_axis_names
 import ..Readers.require_column_major
 import ..Readers.require_matrix
 import ..Readers.require_scalar
+import ..Readers.require_unreserved_scalar
 import ..Readers.require_vector
 
 """
@@ -76,6 +78,7 @@ println(get_scalar(cells, "version"))
 """
 function set_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar; overwrite::Bool = false)::Nothing
     @assert value isa AbstractString || isbits(value)
+    require_unreserved_scalar(daf, name)
     return Formats.with_data_write_lock(daf, "set_scalar! of:", name) do
         # Formats.assert_valid_cache(daf)
         @debug "set_scalar! daf: $(brief(daf)) name: $(name) value: $(brief(value)) overwrite: $(overwrite)" _group =
@@ -120,6 +123,7 @@ false
 ```
 """
 function delete_scalar!(daf::DafWriter, name::AbstractString; must_exist::Bool = true, _for_set = false)::Nothing
+    require_unreserved_scalar(daf, name)
     return Formats.with_data_write_lock(daf, "delete_scalar! of:", name) do
         # Formats.assert_valid_cache(daf)
         @debug "delete_scalar! daf: $(brief(daf)) name: $(name) must exist: $(must_exist)" _group = :daf_sets
@@ -144,6 +148,73 @@ function require_no_scalar(daf::DafReader, name::AbstractString)::Nothing
         error("existing scalar: $(name)\nin the daf data: $(daf.name)")
     end
     return nothing
+end
+
+# Write the `record` of the bases of a stored `daf` repository (see `get_base_daf_links`), replacing any it had, or
+# delete it if the `record` is `nothing`. A repository whose version can be raised to this code's version holds it in
+# `_base_daf_links`. An append-only repository of an earlier version keeps its version, and holds it in the legacy
+# scalar, as that version expects.
+function write_base_daf_links!(daf::DafWriter, record::Maybe{AbstractString})::Nothing
+    return Formats.with_data_write_lock(daf, "write_base_daf_links!") do
+        is_current_version = Formats.format_raise_version!(daf)
+        for name in (Formats.BASE_DAF_LINKS_SCALAR, Formats.LEGACY_BASE_DAF_LINKS_SCALAR)
+            if Formats.format_has_scalar(daf, name)
+                Formats.invalidate_cached!(daf, Formats.scalar_cache_key(name))
+                Formats.invalidate_cached!(daf, Formats.scalars_set_cache_key())
+                Formats.format_delete_scalar!(daf, name; for_set = false)
+            end
+        end
+        if record !== nothing
+            name = is_current_version ? Formats.BASE_DAF_LINKS_SCALAR : Formats.LEGACY_BASE_DAF_LINKS_SCALAR
+            Formats.invalidate_cached!(daf, Formats.scalars_set_cache_key())
+            cache_group = Formats.format_set_scalar!(daf, name, record)
+            Formats.cache_scalar!(daf, name, record, cache_group)
+        end
+        return nothing
+    end
+end
+
+# The `record` of the bases of a repository in the `from_directory`, for a repository in the `to_directory`: each
+# relative path is rewritten to reach the same base from there. Absolute paths stay as they are.
+function relocated_base_daf_links(
+    record::AbstractString,
+    from_directory::AbstractString,
+    to_directory::AbstractString,
+)::AbstractString
+    stripped_record = lstrip(record)
+    if !startswith(stripped_record, "[") && !startswith(stripped_record, "{")
+        return relocated_base_path(record, from_directory, to_directory)
+    end
+
+    json = JSON.parse(stripped_record)  # NOJET
+    if json isa AbstractVector
+        return JSON.json([relocated_base_json(base, from_directory, to_directory) for base in json])
+    else
+        return JSON.json(relocated_base_json(json, from_directory, to_directory))
+    end
+end
+
+function relocated_base_json(base::Any, from_directory::AbstractString, to_directory::AbstractString)::Any
+    if base isa AbstractString
+        return relocated_base_path(base, from_directory, to_directory)
+    else
+        @assert base isa AbstractDict
+        relocated_base = copy(base)
+        relocated_base["path"] = relocated_base_path(base["path"], from_directory, to_directory)
+        return relocated_base
+    end
+end
+
+function relocated_base_path(
+    path::AbstractString,
+    from_directory::AbstractString,
+    to_directory::AbstractString,
+)::AbstractString
+    if isabspath(path)
+        return path
+    else
+        return relpath(abspath(joinpath(from_directory, path)), abspath(to_directory))
+    end
 end
 
 """

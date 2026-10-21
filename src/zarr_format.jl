@@ -33,8 +33,12 @@ existing Zarr-based convention such as [`OME-NGFF`](https://ngff.openmicroscopy.
   - The `daf` group attribute signifies that the group contains `Daf` data. It is a two-element array of integers, the
     first being the major version number and the second the minor version number, using
     [semantic versioning](https://semver.org/). This makes it easy to test whether some Zarr group does/n't contain
-    `Daf` data, and which version of the internal structure it is using. The defined version is `[1,0]`. The
-    underlying Zarr store is Zarr v3.
+    `Daf` data, and which version of the internal structure it is using. Defined versions are `[1,0]` and `[1,1]`.
+    New code emits `[1,1]`; the reader accepts both. Version `[1,1]` moved the bases the data rests on (see
+    [`get_base_daf_links`](@ref DataAxesFormats.Chains.get_base_daf_links)) from the `base_daf_repository` scalar to
+    the `_base_daf_links` scalar. Recording the bases raises an earlier version to `[1,1]`, except in a ZIP archive,
+    which is append-only, so it keeps its version, and records the bases as that version expects. The underlying Zarr
+    store is Zarr v3.
 
   - The `scalars` group contains scalar properties, each as a single-element Zarr array. The only supported scalar data
     types are these included in [`StorageScalar`](@ref). If you **really** need something else, serialize it to JSON
@@ -271,7 +275,7 @@ MAJOR_VERSION::UInt8 = 1
 """
 The highest minor version of the [`ZarrDaf`](@ref) on-disk format supported by this code.
 """
-MINOR_VERSION::UInt8 = 0
+MINOR_VERSION::UInt8 = 1
 
 const DAF_KEY = "daf"
 const SCALARS = "scalars"
@@ -807,6 +811,28 @@ function verify_daf(root::ZGroup, full_path::AbstractString)::Nothing
                     """))
     end
     return nothing
+end
+
+# A ZIP archive is append-only, so its marker can't be raised. A directory's root `zarr.json` also holds the
+# consolidated metadata, so it is rewritten together with it.
+function Formats.format_raise_version!(daf::ZarrDaf)::Bool
+    version = zarr_group_attrs(daf.root)[DAF_KEY]
+    if Int(version[2]) >= MINOR_VERSION
+        return true
+    end
+
+    storage = daf.root.storage
+    if storage isa MmapZipStore
+        return false
+    end
+
+    daf.root.attrs[DAF_KEY] = [Int(MAJOR_VERSION), Int(MINOR_VERSION)]
+    if storage isa Zarr.DirectoryStore
+        write_root_zarr_json!(daf)
+    else
+        Zarr.writeattrs(daf.root.zarr_format, storage, daf.root.path, daf.root.attrs)  # UNTESTED
+    end
+    return true
 end
 
 function Readers.is_leaf(::ZarrDaf)::Bool

@@ -4,12 +4,14 @@ different leaf repositories are based on common ancestor repositories. For examp
 by multiple alternative metacells repositories.
 
 Tracking this tree manually is possible, by using naming conventions (which is always a good idea). However, this gets
-tedious. The code here automates this by using an additional convention - each repository contains a scalar property
-called `base_daf_repository` which identifies the repositories it is immediately based on (if any). Each path is
-relative to the directory containing the child repository. See [`open_daf`](@ref) for details.
+tedious. The code here automates this by using an additional convention - each repository records the repositories it
+is immediately based on (if any), which [`get_base_daf_links`](@ref) returns and [`set_base_daf_links!`](@ref) sets.
+Each path is relative to the directory containing the child repository. See [`open_daf`](@ref) for details.
 
-The property holds only the immediate bases; what each of them in turn is based on is recorded in it, so the shape of
-the whole is found by following the records. It is one of:
+The record is stored in the `_base_daf_links` scalar (or, in repositories of earlier format versions, in the
+`base_daf_repository` scalar). It is storage metadata, not data, so the scalar functions don't expose it. It holds only
+the immediate bases; what each of them in turn is based on is recorded in it, so the shape of the whole is found by
+following the records. It is one of:
 
   - A path, for the common case of resting on the whole of a single repository.
   - A JSON object `{"path": ..., "axes": ..., "data": ...}`, where the optional `axes` and `data` are the parameters of
@@ -51,7 +53,7 @@ import ..Chains.RecordedBase
         packed::Bool = false]
     )::Union{DafReader, DafWriter}
 
-Open a complete chain of `Daf` repositories by tracing back through the `base_daf_repository` of each. Valid modes are
+Open a complete chain of `Daf` repositories by tracing back through the recorded bases of each. Valid modes are
 only "r" and "r+"; if the latter, only the `leaf` repository is opened in write mode.
 
 If `packed` is `true`, the leaf repository (the only one opened in write mode under "r+") gets `packed = true` as its

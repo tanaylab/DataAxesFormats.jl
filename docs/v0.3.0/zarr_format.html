@@ -402,9 +402,25 @@
 <a href="https://semver.org/">semantic versioning
 </a>. This makes it easy to test whether some Zarr group does/n&#39;t contain 
 <code>Daf
-</code> data, and which version of the internal structure it is using. The defined version is 
+</code> data, and which version of the internal structure it is using. Defined versions are 
 <code>[1,0]
-</code>. The underlying Zarr store is Zarr v3.
+</code> and 
+<code>[1,1]
+</code>. New code emits 
+<code>[1,1]
+</code>; the reader accepts both. Version 
+<code>[1,1]
+</code> moved the bases the data rests on (see 
+<a href="chains.html#DataAxesFormats.Chains.get_base_daf_links">
+<code>get_base_daf_links
+</code>
+</a>) from the 
+<code>base_daf_repository
+</code> scalar to the 
+<code>_base_daf_links
+</code> scalar. Recording the bases raises an earlier version to 
+<code>[1,1]
+</code>, except in a ZIP archive, which is append-only, so it keeps its version, and records the bases as that version expects. The underlying Zarr store is Zarr v3.
 </p>
 </li>
 <li>

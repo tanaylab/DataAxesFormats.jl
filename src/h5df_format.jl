@@ -24,7 +24,10 @@ is **not** compatible with `h5ad`):
   - To future-proof the format, the `daf` dataset will contain a vector of two integers, the first acting as the major
     version number and the second as the minor version number, using [semantic versioning](https://semver.org/). This
     makes it easy to test whether some group in an HDF5 file does/n't contain `Daf` data, and which version of the
-    internal structure it is using. Currently the only defined version is `[1,0]`.
+    internal structure it is using. Defined versions are `[1,0]` and `[1,1]`. New code emits `[1,1]`; the reader
+    accepts both. Version `[1,1]` moved the bases the data rests on (see [`get_base_daf_links`](@ref
+    DataAxesFormats.Chains.get_base_daf_links)) from the `base_daf_repository` scalar to the `_base_daf_links` scalar.
+    Recording the bases raises an earlier version to `[1,1]`.
 
   - The `scalars` group contains scalar properties, each as its own "dataset". The only supported scalar data types
     are these included in [`StorageScalar`](@ref). If you **really** need something else, serialize it to JSON and store
@@ -197,14 +200,14 @@ access data that is stored in a different major format.
 MAJOR_VERSION::UInt8 = 1
 
 """
-The maximal minor version of the [`H5df`](@ref) format that is supported by this code (`0`). The code will refuse to
+The maximal minor version of the [`H5df`](@ref) format that is supported by this code (`1`). The code will refuse to
 access data that is stored with the expected major version (`1`), but that uses a higher minor version.
 
 !!! note
 
     Modifying data that is stored with a lower minor version number **may** increase its minor version number.
 """
-MINOR_VERSION::UInt8 = 0
+MINOR_VERSION::UInt8 = 1
 
 """
     H5df(
@@ -464,6 +467,17 @@ function verify_daf(root::Union{HDF5.File, HDF5.Group})::Nothing
                     in daf data: $(root)
                     """))
     end
+end
+
+function Formats.format_raise_version!(h5df::H5df)::Bool
+    format_dataset = h5df.root["daf"]
+    @assert format_dataset isa HDF5.Dataset
+    format_version = read(format_dataset)
+    if format_version[2] < MINOR_VERSION
+        delete_object(h5df.root, "daf")
+        h5df.root["daf"] = [MAJOR_VERSION, MINOR_VERSION]
+    end
+    return true
 end
 
 function delete_content(root::Union{HDF5.File, HDF5.Group})::Nothing

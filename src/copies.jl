@@ -28,10 +28,14 @@ using NamedArrays
 using SparseArrays
 using TanayLabUtilities
 
+import ..Chains.stored_repository_path
 import ..Formats.as_named_matrix
 import ..Formats.as_named_vector
 import ..Formats.with_data_write_lock
 import ..PackedFormat.fill_column!
+import ..Readers.stored_base_daf_links
+import ..Writers.relocated_base_daf_links
+import ..Writers.write_base_daf_links!
 
 """
     copy_scalar(;
@@ -739,6 +743,11 @@ If `types` are specified, the copied data of the matching property is converted 
 
 If a [`TensorKey`](@ref) is specified, this will create an matrix full of the `empty` value for any entries of the main
 axis which exist in the destination but do not exist in the source.
+
+If the `source` is a stored repository resting on bases (see [`get_base_daf_links`](@ref
+DataAxesFormats.Chains.get_base_daf_links)), the `destination` will rest on the same bases. This requires the
+`destination` to be a stored repository with no bases of its own. A chain or a view has no bases of its own, so copying
+it gives a repository holding all its data.
 """
 @logged :daf_ops function copy_all!(;
     destination::DafWriter,
@@ -775,6 +784,7 @@ axis which exist in the destination but do not exist in the source.
 
     what_for = empty === nothing ? ": data" : nothing
     axis_relations = verify_axes(; destination, source, what_for)
+    copy_base_daf_links(; destination, source)
     copy_scalars(; destination, source, types, overwrite, insist)
     copy_axes(; destination, source, overwrite, insist)
     copy_vectors(; destination, source, axis_relations, empty, types, overwrite, insist, is_packed = packed)
@@ -917,6 +927,32 @@ function verify_subset(;
               of the target daf data: $(destination_name)
               """))
     end
+end
+
+# A stored `source` repository resting on bases is copied as a repository resting on the same bases. Its record of them
+# is carried into the `destination`, rewritten for the `destination`'s directory.
+function copy_base_daf_links(; destination::DafWriter, source::DafReader)::Nothing
+    record = stored_base_daf_links(source)
+    if record === nothing
+        return nothing
+    end
+
+    source_path = complete_path(source)
+    @assert source_path !== nothing
+    destination_path = stored_repository_path(destination)
+    if stored_base_daf_links(destination) !== nothing
+        error(chomp("""
+              existing bases in the destination: $(destination.name)
+              for copying the source: $(source.name)
+              which rests on other bases
+              """))
+    end
+
+    write_base_daf_links!(
+        destination,
+        relocated_base_daf_links(record, dirname(source_path), dirname(destination_path)),
+    )
+    return nothing
 end
 
 function copy_scalars(;

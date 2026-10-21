@@ -55,6 +55,9 @@ using Zarr
 
 import ..Operations.DTYPE_BY_NAME
 import ..ReadOnly.DafReadOnlyWrapper
+import ..Readers.stored_base_daf_links
+import ..Writers.relocated_base_daf_links
+import ..Writers.write_base_daf_links!
 import SparseArrays.indtype
 
 const PROBE_NAME = ".daf_convert.probe"
@@ -214,6 +217,7 @@ function zarr_to_files_populate(zarr_path::AbstractString, files_path::AbstractS
     for name in scalars_set(source)
         set_scalar!(destination, name, get_scalar(source, name))
     end
+    convert_base_daf_links(source, destination, zarr_path, files_path)
 
     for axis in axes_set(source)
         add_axis!(destination, axis, axis_vector(source, axis))
@@ -663,6 +667,24 @@ function reencode_dense_matrix(
     return nothing
 end
 
+# The converted `destination` rests on the same bases as the `source`, with its record of them rewritten for its own
+# directory.
+function convert_base_daf_links(
+    source::DafReader,
+    destination::DafWriter,
+    source_path::AbstractString,
+    destination_path::AbstractString,
+)::Nothing
+    record = stored_base_daf_links(source)
+    if record !== nothing
+        write_base_daf_links!(
+            destination,
+            relocated_base_daf_links(record, dirname(abspath(source_path)), dirname(abspath(destination_path))),
+        )
+    end
+    return nothing
+end
+
 function files_to_zarr_populate(files_path::AbstractString, zarr_path::AbstractString)::Nothing
     source = FilesDaf(files_path, "r")
     destination = ZarrDaf(zarr_path, "w+")::ZarrDaf
@@ -672,6 +694,7 @@ function files_to_zarr_populate(files_path::AbstractString, zarr_path::AbstractS
     for name in scalars_set(source)
         set_scalar!(destination, name, get_scalar(source, name))
     end
+    convert_base_daf_links(source, destination, files_path, zarr_path)
 
     for axis in axes_set(source)
         add_axis!(destination, axis, axis_vector(source, axis))

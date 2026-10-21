@@ -31,6 +31,8 @@ import ..Formats.CacheKey
 import ..Formats.FormatReader
 import ..Formats.Internal
 import ..ReadOnly.DafReadOnlyWrapper
+import ..Readers.stored_base_daf_links
+import ..Writers.write_base_daf_links!
 
 """
     struct ReadOnlyChain <: DafReadOnly ... end
@@ -224,11 +226,11 @@ DataAxesFormats.CompleteDaf.complete_daf) chains it on top of, or `nothing` if i
 Only a stored repository has bases: a chain or a view has none of its own.
 """
 function get_base_daf_links(daf::DafReader)::Maybe{Vector{RecordedBase}}
-    specification = stored_base_daf_repository(daf)
-    if specification === nothing
+    record = stored_base_daf_links(daf)
+    if record === nothing
         return nothing
     else
-        return recorded_bases(specification)
+        return recorded_bases(record)
     end
 end
 
@@ -257,7 +259,7 @@ function set_base_daf_links!(
 )::Nothing
     if base_daf === nothing
         stored_repository_path(daf)
-        delete_scalar!(daf, "base_daf_repository"; must_exist = false)
+        write_base_daf_links!(daf, nothing)
     else
         recorded_immediate_bases!(daf, base_daf, absolute)
     end
@@ -276,7 +278,7 @@ function recorded_immediate_bases!(
     base_dafs = DafReader[base.second for base in bases]
     push!(base_dafs, daf)
     chain_reader(base_dafs; name = "$(daf.name).bases")
-    set_scalar!(daf, "base_daf_repository", base_specification(bases); overwrite = true)
+    write_base_daf_links!(daf, base_specification(bases))
     return bases
 end
 
@@ -334,9 +336,9 @@ function unique_bases(bases::AbstractVector{<:Pair{RecordedBase, <:DafReader}}):
     return kept
 end
 
-# How the immediate bases are described in the `base_daf_repository` scalar. A lone unviewed base is stored as its path
-# rather than as JSON, both because that is what almost every repository has, and because it is what someone looking at
-# the property expects to see.
+# How the immediate bases are described in the stored record. A lone unviewed base is stored as its path rather than as
+# JSON, both because that is what almost every repository has, and because it is what someone looking at the record
+# expects to see.
 function base_specification(bases::AbstractVector{Pair{RecordedBase, DafReader}})::AbstractString
     if length(bases) == 1 && bases[1].first.axes === nothing && bases[1].first.data === nothing
         return bases[1].first.path
@@ -374,26 +376,13 @@ function view_json_key(key::Tuple)::AbstractString
     return string(key)
 end
 
-# The `base_daf_repository` record of a stored `daf` repository, or `nothing` if it has none. A chain or a view has no
-# record of its own: what it rests on is recorded in the repository that names it.
-function stored_base_daf_repository(::Union{AnyChain, DafView})::Nothing
+# A chain or a view has no record of its own: what it rests on is recorded in the repository that names it.
+function Readers.stored_base_daf_links(::Union{AnyChain, DafView})::Nothing
     return nothing
 end
 
-function stored_base_daf_repository(wrapper::DafReadOnlyWrapper)::Maybe{AbstractString}
-    return stored_base_daf_repository(wrapper.daf)
-end
-
-function stored_base_daf_repository(daf::DafReader)::Maybe{AbstractString}
-    specification = get_scalar(daf, "base_daf_repository"; default = nothing)
-    if specification !== nothing && !(specification isa AbstractString)
-        error(chomp("""
-            non-string scalar: base_daf_repository
-            with the value: $(specification)
-            in the daf data: $(daf.name)
-            """))
-    end
-    return specification
+function Readers.stored_base_daf_links(wrapper::DafReadOnlyWrapper)::Maybe{AbstractString}
+    return stored_base_daf_links(wrapper.daf)
 end
 
 # The immediate bases a repository records - only its own, never theirs. A repository which rests on several is a

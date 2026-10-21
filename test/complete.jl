@@ -1,3 +1,25 @@
+# The record of the bases of a stored repository, as stored.
+function stored_record(daf::DafReader)::Maybe{AbstractString}
+    return DataAxesFormats.Readers.stored_base_daf_links(daf)
+end
+
+# Whether a repository holds a scalar on disk, including one the scalar functions refuse.
+function has_raw_scalar(daf::DafReader, name::AbstractString)::Bool
+    return DataAxesFormats.Formats.with_data_read_lock(daf, "has_raw_scalar") do
+        return DataAxesFormats.Formats.format_has_scalar(daf, name)
+    end
+end
+
+# Write a scalar the scalar functions refuse, as a repository holds it on disk.
+function write_raw_scalar!(daf::DafWriter, name::AbstractString, value::StorageScalar)::Nothing
+    DataAxesFormats.Formats.with_data_write_lock(daf, "write_raw_scalar!") do
+        DataAxesFormats.Formats.format_set_scalar!(daf, name, value)
+        return nothing
+    end
+    empty_cache!(daf)
+    return nothing
+end
+
 function populate_complete_cells!(daf::DafWriter)::Nothing
     add_axis!(daf, "cell", ["A", "B", "C"])
     add_axis!(daf, "gene", ["X", "Y"])
@@ -32,7 +54,7 @@ nested_test("complete") do
                 complete_chain!(; base_daf = cells, new_daf = metacells)
 
                 # The common case is stored as the path itself, not as JSON, and is relative to the new repository.
-                @test get_scalar(metacells, "base_daf_repository") == "cells"
+                @test stored_record(metacells) == "cells"
                 return nothing
             end
         end
@@ -44,7 +66,7 @@ nested_test("complete") do
                 metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
                 complete_chain!(; base_daf = cells, new_daf = metacells, absolute = true)
 
-                @test get_scalar(metacells, "base_daf_repository") == abspath("$(path)/cells")
+                @test stored_record(metacells) == abspath("$(path)/cells")
                 return nothing
             end
         end
@@ -56,7 +78,7 @@ nested_test("complete") do
                 metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
                 complete_chain!(; base_daf = BaseDaf(; daf = cells, axes = [VIEW_ALL_AXES]), new_daf = metacells)
 
-                json = JSON.parse(get_scalar(metacells, "base_daf_repository"))
+                json = JSON.parse(stored_record(metacells))
                 @test json == [Dict("path" => "cells", "axes" => [Dict("*" => "=")])]
                 return nothing
             end
@@ -69,7 +91,7 @@ nested_test("complete") do
                 complete_chain!(; base_daf = [results_chain, masks_chain], new_daf = leaf)
 
                 # Only the immediate bases are recorded; that both rest on the cells is recorded in them.
-                @test JSON.parse(get_scalar(leaf, "base_daf_repository")) == ["results", "masks"]
+                @test JSON.parse(stored_record(leaf)) == ["results", "masks"]
                 return nothing
             end
         end
@@ -83,7 +105,7 @@ nested_test("complete") do
 
                 # The same base twice is the same data twice, so it is recorded and chained once - and what is left is
                 # a lone unviewed base, so it is stored as its path.
-                @test get_scalar(metacells, "base_daf_repository") == "cells"
+                @test stored_record(metacells) == "cells"
                 @test [daf.name for daf in chain.dafs] == ["cells!", "metacells!"]
                 return nothing
             end
@@ -103,7 +125,7 @@ nested_test("complete") do
                 )
 
                 # Two views of one repository expose different data, so they are two bases rather than a duplicate.
-                @test length(JSON.parse(get_scalar(metacells, "base_daf_repository"))) == 2
+                @test length(JSON.parse(stored_record(metacells))) == 2
                 @test length(chain.dafs) == 3
                 @test axes_set(chain) == Set(["cell", "gene"])
                 return nothing
@@ -116,8 +138,8 @@ nested_test("complete") do
             mktempdir() do path
                 cells = FilesDaf("$(path)/cells", "w"; name = "cells!")
                 populate_complete_cells!(cells)
-                set_scalar!(cells, "base_daf_repository", 1)
-                @test_throws "non-string scalar: base_daf_repository" complete_daf("$(path)/cells")
+                write_raw_scalar!(cells, "_base_daf_links", 1)
+                @test_throws "non-string scalar: _base_daf_links" complete_daf("$(path)/cells")
                 return nothing
             end
         end
@@ -179,7 +201,7 @@ nested_test("complete") do
                 # A repository resting on a view of a single base may say so as one object rather than as an array of
                 # one, which is what someone writing the property by hand would do.
                 metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
-                set_scalar!(metacells, "base_daf_repository", """{"path": "cells", "axes": [{"cell": "="}]}""")
+                write_raw_scalar!(metacells, "_base_daf_links", """{"path": "cells", "axes": [{"cell": "="}]}""")
 
                 reopened = complete_daf("$(path)/metacells"; name = "reopened!")
                 @test axes_set(reopened) == Set(["cell"])
@@ -295,6 +317,124 @@ nested_test("complete") do
                 # The rebased repository would not reopen, so it is not recorded.
                 @test_throws "different number of entries: 3" set_base_daf_links!(metacells, other_cells)
                 @test get_base_daf_links(metacells) == [RecordedBase("cells", nothing, nothing)]
+                return nothing
+            end
+        end
+
+        nested_test("reserved") do
+            mktempdir() do path
+                cells = FilesDaf("$(path)/cells", "w"; name = "cells!")
+                populate_complete_cells!(cells)
+                metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
+                chain = complete_chain!(; base_daf = cells, new_daf = metacells)
+
+                # The bases are storage metadata, not data.
+                for name in ("_base_daf_links", "base_daf_repository")
+                    @test !has_scalar(metacells, name)
+                    @test !has_scalar(chain, name)
+                    @test_throws "reserved scalar: $(name)" get_scalar(metacells, name)
+                    @test_throws "reserved scalar: $(name)" set_scalar!(metacells, name, "cells")
+                    @test_throws "reserved scalar: $(name)" delete_scalar!(metacells, name)
+                end
+                @test isempty(scalars_set(metacells))
+                @test isempty(scalars_set(chain))
+                @test contains(description(metacells), "base_daf_links: cells")
+                return nothing
+            end
+        end
+
+        nested_test("legacy") do
+            mktempdir() do path
+                cells = FilesDaf("$(path)/cells", "w"; name = "cells!")
+                populate_complete_cells!(cells)
+
+                # A repository of an earlier format version holds its bases in the legacy scalar.
+                metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
+                write_raw_scalar!(metacells, "base_daf_repository", "cells")
+                write("$(path)/metacells/daf.json", "{\"version\":[1,1]}\n")
+                reopened = complete_daf("$(path)/metacells")
+                @test get_vector(reopened, "cell", "age") == [10, 20, 30]
+                @test get_base_daf_links(metacells) == [RecordedBase("cells", nothing, nothing)]
+
+                # Recording the bases raises its version, and moves them to the new scalar.
+                set_base_daf_links!(metacells, cells)
+                @test JSON.parsefile("$(path)/metacells/daf.json")["version"] == [1, 2]
+                @test has_raw_scalar(metacells, "_base_daf_links")
+                @test !has_raw_scalar(metacells, "base_daf_repository")
+                @test get_vector(complete_daf("$(path)/metacells"), "cell", "age") == [10, 20, 30]
+                return nothing
+            end
+        end
+
+        nested_test("zip_legacy") do
+            mktempdir() do path
+                cells = FilesDaf("$(path)/cells", "w"; name = "cells!")
+                populate_complete_cells!(cells)
+
+                # An archive of an earlier format version can't be raised, so it records its bases as that version does.
+                writer = ZipArchives.ZipWriter("$(path)/metacells.daf.zip")
+                ZipArchives.zip_writefile(writer, "daf.json", Vector{UInt8}("{\"version\":[1,1]}\n"))
+                close(writer)
+                metacells = ZipDaf("$(path)/metacells.daf.zip", "r+"; name = "metacells!")
+                complete_chain!(; base_daf = cells, new_daf = metacells)
+                @test has_raw_scalar(metacells, "base_daf_repository")
+                @test !has_raw_scalar(metacells, "_base_daf_links")
+                @test get_vector(complete_daf("$(path)/metacells.daf.zip"), "cell", "age") == [10, 20, 30]
+                return nothing
+            end
+        end
+
+        nested_test("copy") do
+            mktempdir() do path
+                mkdir("$(path)/a")
+                mkdir("$(path)/b")
+                cells = FilesDaf("$(path)/a/cells", "w"; name = "cells!")
+                populate_complete_cells!(cells)
+                metacells = FilesDaf("$(path)/a/metacells", "w"; name = "metacells!")
+                metacells_chain = complete_chain!(; base_daf = cells, new_daf = metacells)
+                set_vector!(metacells_chain, "cell", "metacell", ["M1", "M1", "M2"])
+
+                # A copy of a repository resting on bases rests on the same bases.
+                relocated = FilesDaf("$(path)/b/metacells", "w"; name = "relocated!")
+                copy_all!(; destination = relocated, source = FilesDaf("$(path)/a/metacells"))
+                @test get_base_daf_links(relocated) == [RecordedBase("../a/cells", nothing, nothing)]
+                reopened = complete_daf("$(path)/b/metacells")
+                @test get_vector(reopened, "cell", "age") == [10, 20, 30]
+                @test get_vector(reopened, "cell", "metacell") == ["M1", "M1", "M2"]
+
+                # A copy of a chain holds all its data, and rests on nothing.
+                flat = FilesDaf("$(path)/b/flat", "w"; name = "flat!")
+                copy_all!(; destination = flat, source = complete_daf("$(path)/a/metacells"))
+                @test get_base_daf_links(flat) === nothing
+                @test get_vector(flat, "cell", "age") == [10, 20, 30]
+
+                # The destination's own bases are never replaced.
+                rebased = FilesDaf("$(path)/b/rebased", "w"; name = "rebased!")
+                complete_chain!(; base_daf = cells, new_daf = rebased)
+                @test_throws "existing bases in the destination: rebased!" copy_all!(;
+                    destination = rebased,
+                    source = FilesDaf("$(path)/a/metacells"),
+                )
+                return nothing
+            end
+        end
+
+        nested_test("convert") do
+            mktempdir() do path
+                mkdir("$(path)/a")
+                mkdir("$(path)/b")
+                cells = FilesDaf("$(path)/a/cells", "w"; name = "cells!")
+                populate_complete_cells!(cells)
+                metacells = FilesDaf("$(path)/a/metacells", "w"; name = "metacells!")
+                complete_chain!(; base_daf = cells, new_daf = metacells)
+
+                files_to_zarr(; files_path = "$(path)/a/metacells", zarr_path = "$(path)/b/metacells.daf.zarr")
+                @test get_base_daf_links(ZarrDaf("$(path)/b/metacells.daf.zarr")) ==
+                      [RecordedBase("../a/cells", nothing, nothing)]
+                @test get_vector(complete_daf("$(path)/b/metacells.daf.zarr"), "cell", "age") == [10, 20, 30]
+
+                zarr_to_files(; zarr_path = "$(path)/b/metacells.daf.zarr", files_path = "$(path)/a/converted")
+                @test get_base_daf_links(FilesDaf("$(path)/a/converted")) == [RecordedBase("cells", nothing, nothing)]
                 return nothing
             end
         end

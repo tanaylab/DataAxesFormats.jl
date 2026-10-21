@@ -405,6 +405,32 @@ This trusts that we have a read lock on the data set, and that the `name` scalar
 """
 function format_get_scalar end
 
+# The scalar holding the bases a stored repository rests on (see `get_base_daf_links`). It is storage metadata, not
+# data, so the scalar functions don't expose it.
+const BASE_DAF_LINKS_SCALAR = "_base_daf_links"
+
+# The scalar which held the bases in repositories of earlier format versions.
+const LEGACY_BASE_DAF_LINKS_SCALAR = "base_daf_repository"
+
+# Whether a scalar `name` is reserved for the bases record.
+function is_reserved_scalar(name::AbstractString)::Bool
+    return name == BASE_DAF_LINKS_SCALAR || name == LEGACY_BASE_DAF_LINKS_SCALAR
+end
+
+"""
+    format_raise_version!(format::FormatWriter)::Bool
+
+Raise the version marker of the stored `format` to the version this code writes, if it is lower and the format can
+change it, and return whether the marker is now at this version. An append-only format (e.g. a ZIP archive) keeps its
+marker, so it returns `false` if the marker is lower; data is then written as that version expects. A format with no
+marker (e.g. in memory) returns `true`.
+
+This trusts that we have a write lock on the data set.
+"""
+function format_raise_version!(::FormatWriter)::Bool
+    return true
+end
+
 """
     format_has_axis(format::FormatReader, axis::AbstractString; for_change::Bool)::Bool
 

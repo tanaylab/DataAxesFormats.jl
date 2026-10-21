@@ -394,11 +394,27 @@
 <code>Daf
 </code> data, and which version of the internal structure it is using. Defined versions are 
 <code>[1,0]
+</code>, 
+<code>[1,1]
 </code> and 
-<code>[1,1]
+<code>[1,2]
 </code>. New code emits 
+<code>[1,2]
+</code>; the reader accepts all three. Version 
 <code>[1,1]
-</code>; the reader accepts both. The on-disk difference is the JSON descriptor for sparse properties (see below) — the binary data files are unchanged across versions.
+</code> changed the JSON descriptor for sparse properties (see below); the binary data files are unchanged across versions. Version 
+<code>[1,2]
+</code> moved the bases the repository rests on (see 
+<a href="chains.html#DataAxesFormats.Chains.get_base_daf_links">
+<code>get_base_daf_links
+</code>
+</a>) from the 
+<code>base_daf_repository
+</code> scalar to the 
+<code>_base_daf_links
+</code> scalar. Recording the bases raises an earlier version to 
+<code>[1,2]
+</code>.
 </p>
 </li>
 <li>
@@ -798,7 +814,7 @@
 <code>FilesDaf
 </code>
 </a> format that is supported by this code (
-<code>1
+<code>2
 </code>). The code will refuse to access data that is stored with the expected major version (
 <code>1
 </code>), but that uses a higher minor version.

@@ -390,8 +390,24 @@
 <a href="https://semver.org/">semantic versioning
 </a>. This makes it easy to test whether some group in an HDF5 file does/n&#39;t contain 
 <code>Daf
-</code> data, and which version of the internal structure it is using. Currently the only defined version is 
+</code> data, and which version of the internal structure it is using. Defined versions are 
 <code>[1,0]
+</code> and 
+<code>[1,1]
+</code>. New code emits 
+<code>[1,1]
+</code>; the reader accepts both. Version 
+<code>[1,1]
+</code> moved the bases the data rests on (see 
+<a href="chains.html#DataAxesFormats.Chains.get_base_daf_links">
+<code>get_base_daf_links
+</code>
+</a>) from the 
+<code>base_daf_repository
+</code> scalar to the 
+<code>_base_daf_links
+</code> scalar. Recording the bases raises an earlier version to 
+<code>[1,1]
 </code>.
 </p>
 </li>
@@ -747,7 +763,7 @@
 <code>H5df
 </code>
 </a> format that is supported by this code (
-<code>0
+<code>1
 </code>). The code will refuse to access data that is stored with the expected major version (
 <code>1
 </code>), but that uses a higher minor version.

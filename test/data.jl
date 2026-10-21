@@ -3839,7 +3839,7 @@ nested_test("data") do
                     h5file["daf"] = [UInt(2), UInt(0)]
                     @test_throws chomp("""
                                  incompatible format version: 2.0
-                                 the code supports version: 1.0
+                                 the code supports version: 1.1
                                  in daf data: HDF5.File: (read-write) $(path)/test.h5df
                                  """) H5df(h5file; name = "version!")
                 end
@@ -3923,7 +3923,7 @@ nested_test("data") do
                 end
                 @test_throws chomp("""
                              incompatible format version: 2.0
-                             the code supports version: 1.1
+                             the code supports version: 1.2
                              in daf directory: $(path)
                              """) FilesDaf(path; name = "version!")
             end
@@ -3951,11 +3951,11 @@ nested_test("data") do
             end
         end
 
-        nested_test("v1_1_marker") do
+        nested_test("current_marker") do
             mktempdir() do path
-                # Even when no packed properties are written, `daf.json` records `[1,1]`.
+                # Even when no packed properties are written, `daf.json` records the current version.
                 FilesDaf(path, "w+"; name = "fresh!")
-                @test JSON.parsefile("$(path)/daf.json")["version"] == [1, 1]
+                @test JSON.parsefile("$(path)/daf.json")["version"] == [1, 2]
             end
         end
 
@@ -4152,7 +4152,7 @@ nested_test("data") do
                 with_served_directory(path) do url
                     @test_throws chomp("""
                                  incompatible format version: 99.0
-                                 the code supports version: 1.1
+                                 the code supports version: 1.2
                                  in daf HTTP data set: $(url)
                                  """) HttpDaf(url)
                     return nothing
@@ -4372,7 +4372,7 @@ nested_test("data") do
                 GC.gc()
                 @test_throws chomp("""
                              incompatible format version: 2.0
-                             the code supports version: 1.1
+                             the code supports version: 1.2
                              in daf zip archive: $(abspath(version_path))
                              """) ZipDaf(version_path; name = "version!")
 
@@ -4607,7 +4607,7 @@ nested_test("data") do
                 )
                 @test_throws chomp("""
                              incompatible format version: 2.0
-                             the code supports version: 1.0
+                             the code supports version: 1.1
                              in daf zarr group: $(abspath(version_path))
                              """) ZarrDaf(version_path; name = "version!")
 

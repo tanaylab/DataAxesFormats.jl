@@ -1204,6 +1204,11 @@ function Readers.get_scalar(
     return invoke(Readers.get_scalar, Tuple{DafReader, AbstractString}, contract_daf, name; default = default)  # NOLINT
 end
 
+# The bases of a stored repository aren't data, so they are outside the contract.
+function Readers.stored_base_daf_links(contract_daf::ContractDaf)::Maybe{AbstractString}
+    return Readers.stored_base_daf_links(contract_daf.daf)
+end
+
 function Formats.invalidate_cached!(contract_daf::ContractDaf, cache_key::CacheKey)::Nothing
     invoke(Formats.invalidate_cached!, Tuple{FormatReader, CacheKey}, contract_daf, cache_key)
     Formats.invalidate_cached!(contract_daf.daf, cache_key)
