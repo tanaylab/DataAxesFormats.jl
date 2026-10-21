@@ -64,6 +64,16 @@ nested_test("operations") do
                 @test with_type(daf["@ cell @ gene :: value % Round"]) == ([0 -2 2; -3 5 5], Int64)
                 @test with_type(daf["@ cell @ gene :: value % Round type Int8"]) == ([0 -2 2; -3 5 5], Int8)
             end
+
+            nested_test("sparse") do
+                values = sparse([0.0 0.3; 2.6 0.0; 0.0 -0.4])
+                result = DataAxesFormats.Registry.compute_eltwise(Round(), values)
+                @test result == [0 0; 3 0; 0 0]
+                @test nnz(result) == 1
+                vector_result = DataAxesFormats.Registry.compute_eltwise(Round(), sparse([0.0, 0.3, 2.6, -0.4]))
+                @test vector_result == [0, 0, 3, 0]
+                @test nnz(vector_result) == 1
+            end
         end
 
         nested_test("clamp") do
@@ -131,6 +141,13 @@ nested_test("operations") do
                 values = sprand(Random.MersenneTwister(123), 2000, 200, 0.05)
                 result = DataAxesFormats.Registry.compute_eltwise(Clamp(; min = 0.5, max = 0.8), values)
                 @test result == clamp.(Matrix(values), 0.5, 0.8)
+            end
+
+            nested_test("sparse_zeros") do
+                values = sparse([0.0 0.3; 2.6 0.0; 0.0 -0.4])
+                result = DataAxesFormats.Registry.compute_eltwise(Clamp(; min = 0.0, max = 1.0), values)
+                @test result == [0.0 0.3; 1.0 0.0; 0.0 0.0]
+                @test nnz(result) == 2
             end
         end
 
@@ -251,6 +268,11 @@ nested_test("operations") do
                 set_matrix!(daf, "cell", "gene", "value", sparse([0.0 1.0 0.0; 3.0 0.0 5.0]); relayout = false)
                 @test daf["@ cell : value % Log eps 1"] == [log(1), log(4)]
                 @test daf["@ cell @ gene :: value % Log eps 1"] == [log(1) log(2) log(1); log(4) log(1) log(6)]
+                vector_result = daf["@ cell : value % Log eps 1"].array
+                @test issparse(vector_result) && nnz(vector_result) == 1
+                matrix_result = daf["@ cell @ gene :: value % Log eps 1"].array
+                @test issparse(matrix_result) && nnz(matrix_result) == 3
+                @test daf["@ cell @ gene :: value % Log eps 2"] == [log(2) log(3) log(2); log(5) log(2) log(7)]
             end
 
             nested_test("rows") do

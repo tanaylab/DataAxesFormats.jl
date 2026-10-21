@@ -384,8 +384,8 @@ function parse_parameter_value(
 end
 
 # An element-wise operation on a sparse matrix, computed on its stored values. If the `value_of` zero is zero, the
-# result is sparse, with the same structure (sharing its indices with the input). Otherwise it is dense, filled with the
-# `value_of` zero.
+# result is sparse. It has the same structure (sharing its indices with the input), unless some stored values become
+# zero, which are then dropped. Otherwise it is dense, filled with the `value_of` zero.
 function compute_sparse_eltwise(
     value_of::Function,
     input::AbstractMatrix,
@@ -402,6 +402,17 @@ function compute_sparse_eltwise(
     if zero_value == 0
         output_value_per_stored = Vector{type}(undef, length(value_per_stored))
         map!(value -> type(value_of(value)), output_value_per_stored, value_per_stored)
+        if any(iszero, output_value_per_stored)
+            return dropzeros!(
+                SparseMatrixCSC(
+                    size(input, 1),
+                    size(input, 2),
+                    copy(SparseArrays.getcolptr(input)),
+                    copy(rowvals(input)),
+                    output_value_per_stored,
+                ),
+            )
+        end
         return SparseMatrixCSC(
             size(input, 1),
             size(input, 2),
@@ -423,6 +434,32 @@ function compute_sparse_eltwise(
             output[row_index_per_stored[stored_index], column_index] = value_of(value_per_stored[stored_index])
         end
         return nothing
+    end
+    return output
+end
+
+# An element-wise operation on a sparse vector, computed on its stored values, as for a sparse matrix.
+function compute_sparse_eltwise(
+    value_of::Function,
+    input::AbstractVector,
+    ::Type{T},
+)::StorageVector where {T <: StorageReal}
+    sparse_input = plain_array(input)
+    @assert sparse_input isa SparseVector
+    index_per_stored = SparseArrays.nonzeroinds(sparse_input)
+
+    zero_value = T(value_of(zero(eltype(sparse_input))))
+    output_value_per_stored = T[T(value_of(value)) for value in nonzeros(sparse_input)]
+    if zero_value == 0
+        if any(iszero, output_value_per_stored)
+            return dropzeros!(SparseVector(length(sparse_input), copy(index_per_stored), output_value_per_stored))
+        end
+        return SparseVector(length(sparse_input), index_per_stored, output_value_per_stored)
+    end
+
+    output = fill(zero_value, length(sparse_input))
+    for (stored_position, index) in enumerate(index_per_stored)
+        output[index] = output_value_per_stored[stored_position]
     end
     return output
 end
@@ -887,7 +924,38 @@ function log_vector!(
     return nothing
 end
 
+# The logarithm of the `value` plus the `eps`, in the `base`, as computed by `log_vector!`.
+function log_value(value::StorageReal, eps::T, base::Float64)::T where {T <: AbstractFloat}
+    if base == 2.0
+        return log2(T(value) + eps)
+    elseif base == 10.0
+        return log10(T(value) + eps)  # UNTESTED
+    elseif base == Float64(e)
+        return log(T(value) + eps)
+    else
+        return log(T(value) + eps) * T(1.0 / log(base))  # UNTESTED
+    end
+end
+
+# The `Log` of a sparse vector or matrix, computed on its stored values (see `compute_sparse_eltwise`).
+function compute_sparse_log(
+    operation::Log,
+    input::Union{StorageVector, StorageMatrix},
+)::Union{StorageVector, StorageMatrix}
+    type = float_type_for(eltype(input), operation.type)
+    eps = type(operation.eps)
+    base = operation.base
+    if input isa AbstractVector
+        return compute_sparse_eltwise(value -> log_value(value, eps, base), input, type)
+    else
+        return compute_sparse_eltwise(value -> log_value(value, eps, base), input, type, "Log")
+    end
+end
+
 function compute_eltwise(operation::Log, input::StorageMatrix)::StorageMatrix
+    if issparse(input)
+        return compute_sparse_log(operation, input)
+    end
     input = plain_array(densify(input))
     if major_axis(input) == Rows
         # The result has the same layout as the input, and is computed along its columns.
@@ -911,6 +979,9 @@ function compute_eltwise(operation::Log, input::StorageMatrix)::StorageMatrix
 end
 
 function compute_eltwise(operation::Log, input::StorageVector{<:StorageReal})::StorageVector{<:StorageReal}
+    if issparse(input)
+        return compute_sparse_log(operation, input)
+    end
     input = plain_array(densify(input))
     type = float_type_for(eltype(input), operation.type)
     output = similar(input, type)
