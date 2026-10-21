@@ -420,6 +420,16 @@ nested_test("operations") do
                     @test with_type(daf["@ cell : value % Significant high 3"]) == ([0, 3], Int64)
                     @test with_type(daf["@ cell : value % Significant high 3 low 1"]) == ([1, 3], Int64)
                 end
+
+                nested_test("unsigned") do
+                    set_vector!(daf, "cell", "value", UInt8[1, 3])
+                    @test with_type(daf["@ cell : value % Significant high 3"]) == ([0, 3], UInt8)
+                end
+
+                nested_test("fractional") do
+                    set_vector!(daf, "cell", "value", [1, 3])
+                    @test with_type(daf["@ cell : value % Significant high 2.5"]) == ([0, 3], Int64)
+                end
             end
 
             nested_test("matrix") do
@@ -427,6 +437,12 @@ nested_test("operations") do
                     set_matrix!(daf, "cell", "gene", "value", [1.0 2.0 2.0; -3.0 1.0 6.0])
                     @test with_type(daf["@ cell @ gene :: value % Significant high 3 low 2"]) ==
                           ([0.0 0.0 2.0; -3.0 0.0 6.0], Float64)
+                end
+
+                nested_test("unsigned") do
+                    set_matrix!(daf, "cell", "gene", "value", UInt8[1 2 2; 3 1 6])
+                    @test with_type(daf["@ cell @ gene :: value % Significant high 3 low 2"]) ==
+                          (UInt8[0 0 2; 3 0 6], UInt8)
                 end
 
                 nested_test("sparse") do

@@ -1059,8 +1059,6 @@ function compute_eltwise(operation::Significant, input::StorageVector{T})::Stora
 end
 
 function significant!(vector::StorageVector{<:StorageReal}, high::StorageReal, low::StorageReal)::Nothing
-    high = eltype(vector)(high)
-    low = eltype(vector)(low)
     not_high_mask = (-high .< vector) .& (vector .< high)
     if all(not_high_mask)
         vector .= 0
