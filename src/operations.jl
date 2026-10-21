@@ -383,73 +383,159 @@ function parse_parameter_value(
     end
 end
 
-# An element-wise operation on a sparse matrix, computed on its stored values. If the `value_of` zero is zero, the
-# result is sparse. It has the same structure (sharing its indices with the input), unless some stored values become
-# zero, which are then dropped. Otherwise it is dense, filled with the `value_of` zero.
-function compute_sparse_eltwise(
-    value_of::Function,
-    input::AbstractMatrix,
-    type::Type,
+# An element-wise operation on a matrix, which `map_values!(output_values, input_values)` computes for some of its
+# values, each on its own. Sparse input is computed on its stored values (see `compute_sparse_eltwise`), dense input on
+# all of them (see `compute_dense_eltwise`).
+function compute_blind_eltwise(
+    map_values!::Function,
+    input::StorageMatrix{<:StorageReal},
+    ::Type{T},
     name::AbstractString,
-)::StorageMatrix
-    input = plain_array(input)
-    if !(input isa SparseMatrixCSC)
-        return transpose(compute_sparse_eltwise(value_of, parent(input), type, name))
+)::StorageMatrix where {T <: StorageReal}
+    if issparse(input)
+        return compute_sparse_eltwise(map_values!, input, T, name)
+    else
+        return compute_dense_eltwise(map_values!, input, T, name)
+    end
+end
+
+# An element-wise operation on a dense matrix, computed by `map_values!`. The result has the same layout as the input.
+# Plain storage is computed in parallel slices of its values, ignoring the columns. Any other matrix (a lazy one, or a
+# view with gaps) is computed one column at a time.
+function compute_dense_eltwise(
+    map_values!::Function,
+    input::StorageMatrix{<:StorageReal},
+    ::Type{T},
+    name::AbstractString,
+)::StorageMatrix where {T <: StorageReal}
+    if major_axis(input) == Rows
+        flipped_input = flip(input)
+        @assert flipped_input isa StorageMatrix{<:StorageReal}
+        return flip(compute_dense_eltwise(map_values!, flipped_input, T, name))
     end
 
-    zero_value = type(value_of(zero(eltype(input))))
-    value_per_stored = nonzeros(input)
-    if zero_value == 0
-        output_value_per_stored = Vector{type}(undef, length(value_per_stored))
-        map!(value -> type(value_of(value)), output_value_per_stored, value_per_stored)
-        if any(iszero, output_value_per_stored)
-            return dropzeros!(
-                SparseMatrixCSC(
-                    size(input, 1),
-                    size(input, 2),
-                    copy(SparseArrays.getcolptr(input)),
-                    copy(rowvals(input)),
-                    output_value_per_stored,
-                ),
-            )
+    output = Matrix{T}(undef, size(input))
+    if column_scratch(base_array(input)) === nothing
+        storage = plain_array(input)
+        if storage isa DenseArray
+            output_values = vec(output)
+            input_values = vec(storage)
+            parallel_foreach_block(length(input_values), name) do indices
+                @views map_values!(output_values[indices], input_values[indices])
+                return nothing
+            end
+            return output
         end
-        return SparseMatrixCSC(
-            size(input, 1),
-            size(input, 2),
-            SparseArrays.getcolptr(input),
-            rowvals(input),
-            output_value_per_stored,
+    end
+
+    parallel_foreach_column(input; contiguous = true, name) do _, column_index, column
+        @views map_values!(output[:, column_index], column)
+        return nothing
+    end
+    return output
+end
+
+# The value `map_values!` computes for a zero of the `input_type`.
+function mapped_zero(map_values!::Function, input_type::Type{<:StorageReal}, ::Type{T})::T where {T <: StorageReal}
+    output_values = Vector{T}(undef, 1)
+    map_values!(output_values, zeros(input_type, 1))
+    return output_values[1]
+end
+
+# The values `map_values!` computes for the `input_values`, in parallel slices.
+function mapped_values(
+    map_values!::Function,
+    input_values::AbstractVector,
+    ::Type{T},
+    name::AbstractString,
+)::Vector{T} where {T <: StorageReal}
+    output_values = Vector{T}(undef, length(input_values))
+    parallel_foreach_block(length(input_values), name) do indices
+        @views map_values!(output_values[indices], input_values[indices])
+        return nothing
+    end
+    return output_values
+end
+
+# An element-wise operation on a sparse matrix, computed by `map_values!` on its stored values. If the mapped zero is
+# zero, the result is sparse. It has the same structure (sharing its indices with the input), unless some stored values
+# become zero, which are then dropped. Otherwise it is dense, filled with the mapped zero (see
+# `compute_sparse_to_dense_eltwise`).
+function compute_sparse_eltwise(
+    map_values!::Function,
+    input::StorageMatrix{<:StorageReal},
+    ::Type{T},
+    name::AbstractString,
+)::StorageMatrix where {T <: StorageReal}
+    if major_axis(input) == Rows
+        flipped_input = flip(input)
+        @assert flipped_input isa StorageMatrix{<:StorageReal}
+        return flip(compute_sparse_eltwise(map_values!, flipped_input, T, name))
+    end
+
+    zero_value = mapped_zero(map_values!, eltype(input), T)
+    if zero_value != 0
+        return compute_sparse_to_dense_eltwise(map_values!, input, zero_value, name)
+    end
+
+    plain_input = plain_array(input)
+    sparse_input = plain_input isa SparseMatrixCSC ? plain_input : SparseMatrixCSC(plain_input)
+    output_value_per_stored = mapped_values(map_values!, nonzeros(sparse_input), T, name)
+    if any(iszero, output_value_per_stored)
+        return dropzeros!(
+            SparseMatrixCSC(
+                size(sparse_input, 1),
+                size(sparse_input, 2),
+                copy(SparseArrays.getcolptr(sparse_input)),
+                copy(rowvals(sparse_input)),
+                output_value_per_stored,
+            ),
         )
     end
+    return SparseMatrixCSC(
+        size(sparse_input, 1),
+        size(sparse_input, 2),
+        SparseArrays.getcolptr(sparse_input),
+        rowvals(sparse_input),
+        output_value_per_stored,
+    )
+end
 
+# An element-wise operation on a column-major sparse matrix whose `zero_value` isn't zero. The result is dense, filled
+# with the `zero_value`, with the stored values mapped into it one column at a time.
+function compute_sparse_to_dense_eltwise(
+    map_values!::Function,
+    input::StorageMatrix{<:StorageReal},
+    zero_value::T,
+    name::AbstractString,
+)::Matrix{T} where {T <: StorageReal}
     output = fill(zero_value, size(input))
-    row_index_per_stored = rowvals(input)
-    n_columns = size(input, 2)
-    parallel_loop_wo_rng(  # NOJET
-        1:n_columns;
-        name,
-        progress = DebugProgress(n_columns; group = :daf_loops, desc = name),
-    ) do column_index
-        for stored_index in nzrange(input, column_index)
-            output[row_index_per_stored[stored_index], column_index] = value_of(value_per_stored[stored_index])
+    mapped_values_per_thread = [Vector{T}() for _ in 1:maxthreadid()]
+    parallel_foreach_column(input; name) do _, column_index, column  # NOJET
+        mapped_column_values = mapped_values_per_thread[threadid()]
+        resize!(mapped_column_values, length(nonzeros(column)))
+        map_values!(mapped_column_values, nonzeros(column))
+        for (position, row_index) in enumerate(SparseArrays.nonzeroinds(column))
+            output[row_index, column_index] = mapped_column_values[position]
         end
         return nothing
     end
     return output
 end
 
-# An element-wise operation on a sparse vector, computed on its stored values, as for a sparse matrix.
+# An element-wise operation on a sparse vector, computed by `map_values!` on its stored values, as for a sparse matrix.
 function compute_sparse_eltwise(
-    value_of::Function,
+    map_values!::Function,
     input::AbstractVector,
     ::Type{T},
+    name::AbstractString,
 )::StorageVector where {T <: StorageReal}
     sparse_input = plain_array(input)
     @assert sparse_input isa SparseVector
     index_per_stored = SparseArrays.nonzeroinds(sparse_input)
 
-    zero_value = T(value_of(zero(eltype(sparse_input))))
-    output_value_per_stored = T[T(value_of(value)) for value in nonzeros(sparse_input)]
+    zero_value = mapped_zero(map_values!, eltype(sparse_input), T)
+    output_value_per_stored = mapped_values(map_values!, nonzeros(sparse_input), T, name)
     if zero_value == 0
         if any(iszero, output_value_per_stored)
             return dropzeros!(SparseVector(length(sparse_input), copy(index_per_stored), output_value_per_stored))
@@ -491,35 +577,10 @@ end
 
 function compute_eltwise(operation::Abs, input::StorageMatrix)::StorageMatrix
     type = unsigned_type_for(eltype(input), operation.type)
-    if issparse(input)
-        return compute_sparse_eltwise(abs, input, type, "Abs")
+    return compute_blind_eltwise(input, type, "Abs") do output_values, input_values
+        output_values .= abs.(input_values)
+        return nothing
     end
-    output = similar(input, type)
-    axis = major_axis(input)
-    if axis == Columns
-        n_columns = size(input, 2)
-        parallel_loop_wo_rng(  # NOJET
-            1:n_columns;
-            name = "Abs",
-            progress = DebugProgress(n_columns; group = :daf_loops, desc = "Abs"),
-        ) do column_index
-            @views output[:, column_index] .= abs.(input[:, column_index])  # NOJET
-            return nothing
-        end
-    elseif axis == Rows  # UNTESTED
-        n_rows = size(input, 1)  # UNTESTED
-        parallel_loop_wo_rng(  # UNTESTED
-            1:n_rows;
-            name = "Abs",
-            progress = DebugProgress(n_rows; group = :daf_loops, desc = "Abs"),
-        ) do row_index
-            @views output[row_index, :] .= abs.(input[row_index, :])
-            return nothing
-        end
-    else
-        @. output = abs(input)  # UNTESTED
-    end
-    return output
 end
 
 function compute_eltwise(operation::Abs, input::StorageVector{<:StorageReal})::StorageVector{<:StorageReal}
@@ -561,35 +622,10 @@ end
 
 function compute_eltwise(operation::Round, input::StorageMatrix)::StorageMatrix
     type = int_type_for(eltype(input), operation.type)
-    if issparse(input)
-        return compute_sparse_eltwise(value -> round(type, value), input, type, "Round")
+    return compute_blind_eltwise(input, type, "Round") do output_values, input_values
+        output_values .= round.(eltype(output_values), input_values)
+        return nothing
     end
-    output = similar(input, type)
-    axis = major_axis(input)
-    if axis == Columns
-        n_columns = size(input, 2)
-        parallel_loop_wo_rng(
-            1:n_columns;
-            name = "Round",
-            progress = DebugProgress(n_columns; group = :daf_loops, desc = "Round"),
-        ) do column_index
-            @views output[:, column_index] .= round.(type, input[:, column_index])
-            return nothing
-        end
-    elseif axis == Rows  # UNTESTED
-        n_rows = size(input, 1)  # UNTESTED
-        parallel_loop_wo_rng(  # UNTESTED
-            1:n_rows;
-            name = "Round",
-            progress = DebugProgress(n_rows; group = :daf_loops, desc = "Round"),
-        ) do row_index
-            @views output[row_index, :] .= round.(type, input[row_index, :])
-            return nothing
-        end
-    else
-        output .= round.(type, input)  # UNTESTED
-    end
-    return output
 end
 
 function compute_eltwise(operation::Round, input::StorageVector{<:StorageReal})::StorageVector{<:StorageReal}
@@ -662,35 +698,10 @@ function compute_eltwise(operation::Clamp, input::StorageMatrix)::StorageMatrix
     type = type_for_clamp(operation, eltype(input))
     clamp_min = operation.min
     clamp_max = operation.max
-    if issparse(input)
-        return compute_sparse_eltwise(value -> clamp(value, clamp_min, clamp_max), input, type, "Clamp")
+    return compute_blind_eltwise(input, type, "Clamp") do output_values, input_values
+        output_values .= clamp.(input_values, clamp_min, clamp_max)
+        return nothing
     end
-    output = similar(input, type)
-    axis = major_axis(input)
-    if axis == Columns
-        n_columns = size(input, 2)
-        parallel_loop_wo_rng(
-            1:n_columns;
-            name = "Clamp",
-            progress = DebugProgress(n_columns; group = :daf_loops, desc = "Clamp"),
-        ) do column_index
-            @views output[:, column_index] .= clamp.(input[:, column_index], clamp_min, clamp_max)
-            return nothing
-        end
-    elseif axis == Rows  # UNTESTED
-        n_rows = size(input, 1)  # UNTESTED
-        parallel_loop_wo_rng(  # UNTESTED
-            1:n_rows;
-            name = "Clamp",
-            progress = DebugProgress(n_rows; group = :daf_loops, desc = "Clamp"),
-        ) do row_index
-            @views output[row_index, :] .= clamp.(input[row_index, :], clamp_min, clamp_max)
-            return nothing
-        end
-    else
-        @. output = clamp(input, clamp_min, clamp_max)  # UNTESTED
-    end
-    return output
 end
 
 function compute_eltwise(operation::Clamp, input::StorageVector)::StorageVector
@@ -732,36 +743,10 @@ function Convert(operation_name::Token, parameters_values::Dict{String, Token}):
 end
 
 function compute_eltwise(operation::Convert, input::StorageMatrix)::StorageMatrix
-    type = operation.type
-    if issparse(input)
-        return compute_sparse_eltwise(identity, input, type, "Convert")
+    return compute_blind_eltwise(input, operation.type, "Convert") do output_values, input_values
+        output_values .= input_values
+        return nothing
     end
-    output = similar(input, type)
-    axis = major_axis(input)
-    if axis == Columns
-        n_columns = size(input, 2)
-        parallel_loop_wo_rng(
-            1:n_columns;
-            name = "Convert",
-            progress = DebugProgress(n_columns; group = :daf_loops, desc = "Convert"),
-        ) do column_index
-            @views output[:, column_index] .= type.(input[:, column_index])
-            return nothing
-        end
-    elseif axis == Rows  # UNTESTED
-        n_rows = size(input, 1)  # UNTESTED
-        parallel_loop_wo_rng(  # UNTESTED
-            1:n_rows;
-            name = "Convert",
-            progress = DebugProgress(n_rows; group = :daf_loops, desc = "Convert"),
-        ) do row_index
-            @views output[row_index, :] .= type.(input[row_index, :])
-            return nothing
-        end
-    else
-        output .= type.(input)  # UNTESTED
-    end
-    return output
 end
 
 function compute_eltwise(operation::Convert, input::StorageVector{<:StorageReal})::StorageVector{<:StorageReal}
@@ -805,7 +790,7 @@ function compute_eltwise(operation::Fraction, input::StorageMatrix)::StorageMatr
     type = float_type_for(eltype(input), operation.type)
     output = similar(input, type)
     output .= input
-    parallel_loop_wo_rng(
+    parallel_loop_wo_rng(  # NOJET
         1:size(output, 2);
         name = "Fraction",
         progress = DebugProgress(size(output, 2); group = :daf_loops, desc = "Fraction"),
@@ -924,63 +909,22 @@ function log_vector!(
     return nothing
 end
 
-# The logarithm of the `value` plus the `eps`, in the `base`, as computed by `log_vector!`.
-function log_value(value::StorageReal, eps::T, base::Float64)::T where {T <: AbstractFloat}
-    if base == 2.0
-        return log2(T(value) + eps)
-    elseif base == 10.0
-        return log10(T(value) + eps)  # UNTESTED
-    elseif base == Float64(e)
-        return log(T(value) + eps)
-    else
-        return log(T(value) + eps) * T(1.0 / log(base))  # UNTESTED
-    end
-end
-
-# The `Log` of a sparse vector or matrix, computed on its stored values (see `compute_sparse_eltwise`).
-function compute_sparse_log(
-    operation::Log,
-    input::Union{StorageVector, StorageMatrix},
-)::Union{StorageVector, StorageMatrix}
-    type = float_type_for(eltype(input), operation.type)
-    eps = type(operation.eps)
+# The `map_values!` of a `Log` into values of the type `T`.
+function log_values_mapper(operation::Log, ::Type{T})::Function where {T <: AbstractFloat}
+    eps = T(operation.eps)
     base = operation.base
-    if input isa AbstractVector
-        return compute_sparse_eltwise(value -> log_value(value, eps, base), input, type)
-    else
-        return compute_sparse_eltwise(value -> log_value(value, eps, base), input, type, "Log")
-    end
+    return (output_values, input_values) -> log_vector!(output_values, input_values, eps, base)
 end
 
 function compute_eltwise(operation::Log, input::StorageMatrix)::StorageMatrix
-    if issparse(input)
-        return compute_sparse_log(operation, input)
-    end
-    input = plain_array(densify(input))
-    if major_axis(input) == Rows
-        # The result has the same layout as the input, and is computed along its columns.
-        return flip(compute_eltwise(operation, flip(input)::StorageMatrix))
-    end
-    @assert major_axis(input) == Columns
     type = float_type_for(eltype(input), operation.type)
-    output = similar(input, type)
-    eps = type(operation.eps)
-    base = operation.base
-    n_columns = size(input, 2)
-    parallel_loop_wo_rng(
-        1:n_columns;
-        name = "Log",
-        progress = DebugProgress(n_columns; group = :daf_loops, desc = "Log"),
-    ) do column_index
-        @views log_vector!(output[:, column_index], input[:, column_index], eps, base)
-        return nothing
-    end
-    return output
+    return compute_blind_eltwise(log_values_mapper(operation, type), input, type, "Log")
 end
 
 function compute_eltwise(operation::Log, input::StorageVector{<:StorageReal})::StorageVector{<:StorageReal}
     if issparse(input)
-        return compute_sparse_log(operation, input)
+        type = float_type_for(eltype(input), operation.type)
+        return compute_sparse_eltwise(log_values_mapper(operation, type), input, type, "Log")
     end
     input = plain_array(densify(input))
     type = float_type_for(eltype(input), operation.type)
@@ -2693,7 +2637,7 @@ function compute_streamed_columns_reduction!(
         return nothing
     end
 
-    parallel_foreach_row_block(n_rows, "compute_columns_reduction") do row_indices
+    parallel_foreach_block(n_rows, "compute_columns_reduction") do row_indices
         for row_index in row_indices
             state = state_per_row_per_thread[1][row_index]
             n_seen = n_seen_per_row_per_thread[1][row_index]
@@ -2747,7 +2691,7 @@ function compute_buffered_columns_reduction!(
     empty!(row_index_per_collected_per_thread)
     empty!(value_per_collected_per_thread)
 
-    parallel_foreach_row_block(n_rows, "compute_columns_reduction") do row_indices
+    parallel_foreach_block(n_rows, "compute_columns_reduction") do row_indices
         for row_index in row_indices
             n_stored = n_stored_per_row[row_index]
             last_position = next_position_per_row[row_index] - 1
@@ -2763,12 +2707,12 @@ function compute_buffered_columns_reduction!(
     return nothing
 end
 
-# Run `visit(row_indices)` in parallel for blocks of the rows, a few per thread.
-function parallel_foreach_row_block(visit::Function, n_rows::Integer, name::AbstractString)::Nothing
-    block_size = max(1, cld(n_rows, 4 * nthreads()))
-    row_indices_per_block = collect(Iterators.partition(1:n_rows, block_size))
-    parallel_loop_wo_rng(1:length(row_indices_per_block); name) do block_index
-        visit(row_indices_per_block[block_index])
+# Run `visit(indices)` in parallel for blocks of `1:n`, a few per thread.
+function parallel_foreach_block(visit::Function, n::Integer, name::AbstractString)::Nothing
+    block_size = max(1, cld(n, 4 * nthreads()))
+    indices_per_block = collect(Iterators.partition(1:n, block_size))
+    parallel_loop_wo_rng(1:length(indices_per_block); name) do block_index
+        visit(indices_per_block[block_index])
         return nothing
     end
     return nothing

@@ -12,6 +12,34 @@ nested_test("operations") do
     add_axis!(daf, "gene", ["X", "Y", "Z"])
 
     nested_test("eltwise") do
+        nested_test("layouts") do
+            compute_eltwise = DataAxesFormats.Registry.compute_eltwise
+            values = Matrix(sprand(Random.MersenneTwister(123), 40, 9, 0.4)) .* 2
+            spaced_values = zeros(80, 9)
+            spaced_values[1:2:80, :] .= values
+            for (operation, value_of) in (
+                (Abs(), abs),
+                (Round(), value -> round(Int64, value)),
+                (Clamp(; min = 0.2, max = 0.7), value -> clamp(value, 0.2, 0.7)),
+                (Convert(; type = Float32), Float32),
+                (Log(; eps = 1), value -> log(value + 1)),
+            )
+                expected = value_of.(values)
+                for (input, expected_axis) in (
+                    (values, Columns),
+                    (transpose(Matrix(transpose(values))), Rows),
+                    (view(spaced_values, 1:2:80, :), Columns),
+                    (sparse(values), Columns),
+                    (transpose(sparse(Matrix(transpose(values)))), Rows),
+                )
+                    result = compute_eltwise(operation, input)
+                    @test result ≈ expected
+                    @test major_axis(result) == expected_axis
+                end
+            end
+            return nothing
+        end
+
         nested_test("abs") do
             nested_test("string") do
                 @test_throws chomp("""
@@ -290,8 +318,16 @@ nested_test("operations") do
                     values = Float32[row + column for row in 1:4096, column in 1:2]
                     set_vector!(packed, "cell", "value", values[:, 1])
                     set_matrix!(packed, "cell", "gene", "value", values; relayout = false)
+                    sparse_values = sparse(Float32[row % 7 == 0 ? row + column : 0 for row in 1:4096, column in 1:2])
+                    set_matrix!(packed, "cell", "gene", "sparse", sparse_values; relayout = false)
+                    @test packed["@ cell @ gene :: sparse % Log eps 2"] ≈ log.(sparse_values .+ 2)
+                    @test packed["@ cell @ gene :: sparse % Clamp min 1 max 100"] == clamp.(sparse_values, 1, 100)
                     @test packed["@ cell : value % Log eps 1"] ≈ log.(values[:, 1] .+ 1)
                     @test packed["@ cell @ gene :: value % Log eps 1"] ≈ log.(values .+ 1)
+                    @test packed["@ cell @ gene :: value % Abs"] == abs.(values)
+                    @test packed["@ cell @ gene :: value % Round"] == round.(Int64, values)
+                    @test packed["@ cell @ gene :: value % Clamp min 10 max 20"] == clamp.(values, 10, 20)
+                    @test packed["@ cell @ gene :: value % Convert type Float64"] == Float64.(values)
                     # The cached query results hold no materialization of the lazy inputs. The tasks of the last
                     # parallel loop stay reachable (with the input they captured) until other tasks run.
                     parallel_loop_wo_rng(1:1000; name = "release") do _
@@ -302,6 +338,7 @@ nested_test("operations") do
                     for lazy in (
                         get_vector(packed, "cell", "value").array,
                         get_matrix(packed, "cell", "gene", "value"; relayout = false).array,
+                        get_matrix(packed, "cell", "gene", "sparse"; relayout = false).array,
                     )
                         @test DataAxesFormats.PackedFormat.existing_materialization(lazy.materialization_cell) ===
                               nothing
