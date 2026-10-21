@@ -237,10 +237,27 @@ nested_test("operations") do
             end
 
             nested_test("matrix") do
-                set_matrix!(daf, "cell", "gene", "value", [0 0 2; 1 0 6])
-                @test with_type(daf["@ cell @ gene :: value % Fraction"]) == ([0 0 0.25; 1 0 0.75], Float64)
-                @test with_type(daf["@ cell @ gene :: value % Fraction type Float32"]) ==
-                      ([0 0 0.25; 1 0 0.75], Float32)
+                nested_test("()") do
+                    set_matrix!(daf, "cell", "gene", "value", [0 0 2; 1 0 6])
+                    @test with_type(daf["@ cell @ gene :: value % Fraction"]) == ([0 0 0.25; 1 0 0.75], Float64)
+                    @test with_type(daf["@ cell @ gene :: value % Fraction type Float32"]) ==
+                          ([0 0 0.25; 1 0 0.75], Float32)
+                end
+
+                nested_test("zero") do
+                    nested_test("dense") do
+                        set_matrix!(daf, "cell", "gene", "value", [1 0 2; -1 0 6])
+                        @test with_type(daf["@ cell @ gene :: value % Fraction"]) == ([0 0 0.25; 0 0 0.75], Float64)
+                    end
+
+                    nested_test("sparse") do
+                        values = sparse([1.0 0.0 2.0; -1.0 0.0 6.0])
+                        result = DataAxesFormats.Registry.compute_eltwise(Fraction(), values)
+                        @test issparse(result)
+                        @test result == [0 0 0.25; 0 0 0.75]
+                        @test nnz(result) == 2
+                    end
+                end
             end
         end
 

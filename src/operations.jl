@@ -797,10 +797,15 @@ function compute_eltwise(operation::Fraction, input::StorageMatrix)::StorageMatr
     ) do column_index
         column_vector = @view output[:, column_index]
         column_sum = sum(column_vector)
-        if column_sum != 0
+        if column_sum == 0
+            column_vector .= 0
+        else
             column_vector ./= column_sum
         end
         return nothing
+    end
+    if issparse(output)
+        dropzeros!(output)
     end
     return output
 end
