@@ -51,6 +51,7 @@ import ..Registry.compute_eltwise
 import ..Registry.compute_reduction
 import ..Registry.empty_reduction_state
 import ..Registry.final_reduction_value
+import ..Registry.merge_reduction_states
 import ..Registry.reduce_buffer!
 import ..Registry.reduction_result_type
 import ..Registry.supports_buffer_reduction
@@ -1121,6 +1122,10 @@ function update_reduction_state(::Count, ::Nothing, ::StorageReal)::Nothing
     return nothing
 end
 
+function merge_reduction_states(::Count, ::Nothing, ::Nothing)::Nothing
+    return nothing
+end
+
 function final_reduction_value(::Count, ::Nothing, ::Integer, n_values::Integer)::Integer
     return n_values
 end
@@ -1319,6 +1324,10 @@ function update_reduction_state(::Sum, sum::StorageReal, value::StorageReal)::St
     return oftype(sum, sum + value)
 end
 
+function merge_reduction_states(::Sum, sum::StorageReal, other_sum::StorageReal)::StorageReal
+    return oftype(sum, sum + other_sum)
+end
+
 function final_reduction_value(::Sum, sum::StorageReal, ::Integer, ::Integer)::StorageReal
     return sum
 end
@@ -1382,6 +1391,10 @@ function update_reduction_state(::Max, maximal::StorageReal, value::StorageReal)
     return max(maximal, value)
 end
 
+function merge_reduction_states(::Max, maximal::StorageReal, other_maximal::StorageReal)::StorageReal
+    return max(maximal, other_maximal)
+end
+
 function final_reduction_value(::Max, maximal::StorageReal, n_seen::Integer, n_values::Integer)::StorageReal
     return n_seen < n_values ? max(maximal, zero(maximal)) : maximal
 end
@@ -1443,6 +1456,10 @@ end
 
 function update_reduction_state(::Min, minimal::StorageReal, value::StorageReal)::StorageReal
     return min(minimal, value)
+end
+
+function merge_reduction_states(::Min, minimal::StorageReal, other_minimal::StorageReal)::StorageReal
+    return min(minimal, other_minimal)
 end
 
 function final_reduction_value(::Min, minimal::StorageReal, n_seen::Integer, n_values::Integer)::StorageReal
@@ -1667,6 +1684,10 @@ function update_reduction_state(::Mean, sum::Float64, value::StorageReal)::Float
     return sum + value
 end
 
+function merge_reduction_states(::Mean, sum::Float64, other_sum::Float64)::Float64
+    return sum + other_sum
+end
+
 function final_reduction_value(::Mean, sum::Float64, ::Integer, n_values::Integer)::Float64
     return sum / n_values
 end
@@ -1771,6 +1792,10 @@ function update_reduction_state(operation::GeoMean, sum_of_logs::Float64, value:
     return sum_of_logs + log(value + operation.eps)
 end
 
+function merge_reduction_states(::GeoMean, sum_of_logs::Float64, other_sum_of_logs::Float64)::Float64
+    return sum_of_logs + other_sum_of_logs
+end
+
 function final_reduction_value(operation::GeoMean, sum_of_logs::Float64, n_seen::Integer, n_values::Integer)::Float64
     if n_seen < n_values
         sum_of_logs += (n_values - n_seen) * log(operation.eps)
@@ -1793,6 +1818,23 @@ function update_moments_state(state::MomentsState, value::StorageReal)::MomentsS
     mean_of_seen += difference / n_seen
     squared_differences += difference * (value - mean_of_seen)
     return (n_seen, mean_of_seen, squared_differences)
+end
+
+# The moments of the values of both states (Chan's parallel algorithm).
+function merge_moments_states(state::MomentsState, other_state::MomentsState)::MomentsState
+    n_seen, mean_of_seen, squared_differences = state
+    other_n_seen, other_mean_of_seen, other_squared_differences = other_state
+    if other_n_seen == 0
+        return state
+    elseif n_seen == 0
+        return other_state
+    end
+    merged_n_seen = n_seen + other_n_seen
+    difference = other_mean_of_seen - mean_of_seen
+    merged_mean_of_seen = mean_of_seen + difference * other_n_seen / merged_n_seen
+    merged_squared_differences =
+        squared_differences + other_squared_differences + difference^2 * n_seen * other_n_seen / merged_n_seen
+    return (merged_n_seen, merged_mean_of_seen, merged_squared_differences)
 end
 
 # The mean and the (uncorrected) variance of `n_values` values: the ones seen by the `state`, and zeros for the rest.
@@ -1865,6 +1907,10 @@ end
 
 function update_reduction_state(::Var, state::MomentsState, value::StorageReal)::MomentsState
     return update_moments_state(state, value)
+end
+
+function merge_reduction_states(::Var, state::MomentsState, other_state::MomentsState)::MomentsState
+    return merge_moments_states(state, other_state)
 end
 
 function final_reduction_value(::Var, state::MomentsState, ::Integer, n_values::Integer)::Float64
@@ -1949,6 +1995,10 @@ function update_reduction_state(::VarN, state::MomentsState, value::StorageReal)
     return update_moments_state(state, value)
 end
 
+function merge_reduction_states(::VarN, state::MomentsState, other_state::MomentsState)::MomentsState
+    return merge_moments_states(state, other_state)
+end
+
 function final_reduction_value(operation::VarN, state::MomentsState, ::Integer, n_values::Integer)::Float64
     mean, variance = moments_with_zeros(state, n_values)
     return variance / (mean + operation.eps)
@@ -2015,6 +2065,10 @@ end
 
 function update_reduction_state(::Std, state::MomentsState, value::StorageReal)::MomentsState
     return update_moments_state(state, value)
+end
+
+function merge_reduction_states(::Std, state::MomentsState, other_state::MomentsState)::MomentsState
+    return merge_moments_states(state, other_state)
 end
 
 function final_reduction_value(::Std, state::MomentsState, ::Integer, n_values::Integer)::Float64
@@ -2097,6 +2151,10 @@ end
 
 function update_reduction_state(::StdN, state::MomentsState, value::StorageReal)::MomentsState
     return update_moments_state(state, value)
+end
+
+function merge_reduction_states(::StdN, state::MomentsState, other_state::MomentsState)::MomentsState
+    return merge_moments_states(state, other_state)
 end
 
 function final_reduction_value(operation::StdN, state::MomentsState, ::Integer, n_values::Integer)::Float64
@@ -2235,8 +2293,8 @@ function compute_buffered_grouped_reduction!(
             buffer,
             n_stored_per_group,
             next_position_per_group,
-            row_index_per_stored,
-            value_per_stored,
+            (row_index_per_stored,),
+            (value_per_stored,),
             group_index_per_row,
         )
         for group_index in 1:n_groups
@@ -2254,22 +2312,19 @@ function compute_buffered_grouped_reduction!(
     return nothing
 end
 
-# Place the stored values of a column in the `buffer`, the values of each group together, in row order. Afterwards, the
-# values of a group end just before its `next_position_per_group`.
+# Place the stored values of one or more parts (e.g. a column) in the `buffer`, the values of each group together, in
+# order. Afterwards, the values of a group end just before its `next_position_per_group`.
 function place_values_per_group!(
     buffer::AbstractVector,
     n_stored_per_group::AbstractVector{<:Integer},
     next_position_per_group::AbstractVector{<:Integer},
-    row_index_per_stored::AbstractVector{<:Integer},
-    value_per_stored::AbstractVector,
+    row_index_per_stored_per_part::Union{Tuple, AbstractVector{<:AbstractVector{<:Integer}}},
+    value_per_stored_per_part::Union{Tuple, AbstractVector{<:AbstractVector}},
     group_index_per_row::AbstractVector{<:Integer},
 )::Nothing
     n_stored_per_group .= 0
-    @inbounds for row_index in row_index_per_stored
-        group_index = group_index_per_row[row_index]
-        if group_index > 0
-            n_stored_per_group[group_index] += 1
-        end
+    for row_index_per_stored in row_index_per_stored_per_part
+        count_stored_per_group!(n_stored_per_group, row_index_per_stored, group_index_per_row)
     end
 
     position = 1
@@ -2278,6 +2333,42 @@ function place_values_per_group!(
         position += n_stored_per_group[group_index]
     end
 
+    for (row_index_per_stored, value_per_stored) in zip(row_index_per_stored_per_part, value_per_stored_per_part)
+        place_stored_per_group!(
+            buffer,
+            next_position_per_group,
+            row_index_per_stored,
+            value_per_stored,
+            group_index_per_row,
+        )
+    end
+
+    return nothing
+end
+
+# Count the stored values of one part per group.
+function count_stored_per_group!(
+    n_stored_per_group::AbstractVector{<:Integer},
+    row_index_per_stored::AbstractVector{<:Integer},
+    group_index_per_row::AbstractVector{<:Integer},
+)::Nothing
+    @inbounds for row_index in row_index_per_stored
+        group_index = group_index_per_row[row_index]
+        if group_index > 0
+            n_stored_per_group[group_index] += 1
+        end
+    end
+    return nothing
+end
+
+# Place the stored values of one part at the next position of their group.
+function place_stored_per_group!(
+    buffer::AbstractVector,
+    next_position_per_group::AbstractVector{<:Integer},
+    row_index_per_stored::AbstractVector{<:Integer},
+    value_per_stored::AbstractVector,
+    group_index_per_row::AbstractVector{<:Integer},
+)::Nothing
     @inbounds for (row_index, value) in zip(row_index_per_stored, value_per_stored)
         group_index = group_index_per_row[row_index]
         if group_index > 0
@@ -2285,7 +2376,6 @@ function place_values_per_group!(
             next_position_per_group[group_index] += 1
         end
     end
-
     return nothing
 end
 
@@ -2306,6 +2396,350 @@ function reduce_column_per_group!(
         end
     end
     return nothing
+end
+
+# Reduce the columns of each group of a column-major `matrix` into the `output`, which has one row per row of the
+# `matrix` and one column per group. Each group is a non-empty vector of column indices. The groups are reduced in
+# parallel, and each one reads its columns once, keeping a state (or a buffer of values) per row.
+function compute_grouped_columns_reduction!(
+    output::AbstractMatrix,
+    operation::ReductionOperation,
+    matrix::StorageMatrix,
+    column_indices_per_group::AbstractVector{<:AbstractVector{<:Integer}},
+)::Nothing
+    @assert supports_grouped_reduction(operation) || supports_buffer_reduction(operation)
+    @assert require_major_axis(matrix) == Columns
+    @assert size(output) == (size(matrix, 1), length(column_indices_per_group))
+    @assert all(!isempty(column_indices) for column_indices in column_indices_per_group)
+
+    weight_per_group = n_values_per_group_of_columns(matrix, column_indices_per_group)
+    column_reader_per_thread = new_column_reader_per_thread(matrix)
+    if supports_grouped_reduction(operation)
+        compute_streamed_grouped_columns_reduction!(
+            output,
+            operation,
+            eltype(matrix),
+            column_reader_per_thread,
+            column_indices_per_group,
+            weight_per_group,
+        )
+    else
+        compute_buffered_grouped_columns_reduction!(
+            output,
+            operation,
+            buffer_reduction_eltype(operation, eltype(matrix)),
+            column_reader_per_thread,
+            column_indices_per_group,
+            weight_per_group,
+        )
+    end
+    return nothing
+end
+
+# The number of values the columns of each group hold: the stored ones for a sparse `matrix`, all of them otherwise.
+function n_values_per_group_of_columns(
+    matrix::StorageMatrix,
+    column_indices_per_group::AbstractVector{<:AbstractVector{<:Integer}},
+)::Vector{Int}
+    base_matrix = base_array(matrix)
+    if base_matrix isa SparseArrays.AbstractSparseMatrixCSC
+        column_pointers = SparseArrays.getcolptr(base_matrix)
+        return [
+            sum(
+                Int(column_pointers[column_index + 1] - column_pointers[column_index]) for
+                column_index in column_indices
+            ) for column_indices in column_indices_per_group
+        ]
+    else
+        return [length(column_indices) * size(matrix, 1) for column_indices in column_indices_per_group]
+    end
+end
+
+# Reduce the columns of each group into the `output` by updating a state per row with each value of each column.
+function compute_streamed_grouped_columns_reduction!(
+    output::AbstractMatrix,
+    operation::ReductionOperation,
+    input_eltype::Type{T},
+    column_reader_per_thread::AbstractVector{<:ColumnReader},
+    column_indices_per_group::AbstractVector{<:AbstractVector{<:Integer}},
+    weight_per_group::AbstractVector{<:Integer},
+)::Nothing where {T}
+    n_rows = size(output, 1)
+    n_groups = length(column_indices_per_group)
+    empty_state = empty_reduction_state(operation, input_eltype)
+    state_per_row_per_thread = [Vector{typeof(empty_state)}(undef, n_rows) for _ in 1:maxthreadid()]
+    n_seen_per_row_per_thread = [Vector{Int}(undef, n_rows) for _ in 1:maxthreadid()]
+
+    parallel_loop_wo_rng(
+        1:n_groups;
+        name = "compute_grouped_columns_reduction",
+        weights = weight_per_group,
+        progress = DebugProgress(n_groups; group = :daf_loops, desc = "compute_grouped_columns_reduction"),
+    ) do group_index
+        column_reader = column_reader_per_thread[threadid()]
+        state_per_row = state_per_row_per_thread[threadid()]
+        n_seen_per_row = n_seen_per_row_per_thread[threadid()]
+        state_per_row .= Ref(empty_state)
+        n_seen_per_row .= 0
+        column_indices = column_indices_per_group[group_index]
+        for column_index in column_indices
+            row_index_per_stored, value_per_stored = stored_entries_of_column(read_column(column_reader, column_index))
+            reduce_column_per_group!(
+                operation,
+                state_per_row,
+                n_seen_per_row,
+                row_index_per_stored,
+                value_per_stored,
+                1:n_rows,
+            )
+        end
+        for row_index in 1:n_rows
+            output[row_index, group_index] = final_reduction_value(
+                operation,
+                state_per_row[row_index],
+                n_seen_per_row[row_index],
+                length(column_indices),
+            )
+        end
+        return nothing
+    end
+
+    return nothing
+end
+
+# Reduce the columns of each group into the `output` by collecting the stored values of its columns, placing the values
+# of each row together in a buffer, then reducing each row's slice of it, together with its implicit zeros.
+function compute_buffered_grouped_columns_reduction!(
+    output::AbstractMatrix,
+    operation::ReductionOperation,
+    buffer_eltype::Type{T},
+    column_reader_per_thread::AbstractVector{<:ColumnReader},
+    column_indices_per_group::AbstractVector{<:AbstractVector{<:Integer}},
+    weight_per_group::AbstractVector{<:Integer},
+)::Nothing where {T}
+    n_rows = size(output, 1)
+    n_groups = length(column_indices_per_group)
+    row_index_per_collected_per_thread = [Int[] for _ in 1:maxthreadid()]
+    value_per_collected_per_thread = [Vector{buffer_eltype}() for _ in 1:maxthreadid()]
+    buffer_per_thread = [Vector{buffer_eltype}() for _ in 1:maxthreadid()]
+    n_stored_per_row_per_thread = [Vector{Int}(undef, n_rows) for _ in 1:maxthreadid()]
+    next_position_per_row_per_thread = [Vector{Int}(undef, n_rows) for _ in 1:maxthreadid()]
+
+    parallel_loop_wo_rng(
+        1:n_groups;
+        name = "compute_grouped_columns_reduction",
+        weights = weight_per_group,
+        progress = DebugProgress(n_groups; group = :daf_loops, desc = "compute_grouped_columns_reduction"),
+    ) do group_index
+        column_reader = column_reader_per_thread[threadid()]
+        row_index_per_collected = row_index_per_collected_per_thread[threadid()]
+        value_per_collected = value_per_collected_per_thread[threadid()]
+        buffer = buffer_per_thread[threadid()]
+        n_stored_per_row = n_stored_per_row_per_thread[threadid()]
+        next_position_per_row = next_position_per_row_per_thread[threadid()]
+
+        empty!(row_index_per_collected)
+        empty!(value_per_collected)
+        column_indices = column_indices_per_group[group_index]
+        for column_index in column_indices
+            row_index_per_stored, value_per_stored = stored_entries_of_column(read_column(column_reader, column_index))
+            append!(row_index_per_collected, row_index_per_stored)
+            append!(value_per_collected, value_per_stored)
+        end
+
+        resize!(buffer, length(value_per_collected))
+        place_values_per_group!(
+            buffer,
+            n_stored_per_row,
+            next_position_per_row,
+            (row_index_per_collected,),
+            (value_per_collected,),
+            1:n_rows,
+        )
+        for row_index in 1:n_rows
+            n_stored = n_stored_per_row[row_index]
+            last_position = next_position_per_row[row_index] - 1
+            output[row_index, group_index] = reduce_buffer!(
+                operation,
+                view(buffer, (last_position - n_stored + 1):last_position),
+                length(column_indices) - n_stored,
+            )
+        end
+        return nothing
+    end
+
+    return nothing
+end
+
+# Reduce all the columns of a column-major `matrix` into one value per row. Each column is read once, and its values are
+# added to a state (or a list of values) per row of the thread that read it. The threads are then merged.
+function compute_columns_reduction(operation::ReductionOperation, matrix::StorageMatrix)::Vector
+    @assert supports_grouped_reduction(operation) || supports_buffer_reduction(operation)
+    @assert require_major_axis(matrix) == Columns
+    @assert size(matrix, 2) > 0
+
+    output = Vector{reduction_result_type(operation, eltype(matrix))}(undef, size(matrix, 1))
+    if supports_grouped_reduction(operation)
+        compute_streamed_columns_reduction!(output, operation, matrix, eltype(matrix))
+    else
+        compute_buffered_columns_reduction!(
+            output,
+            operation,
+            matrix,
+            buffer_reduction_eltype(operation, eltype(matrix)),
+        )
+    end
+    return output
+end
+
+# Reduce all the columns of the `matrix` into the `output` by updating a state per row per thread with each value of
+# each column, then merging the states of the threads.
+function compute_streamed_columns_reduction!(
+    output::AbstractVector,
+    operation::ReductionOperation,
+    matrix::StorageMatrix,
+    input_eltype::Type{T},
+)::Nothing where {T}
+    n_rows, n_columns = size(matrix)
+    empty_state = empty_reduction_state(operation, input_eltype)
+    state_per_row_per_thread = [fill(empty_state, n_rows) for _ in 1:maxthreadid()]
+    n_seen_per_row_per_thread = [zeros(Int, n_rows) for _ in 1:maxthreadid()]
+
+    parallel_foreach_column(
+        matrix;
+        name = "compute_columns_reduction",
+        progress = DebugProgress(n_columns; group = :daf_loops, desc = "compute_columns_reduction"),
+    ) do _, _, column
+        row_index_per_stored, value_per_stored = stored_entries_of_column(column)
+        reduce_column_per_group!(
+            operation,
+            state_per_row_per_thread[threadid()],
+            n_seen_per_row_per_thread[threadid()],
+            row_index_per_stored,
+            value_per_stored,
+            1:n_rows,
+        )
+        return nothing
+    end
+
+    parallel_foreach_row_block(n_rows, "compute_columns_reduction") do row_indices
+        for row_index in row_indices
+            state = state_per_row_per_thread[1][row_index]
+            n_seen = n_seen_per_row_per_thread[1][row_index]
+            for thread_index in 2:maxthreadid()
+                state = merge_reduction_states(operation, state, state_per_row_per_thread[thread_index][row_index])
+                n_seen += n_seen_per_row_per_thread[thread_index][row_index]
+            end
+            output[row_index] = final_reduction_value(operation, state, n_seen, n_columns)
+        end
+        return nothing
+    end
+
+    return nothing
+end
+
+# Reduce all the columns of the `matrix` into the `output` by collecting the stored values of the columns each thread
+# read, placing the values of each row together in a buffer, then reducing each row's slice of it, together with its
+# implicit zeros.
+function compute_buffered_columns_reduction!(
+    output::AbstractVector,
+    operation::ReductionOperation,
+    matrix::StorageMatrix,
+    ::Type{T},
+)::Nothing where {T}
+    n_rows, n_columns = size(matrix)
+    row_index_per_collected_per_thread = [Int[] for _ in 1:maxthreadid()]
+    value_per_collected_per_thread = [Vector{T}() for _ in 1:maxthreadid()]
+
+    parallel_foreach_column(
+        matrix;
+        name = "compute_columns_reduction",
+        progress = DebugProgress(n_columns; group = :daf_loops, desc = "compute_columns_reduction"),
+    ) do _, _, column
+        row_index_per_stored, value_per_stored = stored_entries_of_column(column)
+        append!(row_index_per_collected_per_thread[threadid()], row_index_per_stored)
+        append!(value_per_collected_per_thread[threadid()], value_per_stored)
+        return nothing
+    end
+
+    buffer = Vector{T}(undef, sum(length, value_per_collected_per_thread))
+    n_stored_per_row = Vector{Int}(undef, n_rows)
+    next_position_per_row = Vector{Int}(undef, n_rows)
+    place_values_per_group!(
+        buffer,
+        n_stored_per_row,
+        next_position_per_row,
+        row_index_per_collected_per_thread,
+        value_per_collected_per_thread,
+        1:n_rows,
+    )
+    empty!(row_index_per_collected_per_thread)
+    empty!(value_per_collected_per_thread)
+
+    parallel_foreach_row_block(n_rows, "compute_columns_reduction") do row_indices
+        for row_index in row_indices
+            n_stored = n_stored_per_row[row_index]
+            last_position = next_position_per_row[row_index] - 1
+            output[row_index] = reduce_buffer!(
+                operation,
+                view(buffer, (last_position - n_stored + 1):last_position),
+                n_columns - n_stored,
+            )
+        end
+        return nothing
+    end
+
+    return nothing
+end
+
+# Run `visit(row_indices)` in parallel for blocks of the rows, a few per thread.
+function parallel_foreach_row_block(visit::Function, n_rows::Integer, name::AbstractString)::Nothing
+    block_size = max(1, cld(n_rows, 4 * nthreads()))
+    row_indices_per_block = collect(Iterators.partition(1:n_rows, block_size))
+    parallel_loop_wo_rng(1:length(row_indices_per_block); name) do block_index
+        visit(row_indices_per_block[block_index])
+        return nothing
+    end
+    return nothing
+end
+
+# Reduce all the values of a column-major `matrix` into one value. Each column is read once, and its values are added to
+# a state of the thread that read it. The states of the threads are then merged.
+function compute_streamed_matrix_reduction(operation::ReductionOperation, matrix::StorageMatrix)::StorageReal
+    @assert supports_grouped_reduction(operation)
+    @assert require_major_axis(matrix) == Columns
+    return compute_streamed_matrix_reduction(operation, matrix, eltype(matrix))
+end
+
+function compute_streamed_matrix_reduction(
+    operation::ReductionOperation,
+    matrix::StorageMatrix,
+    input_eltype::Type{T},
+)::StorageReal where {T}
+    empty_state = empty_reduction_state(operation, input_eltype)
+    state_per_thread = fill(empty_state, maxthreadid())
+    n_seen_per_thread = zeros(Int, maxthreadid())
+
+    parallel_foreach_column(
+        matrix;
+        name = "compute_matrix_reduction",
+        progress = DebugProgress(size(matrix, 2); group = :daf_loops, desc = "compute_matrix_reduction"),
+    ) do _, _, column
+        _, value_per_stored = stored_entries_of_column(column)
+        state = state_per_thread[threadid()]
+        for value in value_per_stored
+            state = update_reduction_state(operation, state, value)
+        end
+        state_per_thread[threadid()] = state
+        n_seen_per_thread[threadid()] += length(value_per_stored)
+        return nothing
+    end
+
+    merged_state = reduce(
+        (thread_state, other_thread_state) -> merge_reduction_states(operation, thread_state, other_thread_state),
+        state_per_thread,
+    )
+    return final_reduction_value(operation, merged_state, sum(n_seen_per_thread), length(matrix))
 end
 
 end # module

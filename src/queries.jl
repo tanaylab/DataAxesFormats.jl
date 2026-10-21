@@ -73,6 +73,9 @@ import Base.Threads.maxthreadid
 import ..Formats.CacheEntry
 import ..Formats.CacheKey
 import ..Formats.CachedQuery
+import ..Operations.compute_columns_reduction
+import ..Operations.compute_grouped_columns_reduction!
+import ..Operations.compute_streamed_matrix_reduction
 import ..Readers.require_axis
 import ..Readers.require_matrix
 import ..Readers.require_scalar
@@ -2790,7 +2793,7 @@ function reduce_matrix_to_scalar(
             """,
         )
     elseif length(matrix_state.matrix_values) > 0
-        push!(query_state.stack, ScalarState(compute_reduction(reduction_operation, matrix_state.matrix_values)))  # NOLINT
+        push!(query_state.stack, ScalarState(reduce_all_of_matrix(reduction_operation, matrix_state.matrix_values)))
     elseif if_missing !== nothing
         push!(query_state.stack, ScalarState(if_missing.default_value))
     else
@@ -4059,7 +4062,7 @@ function reduce_matrix_to_column(
             )
         elseif length(matrix_state.matrix_values) > 0
             vector_state.vector_values =
-                compute_reduction(reduce_to_column.reduction_operation, matrix_state.matrix_values, Columns)  # NOLINT
+                reduce_columns_of_matrix(reduce_to_column.reduction_operation, matrix_state.matrix_values)
         elseif if_missing !== nothing
             vector_state.vector_values = fill(if_missing.default_value, length(vector_state.vector_values))
         else
@@ -4069,6 +4072,44 @@ function reduce_matrix_to_column(
 
     push!(query_state.stack, vector_state)  # NOJET
     return nothing
+end
+
+# Whether the `reduction_operation` can reduce the `matrix_values` one column at a time.
+function is_column_streamable(reduction_operation::ReductionOperation, matrix_values::AbstractMatrix)::Bool
+    return major_axis(matrix_values) == Columns && (
+        (eltype(matrix_values) <: StorageReal && supports_grouped_reduction(reduction_operation)) ||
+        supports_buffer_reduction(reduction_operation)
+    )
+end
+
+# Reduce the columns of the `matrix_values` into one value per row, reading each column once if possible. A `Count`
+# reads no values.
+function reduce_columns_of_matrix(
+    reduction_operation::ReductionOperation,
+    matrix_values::Maybe{AbstractMatrix},
+)::StorageVector
+    @assert matrix_values !== nothing
+    if !(reduction_operation isa Count) && is_column_streamable(reduction_operation, matrix_values)
+        return compute_columns_reduction(reduction_operation, matrix_values)
+    else
+        return compute_reduction(reduction_operation, matrix_values, Columns)  # NOLINT
+    end
+end
+
+# Reduce all the `matrix_values` into one value, reading each column once if possible. A `Count` reads no values.
+function reduce_all_of_matrix(
+    reduction_operation::ReductionOperation,
+    matrix_values::Maybe{AbstractMatrix},
+)::StorageScalar
+    @assert matrix_values !== nothing
+    if !(reduction_operation isa Count) &&
+       eltype(matrix_values) <: StorageReal &&
+       major_axis(matrix_values) == Columns &&
+       supports_grouped_reduction(reduction_operation)
+        return compute_streamed_matrix_reduction(reduction_operation, matrix_values)
+    else
+        return compute_reduction(reduction_operation, matrix_values)  # NOLINT
+    end
 end
 
 function reduce_matrix_to_row(
@@ -4740,15 +4781,8 @@ function compute_grouped_matrix(
         return nothing
     end
 
-    named_values = NamedArray(  # NOJET
-        base_state.matrix_values,
-        (
-            Formats.names_dict(base_state.rows_state.vector_entries),
-            Formats.names_dict(base_state.columns_state.vector_entries),
-        ),
-    )
-    matrix_values = named_values[:, group_state.vector_entries].array
-
+    matrix_values = base_state.matrix_values
+    @assert matrix_values !== nothing
     unique_group_values = group_values(query_state, group_state)
 
     if eltype(matrix_values) <: AbstractString && !supports_strings(reduce_to_column.reduction_operation)
@@ -4764,33 +4798,45 @@ function compute_grouped_matrix(
     result_type = reduction_result_type(reduce_to_column.reduction_operation, eltype(matrix_values))
     reduced_values =
         Matrix{result_type}(undef, length(base_state.rows_state.vector_entries), length(unique_group_values))
-    is_in_group_per_value_per_thread = allocate_is_in_group_per_value_per_thread(length(group_state.vector_values))
-    loop_name = "GroupByColumns($(nameof(typeof(reduce_to_column.reduction_operation))))"
-    parallel_loop_wo_rng(
-        1:length(unique_group_values);
-        name = loop_name,
-        progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = loop_name),
-    ) do group_index
-        is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
-        @assert is_in_group_per_value !== nothing
-        group_value = unique_group_values[group_index]
-        is_in_group_per_value .= group_state.vector_values .== group_value
-        if any(is_in_group_per_value)
-            @views group_matrix_values = matrix_values[:, is_in_group_per_value]
-            reduced_values[:, group_index] =
-                vec(compute_reduction(reduce_to_column.reduction_operation, group_matrix_values, 2))  # NOLINT
-        elseif if_missing !== nothing
-            reduced_values[:, group_index] .= cast_value(query_state, "missing", if_missing.default_value, result_type)
-        else
-            error_at_state(
-                query_state,
-                """
-                no IfMissing value specified for the unused entry: $(group_value)
-                of the axis: $(group_state.property_axis_name)
-                """,
-            )
+    reduction_operation = reduce_to_column.reduction_operation
+    if is_column_streamable(reduction_operation, matrix_values)
+        reduce_grouped_columns!(
+            query_state,
+            reduced_values,
+            reduction_operation,
+            matrix_values,
+            index_per_entry(base_state.columns_state, group_state),
+            group_state,
+            unique_group_values,
+            if_missing,
+        )
+    else
+        group_matrix_values = values_of_entries(base_state, group_state, Columns)
+        is_in_group_per_value_per_thread = allocate_is_in_group_per_value_per_thread(length(group_state.vector_values))
+        loop_name = "GroupByColumns($(nameof(typeof(reduction_operation))))"
+        parallel_loop_wo_rng(
+            1:length(unique_group_values);
+            name = loop_name,
+            progress = DebugProgress(length(unique_group_values); group = :daf_loops, desc = loop_name),
+        ) do group_index
+            is_in_group_per_value = is_in_group_per_value_per_thread[threadid()]
+            @assert is_in_group_per_value !== nothing
+            group_value = unique_group_values[group_index]
+            is_in_group_per_value .= group_state.vector_values .== group_value
+            if any(is_in_group_per_value)
+                @views values_of_group = group_matrix_values[:, is_in_group_per_value]
+                reduced_values[:, group_index] = vec(compute_reduction(reduction_operation, values_of_group, 2))  # NOLINT
+            else
+                fill_unused_group!(
+                    query_state,
+                    view(reduced_values, :, group_index),
+                    group_value,
+                    group_state,
+                    if_missing,
+                )
+            end
+            return nothing
         end
-        return nothing
     end
 
     reduced_state = MatrixState()
@@ -4828,15 +4874,8 @@ function compute_grouped_matrix(
         return nothing
     end
 
-    named_values = NamedArray(  # NOJET
-        base_state.matrix_values,
-        (
-            Formats.names_dict(base_state.rows_state.vector_entries),
-            Formats.names_dict(base_state.columns_state.vector_entries),
-        ),
-    )
-    matrix_values = named_values[group_state.vector_entries, :].array
-
+    matrix_values = base_state.matrix_values
+    @assert matrix_values !== nothing
     unique_group_values = group_values(query_state, group_state)
 
     if eltype(matrix_values) <: AbstractString && !supports_strings(reduce_to_row.reduction_operation)
@@ -4853,22 +4892,21 @@ function compute_grouped_matrix(
     reduced_values =
         Matrix{result_type}(undef, length(unique_group_values), length(base_state.columns_state.vector_entries))
     reduction_operation = reduce_to_row.reduction_operation
-    if major_axis(matrix_values) == Columns && (
-        (eltype(matrix_values) <: StorageReal && supports_grouped_reduction(reduction_operation)) ||
-        supports_buffer_reduction(reduction_operation)
-    )
+    if is_column_streamable(reduction_operation, matrix_values)
         reduce_grouped_rows!(
             query_state,
             reduced_values,
-            reduce_to_row,
+            reduction_operation,
             matrix_values,
+            index_per_entry(base_state.rows_state, group_state),
             group_state,
             unique_group_values,
             if_missing,
         )
     else
+        group_matrix_values = values_of_entries(base_state, group_state, Rows)
         is_in_group_per_value_per_thread = allocate_is_in_group_per_value_per_thread(length(group_state.vector_values))
-        loop_name = "GroupByRows($(nameof(typeof(reduce_to_row.reduction_operation))))"
+        loop_name = "GroupByRows($(nameof(typeof(reduction_operation))))"
         parallel_loop_wo_rng(
             1:length(unique_group_values);
             name = loop_name,
@@ -4879,11 +4917,16 @@ function compute_grouped_matrix(
             group_value = unique_group_values[group_index]
             is_in_group_per_value .= group_state.vector_values .== group_value
             if any(is_in_group_per_value)
-                @views group_matrix_values = matrix_values[is_in_group_per_value, :]
-                reduced_values[group_index, :] =
-                    vec(compute_reduction(reduce_to_row.reduction_operation, group_matrix_values, 1))  # NOLINT
+                @views values_of_group = group_matrix_values[is_in_group_per_value, :]
+                reduced_values[group_index, :] = vec(compute_reduction(reduction_operation, values_of_group, 1))  # NOLINT
             else
-                fill_unused_group!(query_state, reduced_values, group_index, group_value, group_state, if_missing)
+                fill_unused_group!(
+                    query_state,
+                    view(reduced_values, group_index, :),
+                    group_value,
+                    group_state,
+                    if_missing,
+                )
             end
             return nothing
         end
@@ -4903,11 +4946,10 @@ function compute_grouped_matrix(
     return nothing
 end
 
-# Fill the row of a group with no rows in the input with the `if_missing` value, or fail if there is none.
+# Fill the reduced values of a group with no entries in the input with the `if_missing` value, or fail if there is none.
 function fill_unused_group!(
     query_state::QueryState,
-    reduced_values::AbstractMatrix,
-    group_index::Integer,
+    reduced_values_of_group::AbstractVector,
     group_value::Any,
     group_state::VectorState,
     if_missing::Maybe{IfMissing},
@@ -4921,10 +4963,76 @@ function fill_unused_group!(
             """,
         )
     else
-        reduced_values[group_index, :] .=
-            cast_value(query_state, "missing", if_missing.default_value, eltype(reduced_values))
+        reduced_values_of_group .=
+            cast_value(query_state, "missing", if_missing.default_value, eltype(reduced_values_of_group))
     end
     return nothing
+end
+
+# The index in the entries of the `base_vector_state` of each of the entries of the `group_state`. These are some of the
+# base entries, in the same order, so if there are as many of them, they are the same.
+function index_per_entry(base_vector_state::Maybe{VectorState}, group_state::VectorState)::AbstractVector{<:Integer}
+    @assert base_vector_state !== nothing
+    base_entries = base_vector_state.vector_entries
+    entries = group_state.vector_entries
+    @assert base_entries !== nothing && entries !== nothing
+    if length(entries) == length(base_entries)
+        return 1:length(entries)
+    end
+    index_per_base_entry = Formats.names_dict(base_entries)
+    return [index_per_base_entry[entry] for entry in entries]
+end
+
+# The values of the `base_state` matrix for the entries of the `group_state`, along the `axis` that is grouped.
+function values_of_entries(base_state::MatrixState, group_state::VectorState, axis::Integer)::AbstractMatrix
+    named_values = NamedArray(  # NOJET
+        base_state.matrix_values,
+        (
+            Formats.names_dict(base_state.rows_state.vector_entries),
+            Formats.names_dict(base_state.columns_state.vector_entries),
+        ),
+    )
+    if axis == Rows
+        return named_values[group_state.vector_entries, :].array
+    else
+        return named_values[:, group_state.vector_entries].array
+    end
+end
+
+# The used groups and the base index of each of their entries, and the unused groups filled with the `if_missing`
+# value. The group of each entry is its value in the `group_state`.
+function base_indices_per_used_group!(
+    query_state::QueryState,
+    reduced_values::AbstractMatrix,
+    group_axis::Integer,
+    base_index_per_entry::AbstractVector{<:Integer},
+    group_state::VectorState,
+    unique_group_values::AbstractVector,
+    if_missing::Maybe{IfMissing},
+)::Tuple{Vector{Int}, Vector{Vector{Int}}}
+    group_index_per_value = Dict(value => index for (index, value) in enumerate(unique_group_values))
+    base_indices_per_group = [Int[] for _ in unique_group_values]
+    for (base_index, value) in zip(base_index_per_entry, group_state.vector_values)
+        group_index = get(group_index_per_value, value, 0)
+        if group_index > 0
+            push!(base_indices_per_group[group_index], base_index)
+        end
+    end
+
+    for (group_index, base_indices) in enumerate(base_indices_per_group)
+        if isempty(base_indices)
+            fill_unused_group!(
+                query_state,
+                selectdim(reduced_values, group_axis, group_index),
+                unique_group_values[group_index],
+                group_state,
+                if_missing,
+            )
+        end
+    end
+
+    used_group_indices = findall(!isempty, base_indices_per_group)
+    return (used_group_indices, base_indices_per_group[used_group_indices])
 end
 
 # Reduce the rows of each group in one pass over each column of the `matrix_values` (see `compute_grouped_reduction`),
@@ -4932,42 +5040,58 @@ end
 function reduce_grouped_rows!(
     query_state::QueryState,
     reduced_values::AbstractMatrix,
-    reduce_to_row::ReduceToRow,
+    reduction_operation::ReductionOperation,
     matrix_values::AbstractMatrix,
+    row_index_per_entry::AbstractVector{<:Integer},
     group_state::VectorState,
     unique_group_values::AbstractVector,
     if_missing::Maybe{IfMissing},
 )::Nothing
-    group_index_per_value = Dict(value => index for (index, value) in enumerate(unique_group_values))
-    group_index_per_row = [get(group_index_per_value, value, 0) for value in group_state.vector_values]
-    is_used_per_group = falses(length(unique_group_values))
-    for group_index in group_index_per_row
-        if group_index > 0
-            is_used_per_group[group_index] = true
-        end
-    end
+    used_group_indices, row_indices_per_used_group = base_indices_per_used_group!(
+        query_state,
+        reduced_values,
+        Rows,
+        row_index_per_entry,
+        group_state,
+        unique_group_values,
+        if_missing,
+    )
 
-    used_group_indices = findall(is_used_per_group)
-    for group_index in findall(.!is_used_per_group)
-        fill_unused_group!(
-            query_state,
-            reduced_values,
-            group_index,
-            unique_group_values[group_index],
-            group_state,
-            if_missing,
-        )
+    used_position_per_row = zeros(Int, size(matrix_values, 1))
+    for (used_position, row_indices) in enumerate(row_indices_per_used_group)
+        used_position_per_row[row_indices] .= used_position
     end
+    reduced_values[used_group_indices, :] .=
+        compute_grouped_reduction(reduction_operation, matrix_values, used_position_per_row, length(used_group_indices))
+    return nothing
+end
 
-    used_position_per_group = zeros(Int, length(unique_group_values))
-    used_position_per_group[used_group_indices] .= 1:length(used_group_indices)
-    used_position_per_row =
-        [group_index > 0 ? used_position_per_group[group_index] : 0 for group_index in group_index_per_row]
-    reduced_values[used_group_indices, :] .= compute_grouped_reduction(
-        reduce_to_row.reduction_operation,
+# Reduce the columns of each group, reading each column once (see `compute_grouped_columns_reduction!`), instead of
+# reducing the columns of each group from a copy of the `matrix_values`.
+function reduce_grouped_columns!(
+    query_state::QueryState,
+    reduced_values::AbstractMatrix,
+    reduction_operation::ReductionOperation,
+    matrix_values::AbstractMatrix,
+    column_index_per_entry::AbstractVector{<:Integer},
+    group_state::VectorState,
+    unique_group_values::AbstractVector,
+    if_missing::Maybe{IfMissing},
+)::Nothing
+    used_group_indices, column_indices_per_used_group = base_indices_per_used_group!(
+        query_state,
+        reduced_values,
+        Columns,
+        column_index_per_entry,
+        group_state,
+        unique_group_values,
+        if_missing,
+    )
+    compute_grouped_columns_reduction!(
+        view(reduced_values, :, used_group_indices),
+        reduction_operation,
         matrix_values,
-        used_position_per_row,
-        length(used_group_indices),
+        column_indices_per_used_group,
     )
     return nothing
 end

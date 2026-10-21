@@ -448,6 +448,86 @@ nested_test("operations") do
             return nothing
         end
 
+        nested_test("grouped_columns") do
+            compute_reduction = DataAxesFormats.Registry.compute_reduction
+            reduction_result_type = DataAxesFormats.Registry.reduction_result_type
+            compute_grouped_columns_reduction! = DataAxesFormats.Operations.compute_grouped_columns_reduction!
+            column_indices_per_group = [[5, 1], [2, 4, 7], [6]]
+            integers = [
+                0 0 0 2 1 0 4
+                1 0 3 0 0 0 0
+                0 6 0 0 2 0 1
+                9 0 0 4 0 0 0
+            ]
+            floats = integers .* 0.5
+            for operation in (Sum(), Count(), Mean(), Max(), Min(), Var(), Std(), GeoMean(), Median(), Mode())
+                for values in (integers, floats, sparse(integers), sparse(floats))
+                    result = Matrix{reduction_result_type(operation, eltype(values))}(undef, 4, 3)
+                    compute_grouped_columns_reduction!(result, operation, values, column_indices_per_group)
+                    for (group_index, column_indices) in enumerate(column_indices_per_group)
+                        expected = compute_reduction(operation, permutedims(values[:, column_indices]), 1)
+                        @test result[:, group_index] ≈ expected
+                    end
+                end
+            end
+            strings = ["a" "b" "b" "c"; "c" "c" "a" "a"]
+            result = Matrix{String}(undef, 2, 2)
+            compute_grouped_columns_reduction!(result, Mode(), strings, [[1, 2, 3], [4, 3]])
+            @test result == ["b" "b"; "c" "a"]
+            return nothing
+        end
+
+        nested_test("columns") do
+            compute_reduction = DataAxesFormats.Registry.compute_reduction
+            compute_columns_reduction = DataAxesFormats.Operations.compute_columns_reduction
+            compute_streamed_matrix_reduction = DataAxesFormats.Operations.compute_streamed_matrix_reduction
+            integers = [
+                0 0 0 2 1 0 4
+                1 0 3 0 0 0 0
+                0 6 0 0 2 0 1
+                9 0 0 4 0 0 0
+            ]
+            floats = integers .* 0.5
+            for operation in (Sum(), Count(), Mean(), Max(), Min(), Var(), StdN(), GeoMean(), Median(), Mode())
+                for values in (integers, floats, sparse(integers), sparse(floats))
+                    @test compute_columns_reduction(operation, values) ≈
+                          compute_reduction(operation, permutedims(values), 1)
+                    if DataAxesFormats.Registry.supports_grouped_reduction(operation)
+                        @test compute_streamed_matrix_reduction(operation, values) ≈
+                              compute_reduction(operation, values)
+                    end
+                end
+            end
+            @test compute_columns_reduction(Mode(), ["a" "b" "b"; "c" "a" "a"]) == ["b", "a"]
+            return nothing
+        end
+
+        nested_test("merge") do
+            empty_reduction_state = DataAxesFormats.Registry.empty_reduction_state
+            update_reduction_state = DataAxesFormats.Registry.update_reduction_state
+            merge_reduction_states = DataAxesFormats.Registry.merge_reduction_states
+            final_reduction_value = DataAxesFormats.Registry.final_reduction_value
+            values = [3.0, 1.5, 4.0, 1.0, 5.5, 9.0, 2.0]
+            for operation in (Sum(), Count(), Mean(), Max(), Min(), Var(), VarN(), Std(), StdN(), GeoMean())
+                states = [empty_reduction_state(operation, Float64) for _ in 1:3]
+                for (index, value) in enumerate(values)
+                    part_index = index <= 2 ? 1 : 2
+                    states[part_index] = update_reduction_state(operation, states[part_index], value)
+                    states[3] = update_reduction_state(operation, states[3], value)
+                end
+                merged_state = merge_reduction_states(operation, states[1], states[2])
+                @test final_reduction_value(operation, merged_state, 7, 9) ≈
+                      final_reduction_value(operation, states[3], 7, 9)
+                @test final_reduction_value(
+                    operation,
+                    merge_reduction_states(operation, empty_reduction_state(operation, Float64), states[3]),
+                    7,
+                    9,
+                ) ≈ final_reduction_value(operation, states[3], 7, 9)
+            end
+            return nothing
+        end
+
         nested_test("mode_ties") do
             compute_reduction = DataAxesFormats.Registry.compute_reduction
             @test compute_reduction(Mode(), [3, 1, 3, 1]) == 1
@@ -462,15 +542,23 @@ nested_test("operations") do
             mktempdir() do path
                 packed = FilesDaf(path * "/packed.daf", "w+"; name = "packed!", packed = true)
                 memory = MemoryDaf(; name = "memory!")
-                values = Float32[row + column for row in 1:4096, column in 1:2]
+                values = Float32[row + column for row in 1:4096, column in 1:3]
                 for target in (packed, memory)
                     add_axis!(target, "cell", ["c$(index)" for index in 1:4096])
-                    add_axis!(target, "gene", ["X", "Y"])
+                    add_axis!(target, "gene", ["X", "Y", "Z"])
+                    set_vector!(target, "cell", "type", ["T$(index % 3)" for index in 1:4096])
+                    set_vector!(target, "gene", "kind", ["A", "B", "A"])
                     set_matrix!(target, "cell", "gene", "value", values; relayout = false)
                 end
-                for operation in ("Median", "Quantile p 0.3", "Var", "VarN", "Std", "StdN")
-                    query = "@ cell @ gene :: value >> $(operation)"
-                    @test packed[query] ≈ memory[query]
+                for operation in ("Median", "Quantile p 0.3", "Mode", "Sum", "Var", "VarN", "Std", "StdN")
+                    for query in (
+                        "@ cell @ gene :: value >> $(operation)",
+                        "@ cell @ gene :: value >| $(operation)",
+                        "@ cell @ gene :: value -/ type >- $(operation)",
+                        "@ cell @ gene :: value |/ kind >| $(operation)",
+                    )
+                        @test packed[query] ≈ memory[query]
+                    end
                 end
                 return nothing
             end

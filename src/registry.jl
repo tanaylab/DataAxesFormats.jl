@@ -18,6 +18,7 @@ export compute_eltwise
 export compute_reduction
 export empty_reduction_state
 export final_reduction_value
+export merge_reduction_states
 export reduce_buffer!
 export reduction_result_type
 export register_query_operation
@@ -154,9 +155,9 @@ function reduction_result_type end
 
 Whether the reduction `operation` can be computed one value at a time, which allows reducing the rows of a matrix per
 group in a single pass over each column (see `compute_grouped_reduction` in the query operations module). Such an
-operation implements [`empty_reduction_state`](@ref), [`update_reduction_state`](@ref) and
-[`final_reduction_value`](@ref). By default this is `false`. An operation which needs all the values at once may instead
-[`supports_buffer_reduction`](@ref). Otherwise, the reduction is applied to each group's values.
+operation implements [`empty_reduction_state`](@ref), [`update_reduction_state`](@ref), [`merge_reduction_states`](@ref)
+and [`final_reduction_value`](@ref). By default this is `false`. An operation which needs all the values at once may
+instead [`supports_buffer_reduction`](@ref). Otherwise, the reduction is applied to each group's values.
 """
 function supports_grouped_reduction(::ReductionOperation)::Bool
     return false
@@ -177,6 +178,14 @@ The state of the reduction `operation` after also seeing the `value`. Only neede
 [`supports_grouped_reduction`](@ref).
 """
 function update_reduction_state end
+
+"""
+    merge_reduction_states(operation::ReductionOperation, state::Any, other_state::Any)::Any
+
+The state of the reduction `operation` after seeing the values of both the `state` and the `other_state`. This allows
+reducing disjoint parts of the input in parallel. Only needed if [`supports_grouped_reduction`](@ref).
+"""
+function merge_reduction_states end
 
 """
     final_reduction_value(operation::ReductionOperation, state::Any, n_seen::Integer, n_values::Integer)::StorageReal

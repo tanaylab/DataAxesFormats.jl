@@ -659,6 +659,10 @@ compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageR
 <a href="registry.html#DataAxesFormats.Registry.update_reduction_state">
 <code>update_reduction_state
 </code>
+</a>, 
+<a href="registry.html#DataAxesFormats.Registry.merge_reduction_states">
+<code>merge_reduction_states
+</code>
 </a> and 
 <a href="registry.html#DataAxesFormats.Registry.final_reduction_value">
 <code>final_reduction_value
@@ -726,6 +730,38 @@ compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageR
 </code> after also seeing the 
 <code>value
 </code>. Only needed if 
+<a href="registry.html#DataAxesFormats.Registry.supports_grouped_reduction">
+<code>supports_grouped_reduction
+</code>
+</a>.
+</p>
+</div>
+</section>
+</details>
+</article>
+<article>
+<details class="docstring" open="true">
+<summary id="DataAxesFormats.Registry.merge_reduction_states">
+<a class="docstring-binding" href="#DataAxesFormats.Registry.merge_reduction_states">
+<code>DataAxesFormats.Registry.merge_reduction_states
+</code>
+</a> — 
+<span class="docstring-category">Function
+</span>
+</summary>
+<section>
+<div>
+<pre>
+<code class="language-julia hljs">merge_reduction_states(operation::ReductionOperation, state::Any, other_state::Any)::Any
+</code>
+</pre>
+<p>The state of the reduction 
+<code>operation
+</code> after seeing the values of both the 
+<code>state
+</code> and the 
+<code>other_state
+</code>. This allows reducing disjoint parts of the input in parallel. Only needed if 
 <a href="registry.html#DataAxesFormats.Registry.supports_grouped_reduction">
 <code>supports_grouped_reduction
 </code>
@@ -1034,6 +1070,12 @@ end
 <li>
 <a href="registry.html#DataAxesFormats.Registry.final_reduction_value">
 <code>DataAxesFormats.Registry.final_reduction_value
+</code>
+</a>
+</li>
+<li>
+<a href="registry.html#DataAxesFormats.Registry.merge_reduction_states">
+<code>DataAxesFormats.Registry.merge_reduction_states
 </code>
 </a>
 </li>
