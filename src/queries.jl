@@ -4260,55 +4260,9 @@ function compare_vector(
     finalize_vector_values!(query_state, vector_state)
 
     if query_state.what_for == :compute
-        comparison_value = comparison_operation.comparison_value
-        is_string_value = comparison_value isa AbstractString || comparison_value isa Regex
-        is_string_vector = eltype(vector_state.vector_values) <: AbstractString
-
-        if comparison_operation isa IsMatch || comparison_operation isa IsNotMatch
-            if !is_string_vector
-                error_at_state(
-                    query_state,
-                    """
-                    unsupported vector element type: $(eltype(vector_state.vector_values))
-                    for the comparison operation: $(typeof(comparison_operation))
-                    """,
-                )
-            end
-
-            if comparison_value isa AbstractString
-                try
-                    comparison_value = Regex(comparison_value)
-                catch exception
-                    error_at_state(
-                        query_state,
-                        """
-                        invalid regular expression: $(comparison_value)
-                        for the comparison operation: $(typeof(comparison_operation))
-                        $(exception)
-                        """,
-                    )
-                end
-            end
-
-            @assert comparison_value isa Regex
-
-        elseif !is_string_vector && is_string_value
-            try
-                comparison_value = parse(Float64, comparison_value)  # NOJET
-            catch exception
-                error_at_state(
-                    query_state,
-                    """
-                    error parsing number comparison value: $(comparison_value)
-                    for comparison with a vector of type: $(eltype(vector_state.vector_values))
-                    $(exception)
-                    """,
-                )
-            end
-        end
-
         vector_values = vector_state.vector_values
         @assert vector_values !== nothing
+        comparison_value = comparison_value_for(query_state, comparison_operation, vector_values, "vector")
         vector_state.vector_values = compared_values(vector_values, comparison_operation, comparison_value)
     end
 
@@ -4328,55 +4282,9 @@ function compare_matrix(
     finalize_matrix_values!(query_state, matrix_state)
 
     if query_state.what_for == :compute
-        comparison_value = comparison_operation.comparison_value
-        is_string_value = comparison_value isa AbstractString || comparison_value isa Regex
-        is_string_matrix = eltype(matrix_state.matrix_values) <: AbstractString
-
-        if comparison_operation isa IsMatch || comparison_operation isa IsNotMatch
-            if !is_string_matrix
-                error_at_state(
-                    query_state,
-                    """
-                    unsupported matrix element type: $(eltype(matrix_state.matrix_values))
-                    for the comparison operation: $(typeof(comparison_operation))
-                    """,
-                )
-            end
-
-            if comparison_value isa AbstractString
-                try
-                    comparison_value = Regex(comparison_value)
-                catch exception
-                    error_at_state(
-                        query_state,
-                        """
-                        invalid regular expression: $(comparison_value)
-                        for the comparison operation: $(typeof(comparison_operation))
-                        $(exception)
-                        """,
-                    )
-                end
-            end
-
-            @assert comparison_value isa Regex  # UNTESTED
-
-        elseif !is_string_matrix && is_string_value
-            try
-                comparison_value = parse(Float64, comparison_value)  # NOJET
-            catch exception
-                error_at_state(
-                    query_state,
-                    """
-                    error parsing number comparison value: $(comparison_value)
-                    for comparison with a matrix of type: $(eltype(matrix_state.matrix_values))
-                    $(exception)
-                    """,
-                )
-            end
-        end
-
         matrix_values = matrix_state.matrix_values
         @assert matrix_values !== nothing
+        comparison_value = comparison_value_for(query_state, comparison_operation, matrix_values, "matrix")
         matrix_state.matrix_values = compared_values(matrix_values, comparison_operation, comparison_value)
     end
 
@@ -4385,6 +4293,64 @@ function compare_matrix(
 
     push!(query_state.stack, matrix_state)
     return nothing
+end
+
+# The value to compare the `values` (of a vector or a matrix, as said by `what`) with: a `Regex` to match strings, a
+# number to compare numbers with a string value, and otherwise the comparison value of the `comparison_operation`.
+function comparison_value_for(
+    query_state::QueryState,
+    comparison_operation::ComparisonOperation,
+    values::AbstractArray,
+    what::AbstractString,
+)::Union{StorageScalar, Regex}
+    comparison_value = comparison_operation.comparison_value
+    is_string_value = comparison_value isa AbstractString || comparison_value isa Regex
+    is_string_values = eltype(values) <: AbstractString
+
+    if comparison_operation isa IsMatch || comparison_operation isa IsNotMatch
+        if !is_string_values
+            error_at_state(
+                query_state,
+                """
+                unsupported $(what) element type: $(eltype(values))
+                for the comparison operation: $(typeof(comparison_operation))
+                """,
+            )
+        end
+
+        if comparison_value isa AbstractString
+            try
+                comparison_value = Regex(comparison_value)
+            catch exception
+                error_at_state(
+                    query_state,
+                    """
+                    invalid regular expression: $(comparison_value)
+                    for the comparison operation: $(typeof(comparison_operation))
+                    $(exception)
+                    """,
+                )
+            end
+        end
+
+        @assert comparison_value isa Regex
+
+    elseif !is_string_values && is_string_value
+        try
+            comparison_value = parse(Float64, comparison_value)  # NOJET
+        catch exception
+            error_at_state(
+                query_state,
+                """
+                error parsing number comparison value: $(comparison_value)
+                for comparison with a $(what) of type: $(eltype(values))
+                $(exception)
+                """,
+            )
+        end
+    end
+
+    return comparison_value
 end
 
 # Compare each of the `values` with the `comparison_value`.
