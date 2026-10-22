@@ -4393,7 +4393,9 @@ function matrix_lookup(
 
     if query_state.what_for == :requires_relayout
         @assert query_state.daf !== nothing
-        if !has_matrix(
+        # Some of the rows of all the columns are read from the other layout as they are.
+        if (rows_state.is_complete_property_axis || !columns_state.is_complete_property_axis) &&
+           !has_matrix(
             query_state.daf,
             rows_state.property_axis_name,
             columns_state.property_axis_name,
@@ -4425,32 +4427,36 @@ function matrix_lookup(
 
     elseif query_state.what_for == :compute
         @assert query_state.daf !== nothing
-        default = default_value(if_missing)
-        named_matrix_values = get_matrix(
-            query_state.daf,
-            rows_state.property_axis_name,
-            columns_state.property_axis_name,
-            lookup_matrix.property_name;
-            default,
-        )
-        @assert named_matrix_values !== nothing
-        push!(  # NOJET
-            query_state.dependency_keys,
-            Formats.matrix_cache_key(
-                rows_state.property_axis_name,
-                columns_state.property_axis_name,
-                lookup_matrix.property_name,
-            ),
-        )
+        rows_axis = rows_state.property_axis_name
+        columns_axis = columns_state.property_axis_name
+        name = lookup_matrix.property_name
+        push!(query_state.dependency_keys, Formats.matrix_cache_key(rows_axis, columns_axis, name))  # NOJET
 
-        if rows_state.is_complete_property_axis && columns_state.is_complete_property_axis
-            matrix_values = named_matrix_values.array
-        elseif rows_state.is_complete_property_axis
-            matrix_values = named_matrix_values[:, columns_state.vector_values].array
-        elseif columns_state.is_complete_property_axis
-            matrix_values = named_matrix_values[rows_state.vector_values, :].array
+        # Some of the rows of a column-major matrix are some of the columns of its other layout. Reading them there
+        # doesn't read the other rows.
+        if !rows_state.is_complete_property_axis &&
+           columns_state.is_complete_property_axis &&
+           rows_axis != columns_axis &&
+           has_matrix(query_state.daf, columns_axis, rows_axis, name; relayout = false)
+            push!(query_state.dependency_keys, Formats.matrix_cache_key(columns_axis, rows_axis, name))  # NOJET
+            named_flipped_values = get_matrix(query_state.daf, columns_axis, rows_axis, name; relayout = false)  # NOJET
+            matrix_values = flipped(named_flipped_values[:, rows_state.vector_values].array)
         else
-            matrix_values = named_matrix_values[rows_state.vector_values, columns_state.vector_values].array  # UNTESTED
+            default = default_value(if_missing)
+            named_matrix_values = get_matrix(query_state.daf, rows_axis, columns_axis, name; default)
+            @assert named_matrix_values !== nothing
+            if rows_state.is_complete_property_axis && columns_state.is_complete_property_axis
+                matrix_values = named_matrix_values.array
+            elseif rows_state.is_complete_property_axis
+                matrix_values = named_matrix_values[:, columns_state.vector_values].array
+            elseif columns_state.is_complete_property_axis
+                row_entries = rows_state.vector_values
+                @assert row_entries isa AbstractVector{<:AbstractString}
+                row_indices = axis_indices(query_state.daf, rows_axis, row_entries)  # NOJET
+                matrix_values = gathered_rows(named_matrix_values.array, row_indices)
+            else
+                matrix_values = named_matrix_values[rows_state.vector_values, columns_state.vector_values].array  # UNTESTED
+            end
         end
 
         matrix_state.matrix_values = matrix_values

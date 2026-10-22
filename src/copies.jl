@@ -453,7 +453,11 @@ axis contains entries that do not exist in the target, they are discarded (not c
     if (rows_relation == :destination_is_subset || rows_relation == :same) &&
        (columns_relation == :destination_is_subset || columns_relation == :same) &&
        (rows_relation == :destination_is_subset || columns_relation == :destination_is_subset)
-        value = value[axis_vector(destination, rows_reaxis), axis_vector(destination, columns_reaxis)]
+        if columns_relation == :same
+            value = gathered_rows(parent(value), axis_indices(source, rows_axis, axis_vector(destination, rows_reaxis)))
+        else
+            value = value[axis_vector(destination, rows_reaxis), axis_vector(destination, columns_reaxis)]
+        end
         rows_relation = :same
         columns_relation = :same
     end

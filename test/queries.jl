@@ -993,6 +993,34 @@ nested_test("queries") do
                 )
             end
 
+            # Some of the rows of all the columns are read from the other layout if it is stored, and otherwise
+            # gathered from the columns.
+            nested_test("rows") do
+                expected = (("cell", "gene"), [("Y", "A") => 3, ("Y", "B") => 4, ("Y", "C") => 5])
+
+                nested_test("both") do
+                    set_matrix!(daf, "cell", "gene", "UMIs", [0 1 2; 3 4 5])
+                    @test get_result(daf, "@ cell [ name = Y ] @ gene :: UMIs") == expected
+                end
+
+                nested_test("flipped") do
+                    set_matrix!(daf, "gene", "cell", "UMIs", [0 3; 1 4; 2 5]; relayout = false)
+                    @test get_result(daf, "@ cell [ name = Y ] @ gene :: UMIs") == expected
+                    return test_is_not_relayouted(daf, "cell", "gene", "UMIs")
+                end
+
+                nested_test("dense") do
+                    set_matrix!(daf, "cell", "gene", "UMIs", [0 1 2; 3 4 5]; relayout = false)
+                    @test get_result(daf, "@ cell [ name = Y ] @ gene :: UMIs") == expected
+                end
+
+                nested_test("sparse") do
+                    set_matrix!(daf, "cell", "gene", "UMIs", sparse([0 1 2; 3 4 5]); relayout = false)
+                    @test get_result(daf, "@ cell [ name = Y ] @ gene :: UMIs") == expected
+                    @test issparse(daf["@ cell [ name = Y ] @ gene :: UMIs"].array)
+                end
+            end
+
             nested_test("vector") do
                 add_axis!(daf, "tag", ["U", "V", "W"])
                 set_vector!(daf, "tag", "color", ["red", "green", "blue"])
