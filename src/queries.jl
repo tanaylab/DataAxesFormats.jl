@@ -1734,14 +1734,11 @@ function get_query_result(
         @assert vector_state.vector_entries !== nothing
         @assert vector_state.vector_values !== nothing
         finalize_vector_values!(query_state, vector_state)
+        entries_dict = dict_of_entries(daf, vector_state)
         if vector_state.entries_axis_name === nothing
-            named_vector = NamedArray(vector_state.vector_values, (Formats.names_dict(vector_state.vector_entries),))  # NOJET
+            named_vector = NamedArray(vector_state.vector_values, (entries_dict,))  # NOJET
         else
-            named_vector = NamedArray(  # NOJET
-                vector_state.vector_values,
-                (Formats.names_dict(vector_state.vector_entries),),
-                (vector_state.entries_axis_name,),
-            )
+            named_vector = NamedArray(vector_state.vector_values, (entries_dict,), (vector_state.entries_axis_name,))  # NOJET
         end
         return (named_vector, query_state.dependency_keys)
     end
@@ -1773,10 +1770,7 @@ function get_query_result(
 
             named_matrix = NamedArray(  # NOJET
                 matrix_state.matrix_values,
-                (
-                    Formats.names_dict(matrix_state.rows_state.vector_entries),
-                    Formats.names_dict(matrix_state.columns_state.vector_entries),
-                ),
+                (dict_of_entries(daf, matrix_state.rows_state), dict_of_entries(daf, matrix_state.columns_state)),
                 (row_axis_name, column_axis_name),
             )
 
@@ -1785,6 +1779,19 @@ function get_query_result(
     end
 
     @assert false
+end
+
+# The dict of the entries of the `vector_state` of a result. The entries of a whole axis use the cached dict of the
+# axis.
+function dict_of_entries(daf::DafReader, vector_state::VectorState)::AbstractDict{<:AbstractString, <:Integer}
+    vector_entries = vector_state.vector_entries
+    @assert vector_entries !== nothing
+    axis_name = vector_state.entries_axis_name
+    if axis_name !== nothing && vector_entries === axis_vector(daf, axis_name; default = nothing)
+        return axis_dict(daf, axis_name)
+    else
+        return Formats.names_dict(vector_entries)
+    end
 end
 
 function get_query_final_state(daf::Maybe{DafReader}, query_sequence::QuerySequence, what_for::Symbol)::QueryState
@@ -4011,7 +4018,7 @@ function reduce_grouped_vector(
 
     reduced_state = VectorState()
     reduced_state.entries_axis_name = group_state.property_axis_name
-    reduced_state.vector_entries = string.(unique_group_values)
+    reduced_state.vector_entries = as_entries(unique_group_values)
     reduced_state.is_complete_property_axis = base_state.property_axis_name !== nothing
     reduced_state.vector_values = reduced_values
 
@@ -4611,7 +4618,7 @@ function count_by_axis_state(query_state::QueryState, vector_state::VectorState)
 
     count_state = VectorState()
     count_state.entries_axis_name = vector_state.property_axis_name
-    count_state.vector_entries = string.(unique_vector_values)
+    count_state.vector_entries = as_entries(unique_vector_values)
     count_state.property_axis_name = vector_state.property_axis_name
     count_state.is_complete_property_axis = vector_state.property_axis_name !== nothing
     count_state.vector_values = unique_vector_values
@@ -4831,7 +4838,7 @@ function compute_grouped_matrix(
     reduced_state.rows_state = base_state.rows_state
     reduced_state.columns_state = VectorState()
     reduced_state.columns_state.entries_axis_name = group_state.property_axis_name
-    reduced_state.columns_state.vector_entries = string.(unique_group_values)
+    reduced_state.columns_state.vector_entries = as_entries(unique_group_values)
     reduced_state.columns_state.is_complete_property_axis = group_state.property_axis_name !== nothing
     reduced_state.columns_state.vector_values = unique_group_values
     reduced_state.matrix_values = reduced_values
@@ -4923,7 +4930,7 @@ function compute_grouped_matrix(
     reduced_state = MatrixState()
     reduced_state.rows_state = VectorState()
     reduced_state.rows_state.entries_axis_name = group_state.property_axis_name
-    reduced_state.rows_state.vector_entries = string.(unique_group_values)
+    reduced_state.rows_state.vector_entries = as_entries(unique_group_values)
     reduced_state.rows_state.is_complete_property_axis = group_state.property_axis_name !== nothing
     reduced_state.rows_state.vector_values = unique_group_values
     reduced_state.columns_state = base_state.columns_state
@@ -5435,6 +5442,14 @@ function axis_of_property(daf::DafReader, property_name::AbstractString)::Abstra
     end
 
     return split(property_name, "."; limit = 2)[1]
+end
+
+function as_entries(values::AbstractVector{<:AbstractString})::AbstractVector{<:AbstractString}
+    return values
+end
+
+function as_entries(values::AbstractVector)::AbstractVector{<:AbstractString}
+    return string.(values)
 end
 
 function as_booleans(vector::Union{AbstractVector{Bool}, BitVector})::Union{AbstractVector{Bool}, BitVector}

@@ -614,6 +614,12 @@ nested_test("queries") do
                 @test get_result(daf, "@ type : color") == ("type", ["U" => "red", "V" => "green"])
             end
 
+            # A result of all the entries of an axis uses the cached dict of the axis.
+            nested_test("dict") do
+                @test daf["@ type : color"].dicts[1] === axis_dict(daf, "type")
+                @test daf["@ type [ color = red ] : color"].dicts[1] !== axis_dict(daf, "type")
+            end
+
             nested_test("as_axis") do
                 add_axis!(daf, "cell", ["X", "Y"])
 
@@ -956,6 +962,7 @@ nested_test("queries") do
                 nested_test("as_axis") do
                     @test get_result(daf, "@ cell : score / type =@ >> Sum || 0.0") ==
                           ("type", ["U" => 1.0, "V" => 5.0, "W" => 0.0])
+                    @test daf["@ cell : score / type =@ >> Sum || 0.0"].dicts[1] === axis_dict(daf, "type")
                 end
 
                 nested_test("missing") do
