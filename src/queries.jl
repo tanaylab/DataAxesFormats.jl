@@ -3449,28 +3449,60 @@ function looked_up_vector_values(
         return named_lookup_values.array
     end
 
-    lookup_values = plain_array(named_lookup_values.array)
-    index_per_entry = named_lookup_values.dicts[1]
-    if vector_state.pending_final_values === nothing
-        return [lookup_values[index_per_entry[string(entry)]] for entry in vector_state.vector_values]
-    end
+    vector_values = vector_state.vector_values
+    @assert vector_values !== nothing
+    return looked_up_values(vector_values, vector_state.pending_final_values, named_lookup_values)
+end
 
+# The values of the `named_lookup_values` (of the entries of the property axis) for each of the `entries`. An entry with
+# a pending final value gets an empty or zero placeholder.
+function looked_up_values(
+    entries::AbstractArray,
+    pending_final_values::Maybe{PendingFinalValues},
+    named_lookup_values::NamedVector,
+)::AbstractArray
+    lookup_values = plain_array(named_lookup_values.array)
     type = eltype(lookup_values)
-    if type <: AbstractString
-        type = AbstractString
-    end
-    vector_values = Vector{type}(undef, length(vector_state.vector_values))
-    final_value_index_per_entry = vector_state.pending_final_values.index_per_element
-    for (index, entry) in enumerate(vector_state.vector_values)
-        if final_value_index_per_entry[index] == 0
-            vector_values[index] = lookup_values[index_per_entry[string(entry)]]
-        elseif type == AbstractString
-            vector_values[index] = ""
+    if pending_final_values === nothing
+        final_value_index_per_element = nothing
+        placeholder = nothing
+    else
+        final_value_index_per_element = pending_final_values.index_per_element
+        if type <: AbstractString
+            type = AbstractString
+            placeholder = ""
         else
-            vector_values[index] = zero(type)
+            placeholder = zero(type)
         end
     end
-    return vector_values
+    values = Array{type}(undef, size(entries))
+    fill_looked_up_values!(
+        values,
+        entries,
+        lookup_values,
+        named_lookup_values.dicts[1],
+        final_value_index_per_element,
+        placeholder,
+    )
+    return values
+end
+
+function fill_looked_up_values!(
+    values::AbstractArray,
+    entries::AbstractArray,
+    lookup_values::AbstractVector,
+    index_per_entry::AbstractDict{<:AbstractString, <:Integer},
+    final_value_index_per_element::Maybe{AbstractArray{UInt8}},
+    placeholder::Any,
+)::Nothing
+    for element_index in eachindex(values, entries)
+        if final_value_index_per_element === nothing || final_value_index_per_element[element_index] == 0
+            values[element_index] = lookup_values[index_per_entry[string(entries[element_index])]]
+        else
+            values[element_index] = placeholder
+        end
+    end
+    return nothing
 end
 
 function has_lookup_vector_values(
@@ -4689,16 +4721,28 @@ function count_by_values(
     n_rows = length(rows_axis.vector_values)
     n_columns = length(columns_axis.vector_values)
     counts_matrix = zeros(matrix_type, n_rows, n_columns)
+    row_values = rows_values.vector_values
+    column_values = columns_values.vector_values
+    @assert row_values !== nothing && column_values !== nothing
+    count_values!(counts_matrix, row_values, rows_index_of_value, column_values, columns_index_of_value)
+    return counts_matrix
+end
 
-    for (row_value, column_value) in zip(rows_values.vector_values, columns_values.vector_values)
+function count_values!(
+    counts_matrix::AbstractMatrix{<:Unsigned},
+    row_values::AbstractVector,
+    rows_index_of_value::AbstractDict,
+    column_values::AbstractVector,
+    columns_index_of_value::AbstractDict,
+)::Nothing
+    for (row_value, column_value) in zip(row_values, column_values)
         row_index = get(rows_index_of_value, row_value, nothing)
         column_index = get(columns_index_of_value, column_value, nothing)
         if row_index !== nothing && column_index !== nothing
             @inbounds counts_matrix[row_index, column_index] += 1
         end
     end
-
-    return counts_matrix
+    return nothing
 end
 
 function lookup_matrix_group_by_vector(
@@ -5269,28 +5313,9 @@ end
 # The values of the `named_lookup_values` (of the entries of the property axis) for the entries of the `matrix_state`.
 # An entry with a pending final value gets an empty or zero placeholder.
 function looked_up_matrix_values(matrix_state::MatrixState, named_lookup_values::NamedVector)::AbstractMatrix
-    lookup_values = plain_array(named_lookup_values.array)
-    index_per_entry = named_lookup_values.dicts[1]
-    type = eltype(lookup_values)
-    if type <: AbstractString
-        type = AbstractString
-    end
-    n_rows, n_columns = size(matrix_state.matrix_values)
-    matrix_values = Matrix{type}(undef, n_rows, n_columns)
-    pending_final_values = matrix_state.pending_final_values
-    for column_index in 1:n_columns
-        for row_index in 1:n_rows
-            if pending_final_values === nothing || pending_final_values.index_per_element[row_index, column_index] == 0
-                entry = string(matrix_state.matrix_values[row_index, column_index])
-                matrix_values[row_index, column_index] = lookup_values[index_per_entry[entry]]
-            elseif type == AbstractString
-                matrix_values[row_index, column_index] = ""
-            else
-                matrix_values[row_index, column_index] = zero(type)  # UNTESTED
-            end
-        end
-    end
-    return matrix_values
+    matrix_values = matrix_state.matrix_values
+    @assert matrix_values !== nothing
+    return looked_up_values(matrix_values, matrix_state.pending_final_values, named_lookup_values)
 end
 
 function has_lookup_matrix_values(
