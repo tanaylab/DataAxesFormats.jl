@@ -1414,6 +1414,34 @@ function print_query_stack_entry(scalar_state::ScalarState)::Nothing  # UNTESTED
     return nothing
 end
 
+# The final values (of `IfNot`) of some of the elements of a vector or a matrix, applied once its values are final. The
+# index of an element is zero if it has no final value, and otherwise is the position of its final value in `values`.
+struct PendingFinalValues{A <: AbstractArray{UInt8}}
+    index_per_element::A
+    values::Vector{StorageScalar}
+end
+
+function PendingFinalValues(size::Integer...)::PendingFinalValues
+    return PendingFinalValues(zeros(UInt8, size...), StorageScalar[])
+end
+
+# Whether each element has a final value.
+function has_final_value_per_element(pending_final_values::PendingFinalValues)::AbstractArray{Bool}
+    return pending_final_values.index_per_element .!= 0
+end
+
+# Give the `final_value` to the elements that are not in the `mask`.
+function add_final_value!(
+    pending_final_values::PendingFinalValues,
+    mask::AbstractArray{Bool},
+    final_value::StorageScalar,
+)::Nothing
+    push!(pending_final_values.values, final_value)
+    @assert length(pending_final_values.values) <= typemax(UInt8)
+    pending_final_values.index_per_element[.!mask] .= length(pending_final_values.values)
+    return nothing
+end
+
 mutable struct VectorState
     entries_axis_name::Maybe{AbstractString}
     vector_entries::Maybe{AbstractVector{<:AbstractString}}
@@ -1421,7 +1449,7 @@ mutable struct VectorState
     property_axis_name::Maybe{AbstractString}
     is_complete_property_axis::Bool
     vector_values::Maybe{StorageVector}
-    pending_final_values::Maybe{AbstractVector{Any}}
+    pending_final_values::Maybe{PendingFinalValues{Vector{UInt8}}}
 end
 
 function assert_is_valid(vector_state::VectorState)::Nothing
@@ -1431,7 +1459,7 @@ function assert_is_valid(vector_state::VectorState)::Nothing
     end
     if vector_state.pending_final_values !== nothing
         @assert vector_state.vector_values !== nothing
-        @assert length(vector_state.pending_final_values) == length(vector_state.vector_values)
+        @assert length(vector_state.pending_final_values.index_per_element) == length(vector_state.vector_values)
     end
     if vector_state.is_complete_property_axis
         @assert vector_state.pending_final_values === nothing
@@ -1466,10 +1494,19 @@ function print_vector_state(vector_state::VectorState, indent::AbstractString)::
     println("   $(indent)property_axis_name: $(vector_state.property_axis_name)")
     println("   $(indent)is_complete_property_axis: $(brief(vector_state.is_complete_property_axis))")
     println("   $(indent)vector_values: $(brief(vector_state.vector_values)) = $(vector_state.vector_values)")
-    println(
-        "   $(indent)pending_final_values: $(brief(vector_state.pending_final_values)) = " *
-        "$(vector_state.pending_final_values)",
-    )
+    print_pending_final_values(vector_state.pending_final_values, indent)
+    return nothing
+end
+
+function print_pending_final_values(pending_final_values::Maybe{PendingFinalValues}, indent::AbstractString)::Nothing  # UNTESTED
+    if pending_final_values === nothing
+        println("   $(indent)pending_final_values: nothing")
+    else
+        println(
+            "   $(indent)pending_final_values: $(pending_final_values.values) at " *
+            "$(brief(pending_final_values.index_per_element)) = $(pending_final_values.index_per_element)",
+        )
+    end
     return nothing
 end
 
@@ -1479,7 +1516,7 @@ mutable struct MatrixState
     property_name::Maybe{AbstractString}
     property_axis_name::Maybe{AbstractString}
     matrix_values::Maybe{AbstractMatrix}
-    pending_final_values::Maybe{AbstractMatrix{Any}}
+    pending_final_values::Maybe{PendingFinalValues{Matrix{UInt8}}}
 end
 
 function assert_is_valid(matrix_state::MatrixState)::Nothing
@@ -1487,7 +1524,7 @@ function assert_is_valid(matrix_state::MatrixState)::Nothing
     assert_is_valid(matrix_state.columns_state)
     if matrix_state.pending_final_values !== nothing
         @assert matrix_state.matrix_values !== nothing
-        @assert size(matrix_state.pending_final_values) == size(matrix_state.matrix_values)
+        @assert size(matrix_state.pending_final_values.index_per_element) == size(matrix_state.matrix_values)
     end
     if matrix_state.matrix_values !== nothing
         @assert matrix_state.rows_state !== nothing
@@ -1512,9 +1549,7 @@ function print_query_stack_entry(matrix_state::MatrixState)::Nothing  # UNTESTED
     println("   property_name: $(matrix_state.property_name)")
     println("   property_axis_name: $(matrix_state.property_axis_name)")
     println("   matrix_values: $(brief(matrix_state.matrix_values)) = $(matrix_state.matrix_values)")
-    println(
-        "   pending_final_values: $(brief(matrix_state.pending_final_values)) = $(matrix_state.pending_final_values)",
-    )
+    print_pending_final_values(matrix_state.pending_final_values, "")
     return nothing
 end
 
@@ -3425,8 +3460,9 @@ function looked_up_vector_values(
         type = AbstractString
     end
     vector_values = Vector{type}(undef, length(vector_state.vector_values))
+    final_value_index_per_entry = vector_state.pending_final_values.index_per_element
     for (index, entry) in enumerate(vector_state.vector_values)
-        if vector_state.pending_final_values[index] === nothing
+        if final_value_index_per_entry[index] == 0
             vector_values[index] = lookup_values[index_per_entry[string(entry)]]
         elseif type == AbstractString
             vector_values[index] = ""
@@ -3473,22 +3509,25 @@ end
 
 function add_final_values!(vector_state::VectorState, if_not::IfNot)::Nothing
     mask = as_booleans(vector_state.vector_values)  # NOJET
-    if vector_state.pending_final_values !== nothing
-        mask .|= vector_state.pending_final_values .!== nothing
+    pending_final_values = vector_state.pending_final_values
+    if pending_final_values !== nothing
+        mask .|= has_final_value_per_element(pending_final_values)
     end
     if if_not.final_value === nothing
         vector_state.vector_entries = vector_state.vector_entries[mask]
         vector_state.vector_values = vector_state.vector_values[mask]
-        if vector_state.pending_final_values !== nothing
-            vector_state.pending_final_values = vector_state.pending_final_values[mask]
+        if pending_final_values !== nothing
+            final_value_index_per_entry = pending_final_values.index_per_element[mask]  # NOJET
+            vector_state.pending_final_values =
+                PendingFinalValues(final_value_index_per_entry, pending_final_values.values)
         end
         vector_state.is_complete_property_axis = false
     else
-        if vector_state.pending_final_values === nothing
-            vector_state.pending_final_values = Vector{Any}(undef, length(vector_state.vector_values))
-            vector_state.pending_final_values .= nothing  # NOJET
+        if pending_final_values === nothing
+            pending_final_values = PendingFinalValues(length(vector_state.vector_values))
+            vector_state.pending_final_values = pending_final_values
         end
-        vector_state.pending_final_values[.!mask] .= if_not.final_value
+        add_final_value!(pending_final_values, mask, if_not.final_value)
     end
     return nothing
 end
@@ -3497,14 +3536,34 @@ function finalize_vector_values!(query_state::QueryState, vector_state::VectorSt
     if query_state.what_for === :compute && vector_state.pending_final_values !== nothing
         vector_values = densify(vector_state.vector_values; copy = is_read_only_array(vector_state.vector_values))
         @assert !is_read_only_array(vector_values)
-        for index in eachindex(vector_values)
-            final_value = vector_state.pending_final_values[index]
-            if final_value !== nothing
-                vector_values[index] = cast_value(query_state, "final", final_value, eltype(vector_values))
-            end
-        end
+        apply_final_values!(query_state, vector_values, vector_state.pending_final_values)
         vector_state.vector_values = vector_values
         vector_state.pending_final_values = nothing
+    end
+    return nothing
+end
+
+# Set the final values of the elements of the `values` that have them, casting each final value once.
+function apply_final_values!(
+    query_state::QueryState,
+    values::AbstractArray,
+    pending_final_values::PendingFinalValues,
+)::Nothing
+    cast_final_values =
+        [cast_value(query_state, "final", final_value, eltype(values)) for final_value in pending_final_values.values]
+    set_final_values!(values, pending_final_values.index_per_element, cast_final_values)
+    return nothing
+end
+
+function set_final_values!(
+    values::AbstractArray,
+    index_per_element::AbstractArray{UInt8},
+    cast_final_values::AbstractVector,
+)::Nothing
+    for (element_index, final_value_index) in enumerate(index_per_element)
+        if final_value_index != 0
+            values[element_index] = cast_final_values[final_value_index]
+        end
     end
     return nothing
 end
@@ -5218,10 +5277,10 @@ function looked_up_matrix_values(matrix_state::MatrixState, named_lookup_values:
     end
     n_rows, n_columns = size(matrix_state.matrix_values)
     matrix_values = Matrix{type}(undef, n_rows, n_columns)
+    pending_final_values = matrix_state.pending_final_values
     for column_index in 1:n_columns
         for row_index in 1:n_rows
-            if matrix_state.pending_final_values === nothing ||
-               matrix_state.pending_final_values[row_index, column_index] === nothing
+            if pending_final_values === nothing || pending_final_values.index_per_element[row_index, column_index] == 0
                 entry = string(matrix_state.matrix_values[row_index, column_index])
                 matrix_values[row_index, column_index] = lookup_values[index_per_entry[entry]]
             elseif type == AbstractString
@@ -5270,13 +5329,14 @@ function add_final_values!(query_state::QueryState, matrix_state::MatrixState, i
             error_at_state(query_state, "no IfNot value specified for a matrix lookup")
         end
         mask = as_booleans(matrix_state.matrix_values)  # NOJET
-        if matrix_state.pending_final_values === nothing
-            matrix_state.pending_final_values = Matrix{Any}(undef, size(matrix_state.matrix_values)...)
-            matrix_state.pending_final_values .= nothing
+        pending_final_values = matrix_state.pending_final_values
+        if pending_final_values === nothing
+            pending_final_values = PendingFinalValues(size(matrix_state.matrix_values)...)
+            matrix_state.pending_final_values = pending_final_values
         else
-            mask .|= matrix_state.pending_final_values .!== nothing
+            mask .|= has_final_value_per_element(pending_final_values)
         end
-        matrix_state.pending_final_values[.!mask] .= if_not.final_value
+        add_final_value!(pending_final_values, mask, if_not.final_value)
     end
     return nothing
 end
@@ -5285,16 +5345,7 @@ function finalize_matrix_values!(query_state::QueryState, matrix_state::MatrixSt
     if query_state.what_for === :compute && matrix_state.pending_final_values !== nothing
         matrix_values = densify(matrix_state.matrix_values; copy = is_read_only_array(matrix_state.matrix_values))
         @assert !is_read_only_array(matrix_values)
-        n_rows, n_columns = size(matrix_values)
-        for column_index in 1:n_columns
-            for row_index in 1:n_rows
-                final_value = matrix_state.pending_final_values[row_index, column_index]
-                if final_value !== nothing
-                    matrix_values[row_index, column_index] =
-                        cast_value(query_state, "final", final_value, eltype(matrix_values))
-                end
-            end
-        end
+        apply_final_values!(query_state, matrix_values, matrix_state.pending_final_values)
         matrix_state.matrix_values = matrix_values
         matrix_state.pending_final_values = nothing
     end
