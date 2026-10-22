@@ -1,3 +1,30 @@
+import DataAxesFormats.Registry.@query_operation
+import DataAxesFormats.Registry.ReductionOperation
+import DataAxesFormats.Registry.compute_reduction
+import DataAxesFormats.Registry.reduction_result_type
+import DataAxesFormats.Tokens.Token
+
+# A reduction operation that implements neither the streaming nor the buffer protocol, so a grouped reduction computes
+# it on the values of each group.
+struct TestMaximum <: ReductionOperation end
+@query_operation TestMaximum
+
+function TestMaximum(::Token, ::Dict{String, Token})::TestMaximum
+    return TestMaximum()
+end
+
+function compute_reduction(::TestMaximum, input::StorageMatrix, axis::Integer)::StorageVector
+    return vec(maximum(input; dims = axis))
+end
+
+function compute_reduction(::TestMaximum, input::Union{StorageVector, StorageMatrix})::StorageReal
+    return maximum(input)
+end
+
+function reduction_result_type(::TestMaximum, eltype::Type)::Type
+    return eltype
+end
+
 function get_result(
     daf::DafReader,
     query::Union{String, Query};
@@ -925,6 +952,10 @@ nested_test("queries") do
                     @test get_result(daf, "@ cell : score / type >> Sum") == (:A, ["U" => 1.0, "V" => 5.0])
                 end
 
+                nested_test("other") do
+                    @test get_result(daf, "@ cell : score / type >> TestMaximum") == (:A, ["U" => 1.0, "V" => 3.0])
+                end
+
                 nested_test("!string") do
                     @test_throws chomp("""
                                        unsupported input type: String
@@ -966,15 +997,13 @@ nested_test("queries") do
                 end
 
                 nested_test("missing") do
-                    @test_throws Regex(chomp("""
-                                       TaskFailedException
-
-                                           nested task error: no IfMissing value specified for the unused entry: W
-                                           of the axis: type
-                                           in the query: @ cell : score / type =@ >> Sum
-                                           at location:                           ▲▲▲▲▲▲
-                                           for the daf data: memory!
-                                       """)) daf["@ cell : score / type =@ >> Sum"]
+                    @test_throws chomp("""
+                                       no IfMissing value specified for the unused entry: W
+                                       of the axis: type
+                                       in the query: @ cell : score / type =@ >> Sum
+                                       at location:                           ▲▲▲▲▲▲
+                                       for the daf data: memory!
+                                       """) daf["@ cell : score / type =@ >> Sum"]
                 end
             end
         end
@@ -1372,9 +1401,9 @@ nested_test("queries") do
                           (("gene", :B), [("X", "U") => 1, ("X", "V") => 5, ("Y", "U") => 9, ("Y", "V") => 13])
                 end
 
-                nested_test("()") do
-                    @test get_result(daf, "@ gene @ cell :: UMIs |/ type >| Sum") ==
-                          (("gene", :B), [("X", "U") => 1, ("X", "V") => 5, ("Y", "U") => 9, ("Y", "V") => 13])
+                nested_test("other") do
+                    @test get_result(daf, "@ gene @ cell :: UMIs |/ type >| TestMaximum") ==
+                          (("gene", :B), [("X", "U") => 1, ("X", "V") => 3, ("Y", "U") => 5, ("Y", "V") => 7])
                 end
 
                 nested_test("slice") do
@@ -1461,6 +1490,11 @@ nested_test("queries") do
                 nested_test("()") do
                     @test get_result(daf, "@ cell @ gene :: UMIs -/ type >- Sum") ==
                           ((:A, "gene"), [("U", "X") => 1, ("U", "Y") => 9, ("V", "X") => 5, ("V", "Y") => 13])
+                end
+
+                nested_test("other") do
+                    @test get_result(daf, "@ cell @ gene :: UMIs -/ type >- TestMaximum") ==
+                          ((:A, "gene"), [("U", "X") => 1, ("U", "Y") => 5, ("V", "X") => 3, ("V", "Y") => 7])
                 end
 
                 # `Sum` reduces the groups in one pass over each column, and `Median` reduces each group on its own.
