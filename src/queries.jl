@@ -4861,7 +4861,7 @@ function compute_grouped_matrix(
     reduce_to_row::ReduceToRow,
     if_missing::Maybe{IfMissing} = nothing,
 )::Nothing
-    finalize_vector_values!(query_state, group_state)
+    finalize_vector_values!(query_state, group_state)  # NOJET
 
     if query_state.what_for != :compute
         base_state.property_name = nothing

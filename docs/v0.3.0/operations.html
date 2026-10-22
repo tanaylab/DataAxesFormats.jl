@@ -1092,12 +1092,14 @@
     matrix::StorageMatrix,
     group_index_per_row::AbstractVector{&lt;:Integer},
     n_groups::Integer,
-)::Matrix
+)::StorageMatrix
 </code>
 </pre>
-<p>Reduce the rows of a column-major 
+<p>Reduce the rows of a 
 <code>matrix
 </code> per group. The result has one row per group, and one column per column of the 
+<code>matrix
+</code>. It has the same layout as the 
 <code>matrix
 </code>. The group of each row is given by 
 <code>group_index_per_row
@@ -1117,7 +1119,11 @@
 <code>parallel_foreach_column
 </code>, so a lazy 
 <code>matrix
-</code> is read one column at a time.
+</code> is read one column at a time. A row-major 
+<code>matrix
+</code> is reported to the TanayLabUtilities 
+<code>GLOBAL_INEFFICIENT_ACTION_HANDLER
+</code>, and is reduced through copies to and from column-major.
 </p>
 </div>
 </section>

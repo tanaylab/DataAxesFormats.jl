@@ -40,6 +40,43 @@ nested_test("operations") do
             return nothing
         end
 
+        # Operations on whole columns stream column-major input, and report other layouts as inefficient.
+        nested_test("columns_layouts") do
+            compute_eltwise = DataAxesFormats.Registry.compute_eltwise
+            values = Matrix(sprand(Random.MersenneTwister(123), 40, 9, 0.4)) .* 2
+            values[:, 1] .= 0
+            spaced_values = zeros(80, 9)
+            spaced_values[1:2:80, :] .= values
+            significant_values = hcat(
+                [
+                    any(column .>= 1.5) ? map(value -> value < 0.5 ? 0.0 : value, column) : zeros(40) for
+                    column in eachcol(values)
+                ]...,
+            )
+            for (operation, expected) in (
+                (Fraction(), values ./ max.(sum(values; dims = 1), 1)),
+                (Significant(; high = 1.5, low = 0.5), significant_values),
+            )
+                for input in (values, view(spaced_values, 1:2:80, :), sparse(values))
+                    result = compute_eltwise(operation, input)
+                    @test result ≈ expected
+                    @test major_axis(result) == Columns
+                end
+                for input in (transpose(Matrix(transpose(values))), transpose(sparse(Matrix(transpose(values)))))
+                    @test_throws "inefficient major axis: Rows" compute_eltwise(operation, input)
+                    try
+                        TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = IgnoreHandler
+                        result = compute_eltwise(operation, input)
+                        @test result ≈ expected
+                        @test major_axis(result) == Rows
+                    finally
+                        TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = ErrorHandler
+                    end
+                end
+            end
+            return nothing
+        end
+
         nested_test("abs") do
             nested_test("string") do
                 @test_throws chomp("""
@@ -345,6 +382,12 @@ nested_test("operations") do
                     @test packed["@ cell @ gene :: value % Round"] == round.(Int64, values)
                     @test packed["@ cell @ gene :: value % Clamp min 10 max 20"] == clamp.(values, 10, 20)
                     @test packed["@ cell @ gene :: value % Convert type Float64"] == Float64.(values)
+                    @test packed["@ cell @ gene :: value % Fraction"] ≈ values ./ sum(values; dims = 1)
+                    @test packed["@ cell @ gene :: sparse % Fraction"] ≈ sparse_values ./ sum(sparse_values; dims = 1)
+                    @test packed["@ cell @ gene :: value % Significant high 4000 low 3000"] ==
+                          map(value -> value < 3000 ? 0 : value, values)
+                    @test packed["@ cell @ gene :: sparse % Significant high 4000 low 3000"] ==
+                          map(value -> value < 3000 ? 0 : value, sparse_values)
                     # The cached query results hold no materialization of the lazy inputs. The tasks of the last
                     # parallel loop stay reachable (with the input they captured) until other tasks run.
                     parallel_loop_wo_rng(1:1000; name = "release") do _
@@ -537,6 +580,20 @@ nested_test("operations") do
             end
             strings = ["a" "b"; "b" "b"; "a" "c"; "c" "c"]
             @test compute_grouped_reduction(Mode(), strings, [1, 1, 2, 2], 2) == ["a" "b"; "a" "c"]
+            return nothing
+        end
+
+        nested_test("grouped_row_major") do
+            values = transpose([1 3 5 7; 2 4 6 8])
+            @test_throws "inefficient major axis: Rows" compute_grouped_reduction(Sum(), values, [1, 2, 1, 2], 2)
+            try
+                TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = IgnoreHandler
+                result = compute_grouped_reduction(Sum(), values, [1, 2, 1, 2], 2)
+                @test result == [6 8; 10 12]
+                @test major_axis(result) == Rows
+            finally
+                TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = ErrorHandler
+            end
             return nothing
         end
 

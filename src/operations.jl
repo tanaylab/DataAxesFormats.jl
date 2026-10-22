@@ -384,25 +384,10 @@ function parse_parameter_value(
 end
 
 # An element-wise operation on a matrix, which `map_values!(output_values, input_values)` computes for some of its
-# values, each on its own. Sparse input is computed on its stored values (see `compute_sparse_eltwise`), dense input on
-# all of them (see `compute_dense_eltwise`).
+# values, each on its own. The result has the same layout as the input. Since each value is computed on its own, a
+# row-major input is computed as its column-major flip. Sparse input is computed on its stored values (see
+# `compute_sparse_eltwise`), dense input on all of them (see `compute_dense_eltwise`).
 function compute_blind_eltwise(
-    map_values!::Function,
-    input::StorageMatrix{<:StorageReal},
-    ::Type{T},
-    name::AbstractString,
-)::StorageMatrix where {T <: StorageReal}
-    if issparse(input)
-        return compute_sparse_eltwise(map_values!, input, T, name)
-    else
-        return compute_dense_eltwise(map_values!, input, T, name)
-    end
-end
-
-# An element-wise operation on a dense matrix, computed by `map_values!`. The result has the same layout as the input.
-# Plain storage is computed in parallel slices of its values, ignoring the columns. Any other matrix (a lazy one, or a
-# view with gaps) is computed one column at a time.
-function compute_dense_eltwise(
     map_values!::Function,
     input::StorageMatrix{<:StorageReal},
     ::Type{T},
@@ -411,9 +396,35 @@ function compute_dense_eltwise(
     if major_axis(input) == Rows
         flipped_input = flip(input)
         @assert flipped_input isa StorageMatrix{<:StorageReal}
-        return flip(compute_dense_eltwise(map_values!, flipped_input, T, name))
+        return flip(compute_blind_eltwise(map_values!, flipped_input, T, name))
+    elseif issparse(input)
+        return compute_sparse_eltwise(map_values!, input, T, name)
+    else
+        return compute_dense_eltwise(map_values!, input, T, name)
     end
+end
 
+# A matrix of the same layout as the `matrix`, computed by `compute(column_major_matrix)`. A row-major `matrix` is
+# reported as inefficient, and is computed through copies to and from column-major.
+function with_column_major(compute::Function, matrix::StorageMatrix)::StorageMatrix
+    if major_axis(matrix) != Rows
+        return compute(matrix)
+    end
+    @assert_matrix(matrix, Columns)
+    column_major_matrix = relayout(matrix)
+    @assert column_major_matrix isa StorageMatrix
+    return relayout(compute(column_major_matrix))
+end
+
+# An element-wise operation on a column-major dense matrix, computed by `map_values!`. Plain storage is computed in
+# parallel slices of its values, ignoring the columns. Any other matrix (a lazy one, or a view with gaps) is computed
+# one column at a time.
+function compute_dense_eltwise(
+    map_values!::Function,
+    input::StorageMatrix{<:StorageReal},
+    ::Type{T},
+    name::AbstractString,
+)::StorageMatrix where {T <: StorageReal}
     output = Matrix{T}(undef, size(input))
     if column_scratch(base_array(input)) === nothing
         storage = plain_array(input)
@@ -457,38 +468,45 @@ function mapped_values(
     return output_values
 end
 
-# An element-wise operation on a sparse matrix, computed by `map_values!` on its stored values. If the mapped zero is
-# zero, the result is sparse. It has the same structure (sharing its indices with the input), unless some stored values
-# become zero, which are then dropped. Otherwise it is dense, filled with the mapped zero (see
-# `compute_sparse_to_dense_eltwise`).
+# An element-wise operation on a column-major sparse matrix, computed by `map_values!` on its stored values. If the
+# mapped zero is zero, the result is sparse (see `sparse_with_values`). Otherwise it is dense, filled with the mapped
+# zero (see `compute_sparse_to_dense_eltwise`).
 function compute_sparse_eltwise(
     map_values!::Function,
     input::StorageMatrix{<:StorageReal},
     ::Type{T},
     name::AbstractString,
 )::StorageMatrix where {T <: StorageReal}
-    if major_axis(input) == Rows
-        flipped_input = flip(input)
-        @assert flipped_input isa StorageMatrix{<:StorageReal}
-        return flip(compute_sparse_eltwise(map_values!, flipped_input, T, name))
-    end
-
     zero_value = mapped_zero(map_values!, eltype(input), T)
     if zero_value != 0
         return compute_sparse_to_dense_eltwise(map_values!, input, zero_value, name)
     end
 
-    plain_input = plain_array(input)
-    sparse_input = plain_input isa SparseMatrixCSC ? plain_input : SparseMatrixCSC(plain_input)
+    sparse_input = plain_sparse_matrix(input)
     output_value_per_stored = mapped_values(map_values!, nonzeros(sparse_input), T, name)
-    if any(iszero, output_value_per_stored)
+    return sparse_with_values(sparse_input, output_value_per_stored)
+end
+
+# The plain storage of a column-major sparse matrix.
+function plain_sparse_matrix(input::StorageMatrix)::SparseMatrixCSC
+    plain_input = plain_array(input)
+    return plain_input isa SparseMatrixCSC ? plain_input : SparseMatrixCSC(plain_input)
+end
+
+# A sparse matrix with the structure of the `sparse_input`, holding the `value_per_stored`. It shares the indices of the
+# input, unless some of the values are zero, which are then dropped.
+function sparse_with_values(
+    sparse_input::SparseMatrixCSC,
+    value_per_stored::Vector{T},
+)::SparseMatrixCSC{T} where {T <: StorageReal}
+    if any(iszero, value_per_stored)
         return dropzeros!(
             SparseMatrixCSC(
                 size(sparse_input, 1),
                 size(sparse_input, 2),
                 copy(SparseArrays.getcolptr(sparse_input)),
                 copy(rowvals(sparse_input)),
-                output_value_per_stored,
+                value_per_stored,
             ),
         )
     end
@@ -497,8 +515,43 @@ function compute_sparse_eltwise(
         size(sparse_input, 2),
         SparseArrays.getcolptr(sparse_input),
         rowvals(sparse_input),
-        output_value_per_stored,
+        value_per_stored,
     )
+end
+
+# An operation on each column of a matrix, which `map_column!(output_values, input_values)` computes from the values of
+# the column. The result has the same layout as the input (see `with_column_major`). The `map_column!` must map a zero
+# to a zero. Zeros must also not change how it maps the other values of the column. So sparse input is computed on the
+# stored values of each column only, and gives a sparse result (see `sparse_with_values`). Dense input is computed one
+# column at a time.
+function compute_columns_eltwise(
+    map_column!::Function,
+    input::StorageMatrix{<:StorageReal},
+    ::Type{T},
+    name::AbstractString,
+)::StorageMatrix where {T <: StorageReal}
+    return with_column_major(input) do column_major_input
+        if issparse(column_major_input)
+            sparse_input = plain_sparse_matrix(column_major_input)
+            colptr = SparseArrays.getcolptr(sparse_input)
+            output_value_per_stored = Vector{T}(undef, nnz(sparse_input))
+            parallel_foreach_column(sparse_input; name) do _, column_index, column
+                @views map_column!(
+                    output_value_per_stored[colptr[column_index]:(colptr[column_index + 1] - 1)],
+                    nonzeros(column),
+                )
+                return nothing
+            end
+            return sparse_with_values(sparse_input, output_value_per_stored)
+        else
+            output = Matrix{T}(undef, size(column_major_input))
+            parallel_foreach_column(column_major_input; contiguous = true, name) do _, column_index, column
+                @views map_column!(output[:, column_index], column)
+                return nothing
+            end
+            return output
+        end
+    end
 end
 
 # An element-wise operation on a column-major sparse matrix whose `zero_value` isn't zero. The result is dense, filled
@@ -788,26 +841,15 @@ end
 
 function compute_eltwise(operation::Fraction, input::StorageMatrix)::StorageMatrix
     type = float_type_for(eltype(input), operation.type)
-    output = similar(input, type)
-    output .= input
-    parallel_loop_wo_rng(  # NOJET
-        1:size(output, 2);
-        name = "Fraction",
-        progress = DebugProgress(size(output, 2); group = :daf_loops, desc = "Fraction"),
-    ) do column_index
-        column_vector = @view output[:, column_index]
-        column_sum = sum(column_vector)
+    return compute_columns_eltwise(input, type, "Fraction") do output_values, input_values
+        column_sum = sum(input_values)
         if column_sum == 0
-            column_vector .= 0
+            output_values .= 0
         else
-            column_vector ./= column_sum
+            output_values .= input_values ./ column_sum
         end
         return nothing
     end
-    if issparse(output)
-        dropzeros!(output)
-    end
-    return output
 end
 
 function compute_eltwise(operation::Fraction, input::StorageVector{<:StorageReal})::StorageVector{<:StorageReal}
@@ -1003,38 +1045,19 @@ function Significant(operation_name::Token, parameters_values::Dict{String, Toke
 end
 
 function compute_eltwise(operation::Significant, input::StorageMatrix)::StorageMatrix
-    output = copy_array(input)
-    if issparse(output)
-        parallel_loop_wo_rng(
-            1:size(output, 2);
-            name = "Significant",
-            progress = DebugProgress(size(output, 2); group = :daf_loops, desc = "Significant"),
-        ) do column_index
-            first = colptr(output)[column_index]
-            last = colptr(output)[column_index + 1] - 1
-            if first <= last
-                column_vector = @view nzval(output)[first:last]
-                significant!(column_vector, operation.high, operation.low)
-            end
+    high = operation.high
+    low = operation.low
+    return with_column_major(input) do column_major_input
+        output = compute_columns_eltwise(
+            column_major_input,
+            eltype(column_major_input),
+            "Significant",
+        ) do output_values, input_values
+            significant!(output_values, input_values, high, low)
             return nothing
         end
-        dropzeros!(output)
-        return output
-    else
-        n_columns = size(output, 2)
-        is_dense_of_columns = zeros(Bool, n_columns)
-        parallel_loop_wo_rng(
-            1:size(output, 2);
-            name = "Significant",
-            progress = DebugProgress(size(output, 2); group = :daf_loops, desc = "Significant"),
-        ) do column_index
-            column_vector = @view output[:, column_index]
-            significant!(column_vector, operation.high, operation.low)
-            is_dense_of_columns[column_index] = all(column_vector .!= 0)
-            return nothing
-        end
-        if all(is_dense_of_columns)
-            return output  # UNTESTED
+        if issparse(output) || all(!iszero, output)
+            return output
         else
             return SparseMatrixCSC(output)
         end
@@ -1045,11 +1068,11 @@ function compute_eltwise(operation::Significant, input::StorageVector{T})::Stora
     output = copy_array(input)
 
     if issparse(output)
-        significant!(nzval(output), operation.high, operation.low)
+        significant!(nzval(output), nzval(output), operation.high, operation.low)
         dropzeros!(output)
         return output
     else
-        significant!(output, operation.high, operation.low)
+        significant!(output, output, operation.high, operation.low)
         if any(output .== 0)
             return SparseVector(output)
         else
@@ -1058,17 +1081,28 @@ function compute_eltwise(operation::Significant, input::StorageVector{T})::Stora
     end
 end
 
-function significant!(vector::StorageVector{<:StorageReal}, high::StorageReal, low::StorageReal)::Nothing
-    not_high_mask = (-high .< vector) .& (vector .< high)
-    if all(not_high_mask)
-        vector .= 0
-    else
-        if low == high
-            not_low_mask = not_high_mask
-        else
-            not_low_mask = (-low .< vector) .& (vector .< low)
+# Write the significant values of the `input_values` into the `output_values`, and zeros instead of the others (see
+# `Significant`). Both may be the same vector.
+function significant!(
+    output_values::AbstractVector{<:StorageReal},
+    input_values::AbstractVector{<:StorageReal},
+    high::StorageReal,
+    low::StorageReal,
+)::Nothing
+    is_significant = false
+    for value in input_values
+        if !(-high < value < high)
+            is_significant = true
+            break
         end
-        vector[not_low_mask] .= 0
+    end
+    if is_significant
+        for index in eachindex(output_values, input_values)
+            value = input_values[index]
+            output_values[index] = -low < value < low ? zero(value) : value
+        end
+    else
+        output_values .= 0
     end
     return nothing
 end
@@ -1172,7 +1206,7 @@ function compute_reduction(operation::Mode, input::StorageMatrix, axis::Integer)
     if axis == 1
         n_rows = size(input, 1)
         buffer_per_thread = [Vector{eltype(input)}(undef, n_rows) for _ in 1:maxthreadid()]
-        parallel_foreach_column(
+        parallel_foreach_column(  # NOJET
             input;
             name = "Mode",
             progress = DebugProgress(length(output); group = :daf_loops, desc = "Mode"),
@@ -2186,26 +2220,26 @@ end
         matrix::StorageMatrix,
         group_index_per_row::AbstractVector{<:Integer},
         n_groups::Integer,
-    )::Matrix
+    )::StorageMatrix
 
-Reduce the rows of a column-major `matrix` per group. The result has one row per group, and one column per column of the
-`matrix`. The group of each row is given by `group_index_per_row`, where 0 means the row is in no group. Each group must
-have at least one row. The `operation` must [`supports_grouped_reduction`](@ref) or
+Reduce the rows of a `matrix` per group. The result has one row per group, and one column per column of the `matrix`. It
+has the same layout as the `matrix`. The group of each row is given by `group_index_per_row`, where 0 means the row is
+in no group. Each group must have at least one row. The `operation` must [`supports_grouped_reduction`](@ref) or
 [`supports_buffer_reduction`](@ref).
 
 Each column is visited once, so the time is proportional to the number of values, plus the number of groups for each
 column. For a sparse matrix only the stored values are visited. The columns are read using the TanayLabUtilities
-`parallel_foreach_column`, so a lazy `matrix` is read one column at a time.
+`parallel_foreach_column`, so a lazy `matrix` is read one column at a time. A row-major `matrix` is reported to the
+TanayLabUtilities `GLOBAL_INEFFICIENT_ACTION_HANDLER`, and is reduced through copies to and from column-major.
 """
 function compute_grouped_reduction(
     operation::ReductionOperation,
     matrix::StorageMatrix,
     group_index_per_row::AbstractVector{<:Integer},
     n_groups::Integer,
-)::Matrix
+)::StorageMatrix
     @assert supports_grouped_reduction(operation) || supports_buffer_reduction(operation)
     @assert length(group_index_per_row) == size(matrix, 1)
-    @assert require_major_axis(matrix) == Columns
 
     n_rows_per_group = zeros(Int, n_groups)
     for group_index in group_index_per_row
@@ -2215,13 +2249,31 @@ function compute_grouped_reduction(
     end
     @assert all(n_rows_per_group .> 0)
 
-    output = Matrix{reduction_result_type(operation, eltype(matrix))}(undef, n_groups, size(matrix, 2))
-    if supports_grouped_reduction(operation)
-        compute_streamed_grouped_reduction!(output, operation, matrix, group_index_per_row, n_rows_per_group)
-    else
-        compute_buffered_grouped_reduction!(output, operation, matrix, group_index_per_row, n_rows_per_group)
+    return with_column_major(matrix) do column_major_matrix
+        output = Matrix{reduction_result_type(operation, eltype(column_major_matrix))}(
+            undef,
+            n_groups,
+            size(column_major_matrix, 2),
+        )
+        if supports_grouped_reduction(operation)
+            compute_streamed_grouped_reduction!(
+                output,
+                operation,
+                column_major_matrix,
+                group_index_per_row,
+                n_rows_per_group,
+            )
+        else
+            compute_buffered_grouped_reduction!(
+                output,
+                operation,
+                column_major_matrix,
+                group_index_per_row,
+                n_rows_per_group,
+            )
+        end
+        return output
     end
-    return output
 end
 
 # Reduce the rows of the `matrix` per group into the `output` by updating a state per group with each value of each
