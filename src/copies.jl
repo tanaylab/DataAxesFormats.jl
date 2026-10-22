@@ -421,6 +421,13 @@ axis contains entries that do not exist in the target, they are discarded (not c
             columns_relation = rows_relation,
         )
         relayout = false
+
+        # A subset of the rows of the source reads all its stored values. The copy of the other layout holds just the
+        # wanted data, so this layout is its relayout.
+        if rows_relation == :destination_is_subset
+            relayout_matrix!(destination, columns_reaxis, rows_reaxis, rename; overwrite, packed)
+            return nothing
+        end
     end
 
     if columns_relation == :source_is_subset
