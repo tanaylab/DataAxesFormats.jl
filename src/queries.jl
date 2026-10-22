@@ -3720,16 +3720,11 @@ function apply_mask(
 
     finalize_vector_values!(query_state, mask_state)
 
-    named_mask =  # NOJET
-        NamedArray(zeros(Bool, length(base_state.vector_values)), (Formats.names_dict(base_state.vector_entries),))
-    named_mask[mask_state.vector_entries] .= as_booleans(mask_state.vector_values)  # NOJET
-
-    if begin_mask isa BeginMask
-        mask = named_mask.array
-    elseif begin_mask isa BeginNegatedMask
-        mask = .!named_mask.array
+    mask = mask_of_base_entries(base_state, mask_state)
+    if begin_mask isa BeginNegatedMask
+        mask .= .!mask
     else
-        @assert false
+        @assert begin_mask isa BeginMask
     end
 
     base_state.vector_values = base_state.vector_values[mask]
@@ -3738,6 +3733,13 @@ function apply_mask(
 
     push!(query_state.stack, base_state)
     return nothing
+end
+
+# The mask of the entries of the `base_state`. It is true for the entries of the `mask_state` whose values are true.
+function mask_of_base_entries(base_state::VectorState, mask_state::VectorState)::Vector{Bool}
+    mask = zeros(Bool, length(base_state.vector_values))
+    mask[index_per_entry(base_state, mask_state)] .= as_booleans(mask_state.vector_values)  # NOJET
+    return mask
 end
 
 function lookup_vector_other_mask(
@@ -3870,23 +3872,15 @@ function compute_mask_operation(
         return nothing
     end
 
-    first_named_mask =  # NOJET
-        NamedArray(zeros(Bool, length(base_state.vector_values)), (Formats.names_dict(base_state.vector_entries),))
-    first_named_mask[first_mask_state.vector_entries] .= as_booleans(first_mask_state.vector_values)  # NOJET
-
-    if begin_mask isa BeginMask
-        first_mask = first_named_mask.array
-    elseif begin_mask isa BeginNegatedMask
-        first_mask = .!first_named_mask.array
+    first_mask = mask_of_base_entries(base_state, first_mask_state)
+    if begin_mask isa BeginNegatedMask
+        first_mask .= .!first_mask
         begin_mask = BeginMask(begin_mask.property_name)
     else
-        @assert false
+        @assert begin_mask isa BeginMask
     end
 
-    second_named_mask =  # NOJET
-        NamedArray(zeros(Bool, length(base_state.vector_values)), (Formats.names_dict(base_state.vector_entries),))
-    second_named_mask[second_mask_state.vector_entries] .= as_booleans(second_mask_state.vector_values)  # NOJET
-    second_mask = second_named_mask.array
+    second_mask = mask_of_base_entries(base_state, second_mask_state)
 
     combined_mask = combine_masks(first_mask, mask_operation, second_mask)
 
@@ -4313,9 +4307,9 @@ function compare_vector(
             end
         end
 
-        vector_state.vector_values = Vector{Bool}(
-            compute_comparison.(vector_state.vector_values, Ref(comparison_operation), Ref(comparison_value)),
-        )
+        vector_values = vector_state.vector_values
+        @assert vector_values !== nothing
+        vector_state.vector_values = compared_values(vector_values, comparison_operation, comparison_value)
     end
 
     vector_state.property_name = nothing
@@ -4381,9 +4375,9 @@ function compare_matrix(
             end
         end
 
-        matrix_state.matrix_values = Matrix{Bool}(
-            compute_comparison.(matrix_state.matrix_values, Ref(comparison_operation), Ref(comparison_value)),
-        )
+        matrix_values = matrix_state.matrix_values
+        @assert matrix_values !== nothing
+        matrix_state.matrix_values = compared_values(matrix_values, comparison_operation, comparison_value)
     end
 
     matrix_state.property_name = nothing
@@ -4391,6 +4385,17 @@ function compare_matrix(
 
     push!(query_state.stack, matrix_state)
     return nothing
+end
+
+# Compare each of the `values` with the `comparison_value`.
+function compared_values(
+    values::AbstractArray,
+    comparison_operation::ComparisonOperation,
+    comparison_value::Union{StorageScalar, Regex},
+)::Array{Bool}
+    compared = Array{Bool}(undef, size(values))
+    compared .= compute_comparison.(values, Ref(comparison_operation), Ref(comparison_value))
+    return compared
 end
 
 function vector_property_is_axis(
