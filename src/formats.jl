@@ -1265,6 +1265,7 @@ end
 # data, a zero-copy `SubString{StringView{...}}`), `NamedArray` would only accept that exact type as a lookup key.
 function names_dict(names::AbstractVector{<:AbstractString})::OrderedDict{AbstractString, Int}
     dict = OrderedDict{AbstractString, Int}()
+    sizehint!(dict, length(names))
     for (index, name) in enumerate(names)
         dict[name] = index
     end
