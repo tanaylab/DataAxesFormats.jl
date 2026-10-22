@@ -3167,31 +3167,8 @@ function lookup_vector_by_vector(
             Formats.vector_cache_key(vector_state.property_axis_name, lookup_vector.property_name),
         )
 
-        if vector_state.pending_final_values !== nothing
-            type = eltype(named_vector_values)
-            if type <: AbstractString
-                type = AbstractString
-            end
-            lookup_vector_values = Vector{type}(undef, length(vector_state.vector_values))
-            for index in 1:length(vector_state.vector_values)
-                if vector_state.pending_final_values[index] === nothing
-                    lookup_vector_values[index] = named_vector_values[vector_state.vector_values[index]]
-                elseif type == AbstractString
-                    lookup_vector_values[index] = ""
-                else
-                    lookup_vector_values[index] = zero(type)
-                end
-            end
-
-        elseif vector_state.is_complete_property_axis
-            @assert axis_vector(query_state.daf, vector_state.property_axis_name) == vector_state.vector_values  # NOJET
-            lookup_vector_values = named_vector_values.array
-
-        else
-            lookup_vector_values = [named_vector_values[value] for value in vector_state.vector_values]
-        end
-
-        vector_state.vector_values = lookup_vector_values
+        @assert named_vector_values !== nothing
+        vector_state.vector_values = looked_up_vector_values(query_state, vector_state, named_vector_values)
 
     elseif query_state.what_for == :exists
         @assert query_state.daf !== nothing
@@ -3400,52 +3377,57 @@ function fill_lookup_vector_values(
     # Looking up a column of the flipped matrix is looking up a row of the stored one.
     is_column = is_column != is_flipped
 
-    lookup_value = string(lookup_value)
+    named_lookup_values = lookup_vector_of_matrix(named_matrix_values, string(lookup_value); is_column)
+    vector_state.vector_values = looked_up_vector_values(query_state, vector_state, named_lookup_values)
+    return nothing
+end
 
-    if vector_state.pending_final_values !== nothing
-        type = eltype(named_matrix_values)
-        if type <: AbstractString
-            type = AbstractString  # UNTESTED
-        end
-        lookup_vector_values = Vector{type}(undef, length(vector_state.vector_values))
-        for index in 1:length(vector_state.vector_values)
-            if vector_state.pending_final_values[index] === nothing
-                if is_column
-                    lookup_vector_values[index] =
-                        named_matrix_values[string(vector_state.vector_values[index]), lookup_value]
-                else
-                    lookup_vector_values[index] =
-                        named_matrix_values[lookup_value, string(vector_state.vector_values[index])]
-                end
-            elseif type == AbstractString
-                lookup_vector_values[index] = ""  # UNTESTED
-            else
-                lookup_vector_values[index] = zero(type)
-            end
-        end
-
-    elseif vector_state.is_complete_property_axis
-        @assert axis_vector(query_state.daf, vector_state.property_axis_name) == vector_state.vector_values  # NOJET
-        if is_column
-            lookup_vector_values = named_matrix_values[:, lookup_value].array
-        else
-            lookup_vector_values = named_matrix_values[lookup_value, :].array
-        end
-
+# The column (or row) of a looked-up matrix, read once.
+function lookup_vector_of_matrix(
+    named_matrix_values::NamedMatrix,
+    lookup_value::AbstractString;
+    is_column::Bool,
+)::NamedVector
+    if is_column
+        return named_matrix_values[:, lookup_value]
     else
-        if is_column
-            lookup_vector_values = [
-                named_matrix_values[string.(vector_value), lookup_value] for vector_value in vector_state.vector_values
-            ]
-        else
-            lookup_vector_values = [
-                named_matrix_values[lookup_value, string.(vector_value)] for vector_value in vector_state.vector_values
-            ]
-        end
+        return named_matrix_values[lookup_value, :]
+    end
+end
+
+# The values of the `named_lookup_values` (of the entries of the property axis) for the entries of the `vector_state`.
+# An entry with a pending final value gets an empty or zero placeholder.
+function looked_up_vector_values(
+    query_state::QueryState,
+    vector_state::VectorState,
+    named_lookup_values::NamedVector,
+)::AbstractVector
+    if vector_state.pending_final_values === nothing && vector_state.is_complete_property_axis
+        @assert axis_vector(query_state.daf, vector_state.property_axis_name) == vector_state.vector_values  # NOJET
+        return named_lookup_values.array
     end
 
-    vector_state.vector_values = lookup_vector_values
-    return nothing
+    lookup_values = plain_array(named_lookup_values.array)
+    index_per_entry = named_lookup_values.dicts[1]
+    if vector_state.pending_final_values === nothing
+        return [lookup_values[index_per_entry[string(entry)]] for entry in vector_state.vector_values]
+    end
+
+    type = eltype(lookup_values)
+    if type <: AbstractString
+        type = AbstractString
+    end
+    vector_values = Vector{type}(undef, length(vector_state.vector_values))
+    for (index, entry) in enumerate(vector_state.vector_values)
+        if vector_state.pending_final_values[index] === nothing
+            vector_values[index] = lookup_values[index_per_entry[string(entry)]]
+        elseif type == AbstractString
+            vector_values[index] = ""
+        else
+            vector_values[index] = zero(type)
+        end
+    end
+    return vector_values
 end
 
 function has_lookup_vector_values(
@@ -5134,27 +5116,8 @@ function lookup_vector_by_matrix(
             Formats.vector_cache_key(matrix_state.property_axis_name, lookup_vector.property_name),
         )
 
-        type = eltype(named_vector_values)
-        if type <: AbstractString
-            type = AbstractString
-        end
-        n_rows, n_columns = size(matrix_state.matrix_values)
-        lookup_matrix_values = Matrix{type}(undef, n_rows, n_columns)
-        for column_index in 1:n_columns
-            for row_index in 1:n_rows
-                if matrix_state.pending_final_values === nothing ||
-                   matrix_state.pending_final_values[row_index, column_index] === nothing
-                    lookup_matrix_values[row_index, column_index] =
-                        named_vector_values[string(matrix_state.matrix_values[row_index, column_index])]
-                elseif type == AbstractString
-                    lookup_matrix_values[row_index, column_index] = ""
-                else
-                    lookup_matrix_values[row_index, column_index] = zero(type)  # UNTESTED
-                end
-            end
-        end
-
-        matrix_state.matrix_values = lookup_matrix_values
+        @assert named_vector_values !== nothing
+        matrix_state.matrix_values = looked_up_matrix_values(matrix_state, named_vector_values)
 
     elseif query_state.what_for == :exists
         @assert query_state.daf !== nothing
@@ -5327,34 +5290,36 @@ function fill_lookup_matrix_values(
     # Looking up a column of the flipped matrix is looking up a row of the stored one.
     is_column = is_column != is_flipped
 
-    lookup_value = string(lookup_value)
+    named_lookup_values = lookup_vector_of_matrix(named_matrix_values, string(lookup_value); is_column)
+    matrix_state.matrix_values = looked_up_matrix_values(matrix_state, named_lookup_values)
+    return nothing
+end
 
-    type = eltype(named_matrix_values)
+# The values of the `named_lookup_values` (of the entries of the property axis) for the entries of the `matrix_state`.
+# An entry with a pending final value gets an empty or zero placeholder.
+function looked_up_matrix_values(matrix_state::MatrixState, named_lookup_values::NamedVector)::AbstractMatrix
+    lookup_values = plain_array(named_lookup_values.array)
+    index_per_entry = named_lookup_values.dicts[1]
+    type = eltype(lookup_values)
     if type <: AbstractString
         type = AbstractString
     end
     n_rows, n_columns = size(matrix_state.matrix_values)
-    lookup_matrix_values = Matrix{type}(undef, n_rows, n_columns)
+    matrix_values = Matrix{type}(undef, n_rows, n_columns)
     for column_index in 1:n_columns
         for row_index in 1:n_rows
             if matrix_state.pending_final_values === nothing ||
                matrix_state.pending_final_values[row_index, column_index] === nothing
-                if is_column
-                    lookup_matrix_values[row_index, column_index] =
-                        named_matrix_values[string(matrix_state.matrix_values[row_index, column_index]), lookup_value]
-                else
-                    lookup_matrix_values[row_index, column_index] =
-                        named_matrix_values[lookup_value, string(matrix_state.matrix_values[row_index, column_index])]
-                end
-            elseif type == AbstractString  # UNTESTED
-                lookup_matrix_values[row_index, column_index] = ""  # UNTESTED
+                entry = string(matrix_state.matrix_values[row_index, column_index])
+                matrix_values[row_index, column_index] = lookup_values[index_per_entry[entry]]
+            elseif type == AbstractString
+                matrix_values[row_index, column_index] = ""
             else
-                lookup_matrix_values[row_index, column_index] = zero(type)  # UNTESTED
+                matrix_values[row_index, column_index] = zero(type)  # UNTESTED
             end
         end
     end
-    matrix_state.matrix_values = lookup_matrix_values
-    return nothing
+    return matrix_values
 end
 
 function has_lookup_matrix_values(

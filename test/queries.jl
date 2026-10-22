@@ -1542,6 +1542,42 @@ nested_test("queries") do
         end
     end
 
+    # Lookups read the vector, or the column or row of the matrix, once. Reading a lazy sparse matrix element by element
+    # is reported as inefficient.
+    nested_test("packed") do
+        mktempdir() do path
+            packed = FilesDaf(path * "/packed.daf", "w+"; name = "packed!", packed = true)
+            add_axis!(packed, "type", ["T$(index)" for index in 1:4096])
+            add_axis!(packed, "gene", ["A", "B"])
+            add_axis!(packed, "cell", ["X", "Y", "Z"])
+            set_vector!(packed, "type", "weight", Float32[index / 2 for index in 1:4096])
+            score = sparse(Int32[row % 7 == 0 ? row * column : 0 for row in 1:4096, column in 1:2])
+            set_matrix!(packed, "type", "gene", "score", score; relayout = false)
+            distance = spzeros(Int32, 4096, 4096)
+            for index in 7:7:4096
+                distance[index, 7] = 1000 + index
+                distance[7, index] = index
+            end
+            set_matrix!(packed, "type", "type", "distance", distance; relayout = false)
+            set_vector!(packed, "cell", "type", ["T7", "T14", "T7"])
+            set_vector!(packed, "cell", "maybe", ["T7", "", "T14"])
+            set_matrix!(packed, "cell", "gene", "tag", ["T7" "T14"; "T14" "T7"; "T7" "T21"])
+            @test get_matrix(packed, "type", "gene", "score"; relayout = false).array isa LazySparseMatrix
+            @test get_matrix(packed, "type", "type", "distance"; relayout = false).array isa LazySparseMatrix
+
+            @test packed["@ cell : type : weight"] == [3.5, 7, 3.5]
+            @test packed["@ cell : maybe =@ type ?? 0 : weight"] == [3.5, 0, 7]
+            @test packed["@ cell : type :: score @ gene = B"] == [14, 28, 14]
+            @test packed["@ cell : maybe =@ type ?? 0 :: score @ gene = B"] == [14, 0, 28]
+            @test packed["@ cell : type :: distance @| T7"] == [7, 1014, 7]
+            @test packed["@ cell : type :: distance @- T7"] == [7, 14, 7]
+            @test packed["@ cell @ gene :: tag =@ type : weight"] == [3.5 7; 7 3.5; 3.5 10.5]
+            @test packed["@ cell @ gene :: tag =@ type :: score @ gene = B"] == [14 28; 28 14; 14 42]
+            @test packed["@ cell @ gene :: tag =@ type :: distance @- T7"] == [7 14; 14 7; 7 21]
+            return nothing
+        end
+    end
+
     nested_test("dataframes") do
         nested_test("simple") do
             add_axis!(daf, "cell", ["A", "B"])
