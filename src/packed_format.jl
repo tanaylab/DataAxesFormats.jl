@@ -129,6 +129,8 @@ import ..MmapZipStores.write_local_file_header!
 import ..Operations.DTYPE_BY_NAME
 
 import Base.Threads.maxthreadid
+import Blosc.MAX_OVERHEAD
+import Blosc.blosc_compress_ctx
 import Blosc.blosc_decompress_ctx
 import ChunkCodecCore.is_size
 import ChunkCodecCore.try_decode!
@@ -1739,6 +1741,34 @@ function decode_packed_chunk!(
     return nothing
 end
 
+# Encode the `raw_bytes` of one packed chunk through one bytes-to-bytes `codec` of its pipeline.
+function encode_packed_chunk(codec::Zarr.Codecs.V3Codecs.V3Codec, raw_bytes::Vector{UInt8})::Vector{UInt8}
+    return Zarr.Codecs.V3Codecs.codec_encode(codec, raw_bytes)
+end
+
+# Blosc shuffles the bytes of each element together, so it is given the codec's element size. Zarr.jl's own encoder
+# passes it the raw bytes, which shuffles them as single bytes. Each call has a Blosc context of its own, so chunks may
+# be encoded concurrently.
+function encode_packed_chunk(codec::Zarr.Codecs.V3Codecs.BloscV3Codec, raw_bytes::Vector{UInt8})::Vector{UInt8}
+    encoded = Vector{UInt8}(undef, length(raw_bytes) + MAX_OVERHEAD)
+    encoded_size = GC.@preserve raw_bytes encoded blosc_compress_ctx(
+        codec.clevel,
+        codec.shuffle,
+        codec.typesize,
+        length(raw_bytes),
+        pointer(raw_bytes),
+        pointer(encoded),
+        length(encoded),
+        codec.cname,
+        codec.blocksize,
+        1,
+    )
+    if encoded_size <= 0
+        error("failed to encode a packed chunk of $(length(raw_bytes)) bytes by Blosc $(codec.cname)")  # UNTESTED
+    end
+    return resize!(encoded, encoded_size)
+end
+
 # Closure that captures `buffer` (an mmap of a shard file or the in-memory bytes of a ZIP entry)
 # and resolves to a `(offset, n_bytes) -> AbstractVector{UInt8}` fetcher with the same signature as
 # `url_byte_fetcher` (which returns `Vector{UInt8}`). The local-buffer variant returns a zero-copy
@@ -2057,7 +2087,7 @@ function submit_shard_chunk!(writer::IncrementalShardWriter, chunk_index::Int, c
 
     encoded = raw_bytes
     for bytes_codec in inner.bytes_bytes
-        encoded = Zarr.Codecs.V3Codecs.codec_encode(bytes_codec, encoded)
+        encoded = encode_packed_chunk(bytes_codec, encoded)
     end
     # Defensive elision: the v3 sharding spec lets the writer omit chunks whose encoding is empty (e.g. an all
     # `fill_value` chunk under a codec that signals elision by returning `nothing`). The currently shipped

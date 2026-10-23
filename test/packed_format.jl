@@ -861,6 +861,49 @@ nested_test("packed_format") do
         @test n_correct == 10
     end
 
+    # Blosc shuffles the bytes of each element together, so it must be told the element size. Byte 4 of a Blosc chunk's
+    # header is the element size it was given. The first entry of a shard is its first chunk.
+    nested_test("blosc_typesize") do
+        function first_chunk_typesize(shard_bytes::Vector{UInt8})::Int
+            return ZipArchives.zip_readentry(ZipArchives.ZipReader(shard_bytes), 1)[4]
+        end
+
+        nested_test("files") do
+            mktempdir() do path
+                daf = FilesDaf(joinpath(path, "test.daf"), "w+"; name = "files!", packed = true)
+                add_axis!(daf, "row", ["r$(index)" for index in 1:4096])
+                add_axis!(daf, "col", ["c1", "c2", "c3"])
+                set_vector!(daf, "row", "data", Int64.(1:4096))
+                set_matrix!(
+                    daf,
+                    "row",
+                    "col",
+                    "UMIs",
+                    sparse(1:4096, fill(1, 4096), UInt32.(1:4096), 4096, 3);
+                    relayout = false,
+                )
+                daf_path = joinpath(path, "test.daf")
+                @test first_chunk_typesize(read(joinpath(daf_path, "vectors/row/data.zip"))) == 8
+                @test first_chunk_typesize(read(joinpath(daf_path, "matrices/row/col/UMIs.rowval.zip"))) == 8
+                @test first_chunk_typesize(read(joinpath(daf_path, "matrices/row/col/UMIs.nzval.zip"))) == 4
+                return nothing
+            end
+        end
+
+        nested_test("memory_zarr") do
+            daf = ZarrDaf(; name = "memory!", packed = true)
+            add_axis!(daf, "row", ["r$(index)" for index in 1:4096])
+            add_axis!(daf, "col", ["c1", "c2", "c3"])
+            empty_dense_matrix!(daf, "row", "col", "data", Float32; relayout = false) do filled
+                filled .= 1
+                return nothing
+            end
+            shard_key = only(filter(key -> occursin("/data/c/", key), collect(keys(daf.root.storage.a))))
+            @test first_chunk_typesize(daf.root.storage.a[shard_key]) == 4
+            return nothing
+        end
+    end
+
     # A `MemoryDaf` owns what it stores. A lazy array read from another daf is copied, so modifying either daf doesn't
     # affect the other.
     nested_test("memory_daf_copies_lazy_arrays") do
@@ -1359,10 +1402,8 @@ nested_test("packed_format") do
             return run_zarr_packed_tests(zip_factory; is_append_only = true)
         end
 
-        # In-memory `ZarrDaf` (`DictStore`-backed) has no incremental sink, so `packed_streaming_dense_matrix` falls
-        # back to the per-column `numeric_zcreate` + `array[:, column] = chunk_buffer` encoder. Only the streaming
-        # write path differs from the disk-backed branches; the round-trip equality check confirms the fallback
-        # encoder produces a readable array.
+        # In-memory `ZarrDaf` (`DictStore`-backed) streams a packed dense matrix into a shard held in memory, which is
+        # stored when the matrix is filled (the `DictStoreSink` variant of `open_dual_shard_sink`).
         nested_test("memory_streaming_dense_matrix_fill") do
             n_rows = 4096
             n_cols = 3

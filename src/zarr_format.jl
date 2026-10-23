@@ -2018,45 +2018,11 @@ function packed_streaming_dense_matrix(
     nrows::Int,
     ncols::Int,
 )::Tuple{PackedDenseMatrix{T}, Maybe{Formats.CacheGroup}} where {T <: StorageReal}
-    storage = group.storage
-    if !(storage isa Zarr.DirectoryStore || storage isa MmapZipStore)
-        # Stores with no incremental sink (e.g. `DictStore`) fall back to per-column chunk files. Columns may be written
-        # from several tasks at once, and such a store (e.g. a `Dict`) isn't thread-safe.
-        fallback_array =
-            numeric_zcreate(T, group, name, (nrows, ncols), (nrows, 1), v3_bytes_codecs_for(compressor_for(), T))
-        array_lock = ReentrantLock()
-        encoder = (column::Int, chunk_buffer::Vector{T}) -> begin
-            lock(array_lock) do
-                fallback_array[:, column] = chunk_buffer
-                return nothing
-            end
-            return nothing
-        end
-        return (PackedDenseMatrix{T}(nrows, ncols, encoder), nothing)
-    end
-
     array = sharded_zcreate(T, group, name, (nrows, ncols), (nrows, 1), v3_bytes_codecs_for(compressor_for(), T))
     sharding_codec = array.metadata.pipeline.array_bytes
     chunks_per_shard = (1, ncols)
     chunk_key_str = chunk_key(array, single_chunk_matrix_suffix(array))
-
-    sink = if storage isa Zarr.DirectoryStore
-        chunk_path = joinpath(storage.folder, chunk_key_str)
-        mkpath(dirname(chunk_path))
-        open(chunk_path, "w")
-    else
-        # `MmapZipStore` reserves the entry up front. The reservation is an upper bound: each column's
-        # encoded inner chunk might in the worst case grow against the codec, so we book `2 * uncompressed +
-        # 4096` bytes per column, plus the exact encoded index size at the tail. Unused bytes between the
-        # last chunk and the index are padding the reader skips because the index records each chunk's
-        # actual `(offset, nbytes)`.
-        index_size = Zarr.Codecs.V3Codecs.compute_encoded_index_size(chunks_per_shard, sharding_codec)
-        per_column_upper_bound = UInt64(2 * nrows * sizeof(T) + 4096)
-        reserved_size = UInt64(ncols) * per_column_upper_bound + UInt64(index_size)
-        region = reserve_mmap_zip_entry!(storage, chunk_key_str, reserved_size)
-        MmapShardRegion(storage, chunk_key_str, region, UInt64(0), UInt64(0), reserved_size)
-    end
-
+    sink = open_dual_shard_sink(group.storage, chunk_key_str, chunks_per_shard, (nrows, 1), T)
     writer = IncrementalShardWriter(sink, sharding_codec.codecs, sharding_codec.index_codecs, zero(T), chunks_per_shard)
     encoder =
         (column::Int, chunk_buffer::Vector{T}) -> begin
