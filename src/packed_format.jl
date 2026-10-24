@@ -2036,6 +2036,58 @@ function IncrementalShardWriter(
 end
 
 function submit_shard_chunk!(writer::IncrementalShardWriter, chunk_index::Int, chunk_data::AbstractArray)::Nothing
+    encoded_chunk = encode_shard_chunk(writer, chunk_index, chunk_data)
+    if encoded_chunk !== nothing
+        write_shard_chunks!(writer, (encoded_chunk,))
+    end
+    return nothing
+end
+
+# One inner chunk of a shard, encoded and ready to be written to the sink. The `pieces` are written one after the
+# other, starting with the local file header. The Zarr index points `index_offset` bytes past the start of the header,
+# at `index_length` bytes.
+struct EncodedShardChunk
+    chunk_index::Int
+    pieces::Vector{Vector{UInt8}}
+    index_offset::UInt64
+    index_length::UInt64
+    crc::UInt32
+    compressed_size::UInt64
+    uncompressed_size::UInt64
+    name_bytes::Vector{UInt8}
+end
+
+# Write the `encoded_chunks` to the sink of the `writer` one after the other, under one hold of its lock, so that
+# concurrent submitters don't interleave other chunks between them. This records the offsets of each chunk in the Zarr
+# index and its central directory entry.
+function write_shard_chunks!(writer::IncrementalShardWriter, encoded_chunks)::Nothing
+    @lock writer.write_lock begin
+        for encoded_chunk in encoded_chunks
+            lfh_offset = position_in_sink(writer.sink)
+            chunk_index = encoded_chunk.chunk_index
+            writer.index_data[2 * chunk_index - 1] = lfh_offset + encoded_chunk.index_offset
+            writer.index_data[2 * chunk_index] = encoded_chunk.index_length
+            writer.cd_entries[chunk_index] = (
+                encoded_chunk.crc,
+                lfh_offset,
+                encoded_chunk.compressed_size,
+                encoded_chunk.uncompressed_size,
+                encoded_chunk.name_bytes,
+            )
+            for piece in encoded_chunk.pieces
+                write_to_sink!(writer.sink, piece)
+            end
+        end
+    end
+    return nothing
+end
+
+# Encode one inner chunk of the shard of the `writer`, without writing it. Returns `nothing` if the chunk is elided.
+function encode_shard_chunk(
+    writer::IncrementalShardWriter,
+    chunk_index::Int,
+    chunk_data::AbstractArray,
+)::Maybe{EncodedShardChunk}
     inner = writer.inner_pipeline
     method = zip_method_for_pipeline(inner)
     # Run the array→bytes step (BytesCodec / VLenUTF8) separately from the bytes→bytes codec chain so
@@ -2073,16 +2125,16 @@ function submit_shard_chunk!(writer::IncrementalShardWriter, chunk_index::Int, c
             method;
             include_zip64_extra = false,
         )
-        @lock writer.write_lock begin
-            lfh_offset = position_in_sink(writer.sink)
-            writer.index_data[2 * chunk_index - 1] = lfh_offset + UInt64(LOCAL_FILE_HEADER_FIXED_SIZE)
-            writer.index_data[2 * chunk_index] = UInt64(length(name_bytes)) + compressed_size + UInt64(8)
-            writer.cd_entries[chunk_index] = (crc, lfh_offset, compressed_size, uncompressed_size, name_bytes)
-            write_to_sink!(writer.sink, lfh_buffer)
-            write_to_sink!(writer.sink, payload)
-            write_to_sink!(writer.sink, trailer)
-        end
-        return nothing
+        return EncodedShardChunk(
+            chunk_index,
+            Vector{UInt8}[lfh_buffer, payload, trailer],
+            UInt64(LOCAL_FILE_HEADER_FIXED_SIZE),
+            UInt64(length(name_bytes)) + compressed_size + UInt64(8),
+            crc,
+            compressed_size,
+            uncompressed_size,
+            name_bytes,
+        )
     end
 
     encoded = raw_bytes
@@ -2102,16 +2154,16 @@ function submit_shard_chunk!(writer::IncrementalShardWriter, chunk_index::Int, c
     lfh_size = UInt64(LOCAL_FILE_HEADER_FIXED_SIZE + length(name_bytes) + ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE)
     lfh_buffer = Vector{UInt8}(undef, lfh_size)
     write_local_file_header!(lfh_buffer, 1, name_bytes, compressed_size, uncompressed_size, crc, 0, method)
-    @lock writer.write_lock begin
-        lfh_offset = position_in_sink(writer.sink)
-        chunk_offset = lfh_offset + lfh_size
-        writer.index_data[2 * chunk_index - 1] = chunk_offset
-        writer.index_data[2 * chunk_index] = compressed_size
-        writer.cd_entries[chunk_index] = (crc, lfh_offset, compressed_size, uncompressed_size, name_bytes)
-        write_to_sink!(writer.sink, lfh_buffer)
-        write_to_sink!(writer.sink, encoded)
-    end
-    return nothing
+    return EncodedShardChunk(
+        chunk_index,
+        Vector{UInt8}[lfh_buffer, encoded],
+        lfh_size,
+        compressed_size,
+        crc,
+        compressed_size,
+        uncompressed_size,
+        name_bytes,
+    )
 end
 
 # Inner-chunk ZIP entry name for the chunk at the linear `chunk_index` (1-based, column-major over
@@ -3504,23 +3556,26 @@ function packed_format_streaming_dense_matrix(
     base_key = "matrices/$(rows_axis)/$(columns_axis)/$(name)"
     writer = packed_make_streaming_shard_writer(daf, "$(base_key).zip", T, chunks_per_shard, chunk_shape, codec)
 
+    # The chunks of a column are encoded first, then written together, so they are contiguous in the shard.
     encoder =
         (column::Int, chunk_buffer::Vector{T}) -> begin
             column_base = (column - 1) * n_row_tiles
-            for row_tile in 1:(n_row_tiles - 1)
+            encoded_chunks = EncodedShardChunk[]
+            for row_tile in 1:n_row_tiles
                 start_row = (row_tile - 1) * n_chunk_rows + 1
-                tile_view = reshape(view(chunk_buffer, start_row:(start_row + n_chunk_rows - 1)), n_chunk_rows, 1)
-                submit_shard_chunk!(writer, column_base + row_tile, tile_view)
+                if row_tile < n_row_tiles || n_last_tile_rows == n_chunk_rows
+                    tile = reshape(view(chunk_buffer, start_row:(start_row + n_chunk_rows - 1)), n_chunk_rows, 1)
+                else
+                    padded = zeros(T, n_chunk_rows)
+                    padded[1:n_last_tile_rows] = view(chunk_buffer, start_row:Int(nrows))
+                    tile = reshape(padded, n_chunk_rows, 1)
+                end
+                encoded_chunk = encode_shard_chunk(writer, column_base + row_tile, tile)
+                if encoded_chunk !== nothing
+                    push!(encoded_chunks, encoded_chunk)
+                end
             end
-            last_start = (n_row_tiles - 1) * n_chunk_rows + 1
-            if n_last_tile_rows == n_chunk_rows
-                tile_view = reshape(view(chunk_buffer, last_start:Int(nrows)), n_chunk_rows, 1)
-                submit_shard_chunk!(writer, column_base + n_row_tiles, tile_view)
-            else
-                padded = zeros(T, n_chunk_rows)
-                padded[1:n_last_tile_rows] = view(chunk_buffer, last_start:Int(nrows))
-                submit_shard_chunk!(writer, column_base + n_row_tiles, reshape(padded, n_chunk_rows, 1))
-            end
+            write_shard_chunks!(writer, encoded_chunks)
             return nothing
         end
     finalizer = () -> begin

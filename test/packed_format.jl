@@ -836,6 +836,41 @@ nested_test("packed_format") do
         end
     end
 
+    # A column read fetches the byte range of its chunks at once, so the chunks of each column are kept next to each
+    # other in the shard, even when the columns are filled in parallel.
+    nested_test("packed_dense_matrix_contiguous_columns") do
+        mktempdir() do path
+            n_rows = 8192
+            n_columns = 64
+            expected = Float32[column * 10_000 + row for row in 1:n_rows, column in 1:n_columns]
+            daf = FilesDaf(joinpath(path, "test.daf"), "w+"; name = "files!", packed = true)
+            add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+            add_axis!(daf, "column", ["c$(index)" for index in 1:n_columns])
+            empty_dense_matrix!(daf, "row", "column", "data", Float32; relayout = false) do filled
+                Threads.@threads for column in 1:n_columns
+                    filled[:, column] .= view(expected, :, column)
+                end
+                return nothing
+            end
+            @test get_matrix(daf, "row", "column", "data"; relayout = false) == expected
+
+            zip_reader = ZipArchives.ZipReader(read(joinpath(path, "test.daf/matrices/row/column/data.zip")))
+            chunk_names = filter(name -> startswith(name, "c/"), ZipArchives.zip_names(zip_reader))
+            offset_per_chunk_name = Dict(
+                name => ZipArchives.zip_entry_data_offset(zip_reader, index) for
+                (index, name) in enumerate(ZipArchives.zip_names(zip_reader)) if startswith(name, "c/")
+            )
+            sorted_chunk_names = sort(chunk_names; by = name -> offset_per_chunk_name[name])
+            column_per_sorted_chunk = [split(name, "/")[2] for name in sorted_chunk_names]
+            n_runs = 1 + count(1:(length(column_per_sorted_chunk) - 1)) do index
+                return column_per_sorted_chunk[index] != column_per_sorted_chunk[index + 1]
+            end
+            @test length(chunk_names) > n_columns
+            @test n_runs == n_columns
+            return nothing
+        end
+    end
+
     # An in-memory `ZarrDaf` keeps its chunks in a `Dict`, so concurrent column writes must not corrupt it. A race shows
     # only sometimes, so the fill is repeated.
     nested_test("packed_dense_matrix_memory_zarr_tasks") do
