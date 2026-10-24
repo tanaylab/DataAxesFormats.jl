@@ -50,7 +50,8 @@ import ..Chains.RecordedBase
         leaf::AbstractString,
         mode::AbstractString = "r";
         [name::Maybe{AbstractString} = nothing,
-        packed::Bool = false]
+        packed::Bool = false,
+        skip_missing::Bool = false]
     )::Union{DafReader, DafWriter}
 
 Open a complete chain of `Daf` repositories by tracing back through the recorded bases of each. Valid modes are
@@ -58,6 +59,12 @@ only "r" and "r+"; if the latter, only the `leaf` repository is opened in write 
 
 If `packed` is `true`, the leaf repository (the only one opened in write mode under "r+") gets `packed = true` as its
 per-daf default. Base repositories are always opened in "r" mode and the `packed` value is irrelevant for them.
+
+If `skip_missing` is `true`, a recorded base whose path doesn't exist is skipped, and reported in an info message. This
+allows opening a repository whose bases were published separately, using only the ones that were downloaded. A skipped
+base hides its own bases too, since they are recorded only inside it. Its data is missing from the chain, so reading
+it fails as for any missing property. A base inside a file (`...#group`) is missing only if the file is, and an HTTP
+base is never missing. A base that exists but fails to open still raises an error.
 
 A convenient way to create persistent complete chains is using [`complete_chain!`](@ref).
 
@@ -69,13 +76,22 @@ function complete_daf(
     mode::AbstractString = "r";
     name::Maybe{AbstractString} = nothing,
     packed::Bool = false,
+    skip_missing::Bool = false,
 )::Union{DafReader, DafWriter}
     return flame_timed("complete_daf") do
         daf_name = name === nothing ? leaf : name
         @assert mode in ("r", "r+")
         @debug "Open complete $(daf_name):" _group = :daf_repos
         dafs = flame_timed("complete_daf.collect_dafs") do
-            return collect_dafs(; name = daf_name, path = leaf, mode, is_packed = packed, indent = "", index = 0)
+            return collect_dafs(;
+                name = daf_name,
+                path = leaf,
+                mode,
+                is_packed = packed,
+                skip_missing,
+                indent = "",
+                index = 0,
+            )
         end
         return flame_timed("complete_daf.chain") do
             if mode == "r+"
@@ -96,6 +112,7 @@ function collect_dafs(;
     path::AbstractString,
     mode::AbstractString,
     is_packed::Bool,
+    skip_missing::Bool,
     indent::AbstractString,
     index::Integer,
 )::Vector{DafReader}
@@ -109,24 +126,33 @@ function collect_dafs(;
 
     dafs = DafReader[]
     for base in bases
-        append!(dafs, collect_base(; name, base, base_directory = dirname(path), indent, index))
+        append!(dafs, collect_base(; name, base, base_directory = dirname(path), skip_missing, indent, index))
     end
     push!(dafs, daf)
     return dafs
 end
 
+# The repositories of the complete chain of a base, or none if it is missing and `skip_missing`.
 function collect_base(;
     name::AbstractString,
     base::RecordedBase,
     base_directory::AbstractString,
+    skip_missing::Bool,
     indent::AbstractString,
     index::Integer,
 )::Vector{DafReader}
+    path = joinpath(base_directory, base.path)
+    if skip_missing && is_missing_path(path)
+        @info "skipped missing base: $(path) of: $(name)"
+        return DafReader[]
+    end
+
     base_dafs = collect_dafs(;
         name,
-        path = joinpath(base_directory, base.path),
+        path,
         mode = "r",
         is_packed = false,
+        skip_missing,
         indent = indent * "  ",
         index = index + 1,
     )
@@ -141,6 +167,15 @@ function collect_base(;
     view = viewer(chain; name = "$(name).view_$(index)", axes = base.axes, data = base.data)
     push!(view.path, complete_path(base_dafs[end]))  # NOJET
     return DafReader[view]
+end
+
+# Whether the file or directory of a base `path` doesn't exist. For a group inside a file (`...#group`), only the file
+# counts. An HTTP path is never missing.
+function is_missing_path(path::AbstractString)::Bool
+    if startswith(path, "http://") || startswith(path, "https://")
+        return false
+    end
+    return !ispath(split(path, "#"; limit = 2)[1])
 end
 
 """

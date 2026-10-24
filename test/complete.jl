@@ -44,6 +44,26 @@ function populate_complete_diamond!(path::AbstractString)
     return (cells, results_chain, masks_chain)
 end
 
+# Three repositories published separately: the UMIs, the cell metadata resting on them, and the metacells resting on
+# both, with their own copy of the cell axis.
+function populate_complete_published!(path::AbstractString)::Nothing
+    umis = FilesDaf("$(path)/umis", "w"; name = "umis!")
+    add_axis!(umis, "cell", ["A", "B", "C"])
+    add_axis!(umis, "gene", ["X", "Y"])
+    set_matrix!(umis, "cell", "gene", "UMIs", [1 2; 3 4; 5 6])
+
+    metadata = FilesDaf("$(path)/metadata", "w"; name = "metadata!")
+    metadata_chain = complete_chain!(; base_daf = umis, new_daf = metadata)
+    set_vector!(metadata_chain, "cell", "batch", ["U", "V", "U"])
+
+    metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
+    add_axis!(metacells, "cell", ["A", "B", "C"])
+    add_axis!(metacells, "metacell", ["M1", "M2"])
+    set_vector!(metacells, "cell", "metacell", ["M1", "M1", "M2"])
+    set_base_daf_links!(metacells, [umis, metadata])
+    return nothing
+end
+
 nested_test("complete") do
     nested_test("record") do
         nested_test("single") do
@@ -237,6 +257,150 @@ nested_test("complete") do
                 @test !has_vector(cells, "cell", "metacell")
                 @test get_vector(FilesDaf("$(path)/metacells"; name = "alone!"), "cell", "metacell") ==
                       ["M1", "M1", "M2"]
+                return nothing
+            end
+        end
+    end
+
+    nested_test("skip_missing") do
+        nested_test("all") do
+            mktempdir() do path
+                populate_complete_published!(path)
+                reopened = complete_daf("$(path)/metacells"; name = "reopened!", skip_missing = true)
+                @test get_vector(reopened, "cell", "metacell") == ["M1", "M1", "M2"]
+                @test get_vector(reopened, "cell", "batch") == ["U", "V", "U"]
+                @test get_matrix(reopened, "cell", "gene", "UMIs") == [1 2; 3 4; 5 6]
+
+                # The UMIs are reached through both bases, and are chained once.
+                chained_paths = [abspath("$(path)/$(name)") for name in ("umis", "metadata", "metacells")]
+                @test [complete_path(daf) for daf in reopened.dafs] == chained_paths
+                @test complete_path(reopened) == abspath("$(path)/metacells")
+                return nothing
+            end
+        end
+
+        nested_test("!umis") do
+            mktempdir() do path
+                populate_complete_published!(path)
+                rm("$(path)/umis"; recursive = true)
+
+                # The metadata records the UMIs too, so they are skipped twice.
+                skipped_umis = (:info, r"skipped missing base: .*/umis")
+                reopened = @test_logs skipped_umis skipped_umis complete_daf(
+                    "$(path)/metacells";
+                    name = "reopened!",
+                    skip_missing = true,
+                )
+                @test get_vector(reopened, "cell", "batch") == ["U", "V", "U"]
+                @test !has_axis(reopened, "gene")
+
+                # Reopening without skipping would fail, so the chain has no path.
+                @test complete_path(reopened) === nothing
+                return nothing
+            end
+        end
+
+        nested_test("!metadata") do
+            mktempdir() do path
+                populate_complete_published!(path)
+                rm("$(path)/metadata"; recursive = true)
+
+                reopened = @test_logs (:info, r"skipped missing base: .*/metadata") complete_daf(
+                    "$(path)/metacells";
+                    name = "reopened!",
+                    skip_missing = true,
+                )
+                @test get_matrix(reopened, "cell", "gene", "UMIs") == [1 2; 3 4; 5 6]
+                @test !has_vector(reopened, "cell", "batch")
+                return nothing
+            end
+        end
+
+        nested_test("!both") do
+            mktempdir() do path
+                populate_complete_published!(path)
+                rm("$(path)/umis"; recursive = true)
+                rm("$(path)/metadata"; recursive = true)
+
+                reopened = complete_daf("$(path)/metacells"; name = "reopened!", skip_missing = true)
+                @test axes_set(reopened) == Set(["cell", "metacell"])
+                @test get_vector(reopened, "cell", "metacell") == ["M1", "M1", "M2"]
+                return nothing
+            end
+        end
+
+        nested_test("hidden") do
+            mktempdir() do path
+                populate_complete_published!(path)
+                set_base_daf_links!(FilesDaf("$(path)/metacells", "r+"), FilesDaf("$(path)/metadata"))
+                rm("$(path)/metadata"; recursive = true)
+
+                # The UMIs are recorded only inside the skipped metadata, so they are skipped with it.
+                reopened = complete_daf("$(path)/metacells"; name = "reopened!", skip_missing = true)
+                @test !has_axis(reopened, "gene")
+                return nothing
+            end
+        end
+
+        nested_test("!skip") do
+            mktempdir() do path
+                populate_complete_published!(path)
+                rm("$(path)/umis"; recursive = true)
+                @test_throws "not a daf directory: $(path)/umis" complete_daf("$(path)/metacells")
+                return nothing
+            end
+        end
+
+        nested_test("!daf") do
+            mktempdir() do path
+                populate_complete_published!(path)
+                rm("$(path)/umis"; recursive = true)
+                mkdir("$(path)/umis")
+
+                # A base that exists but fails to open isn't missing.
+                @test_throws "not a daf directory: $(path)/umis" complete_daf("$(path)/metacells"; skip_missing = true)
+                return nothing
+            end
+        end
+
+        nested_test("group") do
+            mktempdir() do path
+                metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
+                add_axis!(metacells, "cell", ["A", "B", "C"])
+                write_raw_scalar!(metacells, "_base_daf_links", "umis.h5dfs#/umis")
+
+                reopened = @test_logs (:info, r"skipped missing base: .*/umis.h5dfs#/umis") complete_daf(
+                    "$(path)/metacells";
+                    name = "reopened!",
+                    skip_missing = true,
+                )
+                @test axes_set(reopened) == Set(["cell"])
+                return nothing
+            end
+        end
+
+        nested_test("!group") do
+            mktempdir() do path
+                H5df("$(path)/umis.h5dfs#/other", "w"; name = "other!")
+                metacells = FilesDaf("$(path)/metacells", "w"; name = "metacells!")
+                write_raw_scalar!(metacells, "_base_daf_links", "umis.h5dfs#/umis")
+
+                # Only the file counts, so a missing group inside an existing file isn't missing.
+                @test_throws "umis" complete_daf("$(path)/metacells"; skip_missing = true)
+                return nothing
+            end
+        end
+
+        nested_test("http") do
+            mktempdir() do path
+                populate_complete_published!(path)
+                rm("$(path)/umis"; recursive = true)
+
+                # An HTTP base is never missing, so it fails to open.
+                with_served_directory(path) do url
+                    @test_throws "$(url)/umis" complete_daf("$(url)/metacells"; skip_missing = true)
+                    return nothing
+                end
                 return nothing
             end
         end
