@@ -4611,20 +4611,20 @@ end
 
 function count_by_axis_state(query_state::QueryState, vector_state::VectorState)::Tuple{VectorState, AbstractDict}
     if query_state.what_for == :compute
+        unique_vector_values = group_values(query_state, vector_state)
         if vector_state.property_axis_name === nothing
-            unique_vector_values = sort!(unique(vector_state.vector_values))
             index_of_value = Dict{eltype(unique_vector_values), Int32}()
             for (index, value) in enumerate(unique_vector_values)
                 index_of_value[value] = index
             end
         else
             @assert query_state.daf !== nothing
-            unique_vector_values = axis_vector(query_state.daf, vector_state.property_axis_name)  # NOJET
             index_of_value = axis_dict(query_state.daf, vector_state.property_axis_name)  # NOJET
         end
 
     else
         unique_vector_values = vector_state.vector_values
+        @assert unique_vector_values !== nothing
         index_of_value = Dict()
     end
 
