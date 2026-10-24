@@ -126,20 +126,20 @@ abstract type ReductionOperation <: ComputationOperation end
 
 """
     compute_reduction(operation::ReductionOperation, input::StorageMatrix, axis::Integer)::StorageVector
-    compute_reduction(operation::ReductionOperation, input::StorageMatrix)::StorageVector
-    compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageReal
+    compute_reduction(operation::ReductionOperation, input::Union{StorageVector, StorageMatrix})::StorageScalar
 
 Since each `ReductionOperation` isa [`QueryOperation`](@ref), you can directly apply it to a query (e.g.,
 `Axis("cell") |> Axis("gene") |> LookupMatrix("UMIs") |> Sum()`). For this there should be other constructor(s) tailored
 for this usage.
 
 When reducing a matrix, if an axis is specified, that axis is the one being eliminated. For example, `axis = 1` (or
-`Rows`) means the result will have one entry per column. If no axis is specified, the matrix is reduced to a scalar.
+`Rows`) means the result will have one entry per column. If no axis is specified, the matrix (or vector) is reduced to a
+scalar.
 
-!!! note
-
-    Most reduction operations are wildly inefficient if the eliminated axis is not the `Rows`, that is, if the result
-    doesn't have one value per column of the original matrix.
+An operation which [`supports_grouped_reduction`](@ref) or [`supports_buffer_reduction`](@ref) doesn't implement these.
+They are computed from its protocol, reading a matrix one column at a time, so a lazy matrix is never materialized. A
+row-major matrix is reduced as its column-major transpose, along the other axis. An operation which supports neither
+protocol implements both.
 """
 function compute_reduction end
 

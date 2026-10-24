@@ -547,8 +547,7 @@ MyOperation(operation_name::Token, parameter_values::Dict{String, Token})::MyOpe
 <div>
 <pre>
 <code class="language-julia hljs">compute_reduction(operation::ReductionOperation, input::StorageMatrix, axis::Integer)::StorageVector
-compute_reduction(operation::ReductionOperation, input::StorageMatrix)::StorageVector
-compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageReal
+compute_reduction(operation::ReductionOperation, input::Union{StorageVector, StorageMatrix})::StorageScalar
 </code>
 </pre>
 <p>Since each 
@@ -565,20 +564,18 @@ compute_reduction(operation::ReductionOperation, input::StorageVector)::StorageR
 <code>axis = 1
 </code> (or 
 <code>Rows
-</code>) means the result will have one entry per column. If no axis is specified, the matrix is reduced to a scalar.
+</code>) means the result will have one entry per column. If no axis is specified, the matrix (or vector) is reduced to a scalar.
 </p>
-<div class="admonition is-info" id="Note-e9973b72cf3db418">
-<header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-e9973b72cf3db418" title="Permalink">
-</a>
-</header>
-<div class="admonition-body">
-<p>Most reduction operations are wildly inefficient if the eliminated axis is not the 
-<code>Rows
-</code>, that is, if the result doesn&#39;t have one value per column of the original matrix.
+<p>An operation which 
+<a href="registry.html#DataAxesFormats.Registry.supports_grouped_reduction">
+<code>supports_grouped_reduction
+</code>
+</a> or 
+<a href="registry.html#DataAxesFormats.Registry.supports_buffer_reduction">
+<code>supports_buffer_reduction
+</code>
+</a> doesn&#39;t implement these. They are computed from its protocol, reading a matrix one column at a time, so a lazy matrix is never materialized. A row-major matrix is reduced as its column-major transpose, along the other axis. An operation which supports neither protocol implements both.
 </p>
-</div>
-</div>
 </div>
 </section>
 </details>

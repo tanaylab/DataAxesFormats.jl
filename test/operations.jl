@@ -6,6 +6,37 @@ function with_type(array::AbstractArray)::Tuple{AbstractArray, Type}
     return (array, eltype(array))
 end
 
+# A reduction operation which implements neither `compute_reduction` nor a protocol.
+struct TestUnimplemented <: DataAxesFormats.Registry.ReductionOperation end
+
+# Straightforward computations of the reductions, from all the values.
+function reference_mean(values::AbstractVector)::Float64
+    return sum(Float64.(values)) / length(values)
+end
+
+function reference_var(values::AbstractVector)::Float64
+    mean = reference_mean(values)
+    return sum((Float64.(values) .- mean) .^ 2) / length(values)
+end
+
+function reference_quantile(values::AbstractVector, p::Real)::Float64
+    sorted_values = sort(Float64.(values))
+    position = p * (length(sorted_values) - 1) + 1
+    low_position = floor(Int, position)
+    high_position = min(low_position + 1, length(sorted_values))
+    low_value = sorted_values[low_position]
+    return low_value + (position - low_position) * (sorted_values[high_position] - low_value)
+end
+
+function reference_mode(values::AbstractVector)::StorageScalar
+    count_per_value = Dict{eltype(values), Int}()
+    for value in values
+        count_per_value[value] = get(count_per_value, value, 0) + 1
+    end
+    most_count = maximum(Base.values(count_per_value))
+    return minimum(value for (value, count) in count_per_value if count == most_count)
+end
+
 nested_test("operations") do
     daf = MemoryDaf(; name = "memory!")
     add_axis!(daf, "cell", ["A", "B"])
@@ -684,6 +715,62 @@ nested_test("operations") do
             @test compute_reduction(Mode(), sparse([0, 0, -1, -1])) == -1
             @test compute_reduction(Mode(), ["b", "a", "b", "a"]) == "a"
             @test compute_reduction(Mode(), sparse([0 2; 0 2; 2 0; 0 2]), 1) == [0, 2]
+            return nothing
+        end
+
+        # An operation which implements a protocol reduces any input in any direction, reading a lazy input one column
+        # at a time. Floating point results may differ in the last bits from a straightforward computation, since the
+        # order of the additions differs.
+        nested_test("protocols") do
+            compute_reduction = DataAxesFormats.Registry.compute_reduction
+            existing_materialization = DataAxesFormats.PackedFormat.existing_materialization
+            reference_per_operation = (
+                (Count(), length),
+                (Sum(), values -> sum(Float64.(values))),
+                (Max(), maximum),
+                (Min(), minimum),
+                (Mean(), reference_mean),
+                (GeoMean(; eps = 1.0), values -> exp(reference_mean(log.(Float64.(values) .+ 1))) - 1),
+                (Var(), reference_var),
+                (VarN(; eps = 1.0), values -> reference_var(values) / (reference_mean(values) + 1)),
+                (Std(), values -> sqrt(reference_var(values))),
+                (StdN(; eps = 1.0), values -> sqrt(reference_var(values)) / (reference_mean(values) + 1)),
+                (Median(), values -> reference_quantile(values, 0.5)),
+                (Quantile(; p = 0.3), values -> reference_quantile(values, 0.3)),
+                (Mode(), reference_mode),
+            )
+            mktempdir() do path
+                packed = FilesDaf(path * "/packed.daf", "w+"; name = "packed!", packed = true)
+                add_axis!(packed, "cell", ["c$(index)" for index in 1:4096])
+                add_axis!(packed, "gene", ["X", "Y", "Z"])
+                values = Float32[(row * column) % 5 == 0 ? 0 : (row + column) % 7 for row in 1:4096, column in 1:3]
+                set_matrix!(packed, "cell", "gene", "dense", values; relayout = false)
+                set_matrix!(packed, "cell", "gene", "sparse", sparse(values); relayout = false)
+                lazy_dense = get_matrix(packed, "cell", "gene", "dense"; relayout = false).array
+                lazy_sparse = get_matrix(packed, "cell", "gene", "sparse"; relayout = false).array
+                @test DataAxesFormats.Formats.is_lazy_array(lazy_dense)
+                @test DataAxesFormats.Formats.is_lazy_array(lazy_sparse)
+                inputs = (values, sparse(values), flip(Matrix(transpose(values))), lazy_dense, lazy_sparse)
+                for (operation, reference) in reference_per_operation
+                    for input in inputs
+                        @test compute_reduction(operation, input, Rows) ≈
+                              [reference(values[:, column]) for column in 1:3]
+                        @test compute_reduction(operation, input, Columns) ≈
+                              [reference(values[row, :]) for row in 1:4096]
+                        @test compute_reduction(operation, input) ≈ reference(vec(values))
+                    end
+                    @test compute_reduction(operation, values[:, 2]) ≈ reference(values[:, 2])
+                    @test compute_reduction(operation, sparse(values[:, 2])) ≈ reference(values[:, 2])
+                end
+                @test existing_materialization(lazy_dense.materialization_cell) === nothing
+                @test existing_materialization(lazy_sparse.materialization_cell) === nothing
+                return nothing
+            end
+        end
+
+        nested_test("unimplemented") do
+            compute_reduction = DataAxesFormats.Registry.compute_reduction
+            @test_throws "implements neither compute_reduction" compute_reduction(TestUnimplemented(), [1, 2])
             return nothing
         end
 

@@ -1199,47 +1199,6 @@ function Mode(::Token, ::Dict{String, Token})::Mode
     return Mode()
 end
 
-function compute_reduction(operation::Mode, input::StorageMatrix, axis::Integer)::StorageVector
-    @assert 1 <= axis <= 2
-    type = reduction_result_type(operation, eltype(input))
-    output = Vector{type}(undef, size(input, other_axis(axis)))
-    if axis == 1
-        n_rows = size(input, 1)
-        buffer_per_thread = [Vector{eltype(input)}(undef, n_rows) for _ in 1:maxthreadid()]
-        parallel_foreach_column(  # NOJET
-            input;
-            name = "Mode",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Mode"),
-        ) do _, column_index, column
-            values = issparse(column) ? nonzeros(column) : column
-            buffer = view(buffer_per_thread[threadid()], 1:length(values))
-            copyto!(buffer, values)
-            output[column_index] = mode_of_buffer!(buffer, n_rows - length(values))
-            return nothing
-        end
-    else
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "Mode",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Mode"),
-        ) do row_index
-            output[row_index] = mode_of_buffer!(collect(view(input, row_index, :)), 0)
-            return nothing
-        end
-    end
-    return output
-end
-
-function compute_reduction(::Mode, input::Union{StorageVector, StorageMatrix})::StorageScalar
-    plain_input = plain_array(input)
-    if issparse(plain_input)
-        values = copy(nonzeros(plain_input))
-        return mode_of_buffer!(values, length(plain_input) - length(values))
-    else
-        return mode_of_buffer!(vec(collect(plain_input)), 0)
-    end
-end
-
 function supports_buffer_reduction(::Mode)::Bool
     return true
 end
@@ -1324,42 +1283,6 @@ function Sum(operation_name::Token, parameters_values::Dict{String, Token})::Sum
     return Sum(type)
 end
 
-function compute_reduction(operation::Sum, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
-    @assert 1 <= axis <= 2
-    type = reduction_result_type(operation, eltype(input))
-    output = Vector{type}(undef, size(input, other_axis(axis)))
-    if axis == 1
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "Sum",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Sum"),
-        ) do column_index
-            column_vector = @view input[:, column_index]
-            output[column_index] = type(sum(column_vector))
-            return nothing
-        end
-    else
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "Sum",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Sum"),
-        ) do row_index
-            row_vector = @view input[row_index, :]
-            output[row_index] = type(sum(row_vector))
-            return nothing
-        end
-    end
-    return output
-end
-
-function compute_reduction(
-    operation::Sum,
-    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
-)::StorageReal
-    type = reduction_result_type(operation, eltype(input))
-    return type(sum(input))
-end
-
 function reduction_result_type(operation::Sum, eltype::Type)::Type
     return sum_type_for(eltype, operation.type)
 end
@@ -1396,37 +1319,6 @@ function Max(::Token, ::Dict{String, Token})::Max
     return Max()
 end
 
-function compute_reduction(::Max, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
-    @assert 1 <= axis <= 2
-    output = Vector{eltype(input)}(undef, size(input, other_axis(axis)))
-    if axis == 1
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "Max",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Max"),
-        ) do column_index
-            column_vector = @view input[:, column_index]
-            output[column_index] = maximum(column_vector)
-            return nothing
-        end
-    else
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "Max",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Max"),
-        ) do row_index
-            row_vector = @view input[row_index, :]
-            output[row_index] = maximum(row_vector)
-            return nothing
-        end
-    end
-    return output
-end
-
-function compute_reduction(::Max, input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}})::StorageReal
-    return maximum(input)
-end
-
 function reduction_result_type(::Max, eltype::Type)::Type
     return eltype
 end
@@ -1461,37 +1353,6 @@ struct Min <: ReductionOperation end
 
 function Min(::Token, ::Dict{String, Token})::Min
     return Min()
-end
-
-function compute_reduction(::Min, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
-    @assert 1 <= axis <= 2
-    output = Vector{eltype(input)}(undef, size(input, other_axis(axis)))
-    if axis == 1
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "Min",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Min"),
-        ) do column_index
-            column_vector = @view input[:, column_index]
-            output[column_index] = minimum(column_vector)
-            return nothing
-        end
-    else
-        parallel_loop_wo_rng(  # UNTESTED
-            1:length(output);
-            name = "Min",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Min"),
-        ) do row_index
-            row_vector = @view input[row_index, :]
-            output[row_index] = minimum(row_vector)
-            return nothing
-        end
-    end
-    return output
-end
-
-function compute_reduction(::Min, input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}})::StorageReal
-    return minimum(input)
 end
 
 function reduction_result_type(::Min, eltype::Type)::Type
@@ -1541,27 +1402,6 @@ function Median(operation_name::Token, parameters_values::Dict{String, Token})::
         return parse_float_type_value(operation_name, "type", parameter_value)
     end
     return Median(type)
-end
-
-function compute_reduction(operation::Median, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
-    @assert 1 <= axis <= 2
-    type = reduction_result_type(operation, eltype(input))
-    output = Vector{type}(undef, size(input, other_axis(axis)))
-    sparse_median(
-        input;
-        dims = axis,
-        result = output,
-        progress = DebugProgress(length(output); group = :daf_loops, desc = "Median"),
-    )
-    return output
-end
-
-function compute_reduction(
-    operation::Median,
-    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
-)::StorageReal
-    type = reduction_result_type(operation, eltype(input))
-    return type(sparse_median(input))
 end
 
 function reduction_result_type(operation::Median, eltype::Type)::Type
@@ -1621,28 +1461,6 @@ function Quantile(operation_name::Token, parameters_values::Dict{String, Token})
     return Quantile(type, p)
 end
 
-function compute_reduction(operation::Quantile, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
-    @assert 1 <= axis <= 2
-    type = reduction_result_type(operation, eltype(input))
-    output = Vector{type}(undef, size(input, other_axis(axis)))
-    sparse_quantile(
-        input,
-        operation.p;
-        dims = axis,
-        result = output,
-        progress = DebugProgress(length(output); group = :daf_loops, desc = "Quantile"),
-    )
-    return output
-end
-
-function compute_reduction(
-    operation::Quantile,
-    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
-)::StorageReal
-    type = reduction_result_type(operation, eltype(input))
-    return type(sparse_quantile(input, operation.p))
-end
-
 function reduction_result_type(operation::Quantile, eltype::Type)::Type
     return float_type_for(eltype, operation.type)
 end
@@ -1682,42 +1500,6 @@ function Mean(operation_name::Token, parameters_values::Dict{String, Token})::Me
         return parse_float_type_value(operation_name, "type", parameter_value)
     end
     return Mean(type)
-end
-
-function compute_reduction(operation::Mean, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
-    @assert 1 <= axis <= 2
-    type = reduction_result_type(operation, eltype(input))
-    output = Vector{type}(undef, size(input, other_axis(axis)))
-    if axis == 1
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "Mean",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Mean"),
-        ) do column_index
-            column_vector = @view input[:, column_index]
-            output[column_index] = type(mean(column_vector))  # NOLINT
-            return nothing
-        end
-    else
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "Mean",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "Mean"),
-        ) do row_index
-            row_vector = @view input[row_index, :]
-            output[row_index] = type(mean(row_vector))  # NOLINT
-            return nothing
-        end
-    end
-    return output
-end
-
-function compute_reduction(
-    operation::Mean,
-    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
-)::StorageReal
-    type = reduction_result_type(operation, eltype(input))
-    return type(mean(input))  # NOLINT
 end
 
 function reduction_result_type(operation::Mean, eltype::Type)::Type
@@ -1778,54 +1560,6 @@ function GeoMean(operation_name::Token, parameters_values::Dict{String, Token}):
         return value
     end
     return GeoMean(type, eps)
-end
-
-function compute_reduction(operation::GeoMean, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
-    @assert 1 <= axis <= 2
-    type = reduction_result_type(operation, eltype(input))
-    output = Vector{type}(undef, size(input, other_axis(axis)))
-    if axis == 1
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "GeoMean",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "GeoMean"),
-        ) do column_index
-            column_vector = @view input[:, column_index]
-            if operation.eps == 0
-                output[column_index] = type(geomean(column_vector))
-            else
-                output[column_index] = type(geomean(column_vector .+ operation.eps) - operation.eps)
-            end
-            return nothing
-        end
-    else
-        parallel_loop_wo_rng(
-            1:length(output);
-            name = "GeoMean",
-            progress = DebugProgress(length(output); group = :daf_loops, desc = "GeoMean"),
-        ) do row_index
-            row_vector = @view input[row_index, :]
-            if operation.eps == 0
-                output[row_index] = type(geomean(row_vector))
-            else
-                output[row_index] = type(geomean(row_vector .+ operation.eps) - operation.eps)
-            end
-            return nothing
-        end
-    end
-    return output
-end
-
-function compute_reduction(
-    operation::GeoMean,
-    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
-)::StorageReal
-    type = reduction_result_type(operation, eltype(input))
-    if operation.eps == 0
-        return type(geomean(input))
-    else
-        return type(geomean(input .+ operation.eps) - operation.eps)
-    end
 end
 
 function reduction_result_type(operation::GeoMean, eltype::Type)::Type
@@ -1923,28 +1657,6 @@ function Var(operation_name::Token, parameters_values::Dict{String, Token})::Var
     return Var(type)
 end
 
-function compute_reduction(operation::Var, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
-    @assert 1 <= axis <= 2
-    type = reduction_result_type(operation, eltype(input))
-    output = Vector{type}(undef, size(input, other_axis(axis)))
-    sparse_var(
-        input;
-        dims = axis,
-        corrected = false,
-        result = output,
-        progress = DebugProgress(length(output); group = :daf_loops, desc = "Var"),
-    )
-    return output
-end
-
-function compute_reduction(
-    operation::Var,
-    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
-)::StorageReal
-    type = reduction_result_type(operation, eltype(input))
-    return type(sparse_var(input; corrected = false))
-end
-
 function reduction_result_type(operation::Var, eltype::Type)::Type
     return float_type_for(eltype, operation.type)
 end
@@ -2007,30 +1719,6 @@ function VarN(operation_name::Token, parameters_values::Dict{String, Token})::Va
     return VarN(type, eps)
 end
 
-function compute_reduction(operation::VarN, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
-    @assert 1 <= axis <= 2
-    type = reduction_result_type(operation, eltype(input))
-    output = Vector{type}(undef, size(input, other_axis(axis)))
-    sparse_var(
-        input;
-        dims = axis,
-        corrected = false,
-        result = output,
-        progress = DebugProgress(length(output); group = :daf_loops, desc = "VarN"),
-    )
-    means = vec(mean(input; dims = axis))  # NOLINT
-    output ./= type.(means .+ operation.eps)
-    return output
-end
-
-function compute_reduction(
-    operation::VarN,
-    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
-)::StorageReal
-    type = reduction_result_type(operation, eltype(input))
-    return type(sparse_var(input; corrected = false) / (Float64(mean(input)) + operation.eps))  # NOLINT
-end
-
 function reduction_result_type(operation::VarN, eltype::Type)::Type
     return float_type_for(eltype, operation.type)
 end
@@ -2079,28 +1767,6 @@ function Std(operation_name::Token, parameters_values::Dict{String, Token})::Std
         return parse_float_type_value(operation_name, "type", parameter_value)
     end
     return Std(type)
-end
-
-function compute_reduction(operation::Std, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
-    @assert 1 <= axis <= 2
-    type = reduction_result_type(operation, eltype(input))
-    output = Vector{type}(undef, size(input, other_axis(axis)))
-    sparse_std(
-        input;
-        dims = axis,
-        corrected = false,
-        result = output,
-        progress = DebugProgress(length(output); group = :daf_loops, desc = "Std"),
-    )
-    return output
-end
-
-function compute_reduction(
-    operation::Std,
-    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
-)::StorageReal
-    type = reduction_result_type(operation, eltype(input))
-    return type(sparse_std(input; corrected = false))
 end
 
 function reduction_result_type(operation::Std, eltype::Type)::Type
@@ -2165,30 +1831,6 @@ function StdN(operation_name::Token, parameters_values::Dict{String, Token})::St
     return StdN(type, eps)
 end
 
-function compute_reduction(operation::StdN, input::StorageMatrix, axis::Integer)::StorageVector{<:StorageReal}
-    @assert 1 <= axis <= 2
-    type = reduction_result_type(operation, eltype(input))
-    output = Vector{type}(undef, size(input, other_axis(axis)))
-    sparse_std(
-        input;
-        dims = axis,
-        corrected = false,
-        result = output,
-        progress = DebugProgress(length(output); group = :daf_loops, desc = "StdN"),
-    )
-    means = vec(mean(input; dims = axis))  # NOLINT
-    output ./= type.(means .+ operation.eps)
-    return output
-end
-
-function compute_reduction(
-    operation::StdN,
-    input::Union{StorageVector{<:StorageReal}, StorageMatrix{<:StorageReal}},
-)::StorageReal
-    type = reduction_result_type(operation, eltype(input))
-    return type(sparse_std(input; corrected = false) / (Float64(mean(input)) + operation.eps))  # NOLINT
-end
-
 function reduction_result_type(operation::StdN, eltype::Type)::Type
     return float_type_for(eltype, operation.type)
 end
@@ -2212,6 +1854,69 @@ end
 function final_reduction_value(operation::StdN, state::MomentsState, ::Integer, n_values::Integer)::Float64
     mean, variance = moments_with_zeros(state, n_values)
     return sqrt(variance) / (mean + operation.eps)
+end
+
+# A reduction `operation` that implements the streaming or the buffer protocol is computed by the two methods below,
+# unless it implements `compute_reduction` itself. A matrix is read one column at a time (through
+# `parallel_foreach_column`), so a lazy matrix is never materialized. A row-major matrix is reduced as its column-major
+# `flip`, along the other axis.
+function compute_reduction(operation::ReductionOperation, input::StorageMatrix, axis::Integer)::StorageVector
+    @assert 1 <= axis <= 2
+    require_reduction_protocol(operation)
+    if major_axis(input) == Rows
+        return compute_reduction(operation, flip(input), other_axis(axis))
+    elseif axis == 1
+        # All the rows are in one group.
+        return vec(compute_grouped_reduction(operation, input, StepRangeLen(1, 0, size(input, 1)), 1))
+    else
+        return compute_columns_reduction(operation, input)
+    end
+end
+
+function compute_reduction(operation::ReductionOperation, input::Union{StorageVector, StorageMatrix})::StorageScalar
+    require_reduction_protocol(operation)
+    if input isa StorageMatrix && major_axis(input) == Rows
+        return compute_reduction(operation, flip(input))
+    end
+    if input isa StorageVector
+        value = compute_vector_reduction(operation, plain_array(input))
+    elseif supports_grouped_reduction(operation)
+        value = compute_streamed_matrix_reduction(operation, input)
+    else
+        value = compute_buffered_matrix_reduction(operation, input)
+    end
+    return convert(reduction_result_type(operation, eltype(input)), value)
+end
+
+function require_reduction_protocol(operation::ReductionOperation)::Nothing
+    if !supports_grouped_reduction(operation) && !supports_buffer_reduction(operation)
+        error(
+            "the reduction operation: $(typeof(operation))\n" *
+            "implements neither compute_reduction nor the streaming or buffer protocol",
+        )
+    end
+    return nothing
+end
+
+# Reduce the values of a plain vector: the stored values of a sparse vector, or all of them. The implicit zeros of a
+# sparse vector are accounted for by the protocol.
+function compute_vector_reduction(operation::ReductionOperation, vector::AbstractVector)::StorageScalar
+    value_per_stored = issparse(vector) ? nonzeros(vector) : vector
+    if supports_grouped_reduction(operation)
+        state = updated_reduction_state(operation, empty_reduction_state(operation, eltype(vector)), value_per_stored)
+        return final_reduction_value(operation, state, length(value_per_stored), length(vector))
+    else
+        buffer = Vector{buffer_reduction_eltype(operation, eltype(vector))}(value_per_stored)
+        return reduce_buffer!(operation, buffer, length(vector) - length(value_per_stored))
+    end
+end
+
+# The `state` of the reduction `operation` after also seeing each of the `values`.
+function updated_reduction_state(operation::ReductionOperation, state::S, values::AbstractVector)::S where {S}
+    for value in values
+        state = update_reduction_state(operation, state, value)
+    end
+    return state
 end
 
 """
@@ -2290,7 +1995,7 @@ function compute_streamed_grouped_reduction!(
     state_per_group_per_thread = [Vector{typeof(empty_state)}(undef, n_groups) for _ in 1:maxthreadid()]
     n_seen_per_group_per_thread = [Vector{Int}(undef, n_groups) for _ in 1:maxthreadid()]
 
-    parallel_foreach_column(
+    parallel_foreach_column(  # NOJET
         matrix;
         name = "compute_grouped_reduction",
         progress = DebugProgress(size(matrix, 2); group = :daf_loops, desc = "compute_grouped_reduction"),
@@ -2796,11 +2501,8 @@ function compute_streamed_matrix_reduction(
         progress = DebugProgress(size(matrix, 2); group = :daf_loops, desc = "compute_matrix_reduction"),
     ) do _, _, column
         _, value_per_stored = stored_entries_of_column(column)
-        state = state_per_thread[threadid()]
-        for value in value_per_stored
-            state = update_reduction_state(operation, state, value)
-        end
-        state_per_thread[threadid()] = state
+        state_per_thread[threadid()] =
+            updated_reduction_state(operation, state_per_thread[threadid()], value_per_stored)
         n_seen_per_thread[threadid()] += length(value_per_stored)
         return nothing
     end
@@ -2810,6 +2512,35 @@ function compute_streamed_matrix_reduction(
         state_per_thread,
     )
     return final_reduction_value(operation, merged_state, sum(n_seen_per_thread), length(matrix))
+end
+
+# Reduce all the values of a column-major `matrix` into one value. Each column is read once, and its stored values are
+# collected by the thread that read it. All the values are then reduced together, with the implicit zeros.
+function compute_buffered_matrix_reduction(operation::ReductionOperation, matrix::StorageMatrix)::StorageScalar
+    @assert supports_buffer_reduction(operation)
+    @assert require_major_axis(matrix) == Columns
+    return compute_buffered_matrix_reduction(operation, matrix, buffer_reduction_eltype(operation, eltype(matrix)))
+end
+
+function compute_buffered_matrix_reduction(
+    operation::ReductionOperation,
+    matrix::StorageMatrix,
+    ::Type{T},
+)::StorageScalar where {T}
+    value_per_collected_per_thread = [Vector{T}() for _ in 1:maxthreadid()]
+
+    parallel_foreach_column(
+        matrix;
+        name = "compute_matrix_reduction",
+        progress = DebugProgress(size(matrix, 2); group = :daf_loops, desc = "compute_matrix_reduction"),
+    ) do _, _, column
+        _, value_per_stored = stored_entries_of_column(column)
+        append!(value_per_collected_per_thread[threadid()], value_per_stored)
+        return nothing
+    end
+
+    buffer = reduce(vcat, value_per_collected_per_thread)
+    return reduce_buffer!(operation, buffer, length(matrix) - length(buffer))
 end
 
 end # module

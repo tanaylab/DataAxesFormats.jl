@@ -2806,7 +2806,9 @@ function reduce_vector_to_scalar(
             """,
         )
     elseif length(vector_state.vector_values) > 0
-        push!(query_state.stack, ScalarState(compute_reduction(reduction_operation, vector_state.vector_values)))  # NOLINT
+        vector_values = vector_state.vector_values
+        @assert vector_values !== nothing
+        push!(query_state.stack, ScalarState(compute_reduction(reduction_operation, vector_values)))  # NOLINT
     elseif if_missing !== nothing
         push!(query_state.stack, ScalarState(if_missing.default_value))
     else
@@ -4191,8 +4193,9 @@ function reduce_matrix_to_row(
                 """,
             )
         elseif length(matrix_state.matrix_values) > 0
-            vector_state.vector_values =
-                compute_reduction(reduce_to_row.reduction_operation, matrix_state.matrix_values, Rows)  # NOLINT
+            matrix_values = matrix_state.matrix_values
+            @assert matrix_values !== nothing
+            vector_state.vector_values = compute_reduction(reduce_to_row.reduction_operation, matrix_values, Rows)  # NOLINT
         elseif if_missing !== nothing
             vector_state.vector_values = fill(if_missing.default_value, length(vector_state.vector_values))
         else
