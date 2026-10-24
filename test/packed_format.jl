@@ -976,6 +976,32 @@ nested_test("packed_format") do
         end
     end
 
+    # The true values of a lazy `Bool` matrix are counted one column at a time, without a materialization.
+    nested_test("describe_lazy_matrices") do
+        mktempdir() do path
+            daf = FilesDaf(joinpath(path, "test.daf"), "w+"; name = "packed!", packed = true)
+            add_axis!(daf, "row", ["r$(index)" for index in 1:16384])
+            add_axis!(daf, "col", ["c1", "c2", "c3"])
+            dense = [column == 1 && row % 7 == 0 for row in 1:16384, column in 1:3]
+            sparse_values =
+                SparseMatrixCSC(16384, 3, [1, 8193, 8193, 8193], collect(1:2:16384), Vector{Bool}(isodd.(1:8192)))
+            set_matrix!(daf, "row", "col", "dense", dense; relayout = false)
+            set_matrix!(daf, "row", "col", "sparse", sparse_values; relayout = false)
+            existing_materialization = DataAxesFormats.PackedFormat.existing_materialization
+            is_lazy_array = DataAxesFormats.Formats.is_lazy_array
+            dense_lazy = get_matrix(daf, "row", "col", "dense"; relayout = false).array
+            sparse_lazy = get_matrix(daf, "row", "col", "sparse"; relayout = false).array
+            @test is_lazy_array(dense_lazy)
+            @test is_lazy_array(sparse_lazy)
+            text = description(daf)
+            @test occursin("; 2,340 (", text)
+            @test occursin("; 4,096 (", text)
+            @test existing_materialization(dense_lazy.materialization_cell) === nothing
+            @test existing_materialization(sparse_lazy.materialization_cell) === nothing
+            return nothing
+        end
+    end
+
     nested_test("copy_lazy_arrays") do
         mktempdir() do path
             source = FilesDaf(joinpath(path, "source.daf"), "w+"; name = "source!", packed = true)

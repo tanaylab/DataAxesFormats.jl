@@ -69,6 +69,8 @@ import ..Formats
 import ..Formats.CacheEntry
 import ..Formats.CacheKey
 import ..Formats.FormatReader  # For documentation.
+import ..Operations
+import ..Registry.compute_reduction
 
 """
     is_leaf(daf::DafReader)::Bool
@@ -1473,7 +1475,11 @@ function vectors_description(
             n_entries = axis_length(daf, axis)
             for vector in vectors
                 metadata = vector_metadata(daf, axis, vector)
-                n_true = metadata.eltype == Bool ? sum(get_vector(daf, axis, vector).array) : nothing
+                n_true = if metadata.eltype == Bool
+                    Int(compute_reduction(Operations.Sum(), get_vector(daf, axis, vector).array))
+                else
+                    nothing
+                end
                 text = property_description(delimited_number(n_entries), metadata, n_entries, n_true)
                 push!(lines, "$(indent)    $(vector): $(text)")
             end
@@ -1512,7 +1518,9 @@ function n_true_matrix_values(
     metadata::PropertyMetadata,
 )::Maybe{Int}
     if metadata.eltype == Bool
-        return sum(get_matrix(daf, rows_axis, columns_axis, name; relayout = false).array)
+        return Int(
+            compute_reduction(Operations.Sum(), get_matrix(daf, rows_axis, columns_axis, name; relayout = false).array),
+        )
     else
         return nothing
     end

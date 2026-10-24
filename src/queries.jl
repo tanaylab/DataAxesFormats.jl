@@ -73,9 +73,8 @@ import Base.Threads.maxthreadid
 import ..Formats.CacheEntry
 import ..Formats.CacheKey
 import ..Formats.CachedQuery
-import ..Operations.compute_columns_reduction
 import ..Operations.compute_grouped_columns_reduction!
-import ..Operations.compute_streamed_matrix_reduction
+import ..Operations.is_column_streamable
 import ..Readers.require_axis
 import ..Readers.require_matrix
 import ..Readers.require_scalar
@@ -2837,7 +2836,9 @@ function reduce_matrix_to_scalar(
             """,
         )
     elseif length(matrix_state.matrix_values) > 0
-        push!(query_state.stack, ScalarState(reduce_all_of_matrix(reduction_operation, matrix_state.matrix_values)))
+        matrix_values = matrix_state.matrix_values
+        @assert matrix_values !== nothing
+        push!(query_state.stack, ScalarState(compute_reduction(reduction_operation, matrix_values)))  # NOLINT
     elseif if_missing !== nothing
         push!(query_state.stack, ScalarState(if_missing.default_value))
     else
@@ -4120,8 +4121,9 @@ function reduce_matrix_to_column(
                 """,
             )
         elseif length(matrix_state.matrix_values) > 0
-            vector_state.vector_values =
-                reduce_columns_of_matrix(reduce_to_column.reduction_operation, matrix_state.matrix_values)
+            matrix_values = matrix_state.matrix_values
+            @assert matrix_values !== nothing
+            vector_state.vector_values = compute_reduction(reduce_to_column.reduction_operation, matrix_values, Columns)  # NOLINT
         elseif if_missing !== nothing
             vector_state.vector_values = fill(if_missing.default_value, length(vector_state.vector_values))
         else
@@ -4131,44 +4133,6 @@ function reduce_matrix_to_column(
 
     push!(query_state.stack, vector_state)  # NOJET
     return nothing
-end
-
-# Whether the `reduction_operation` can reduce the `matrix_values` one column at a time.
-function is_column_streamable(reduction_operation::ReductionOperation, matrix_values::AbstractMatrix)::Bool
-    return major_axis(matrix_values) == Columns && (
-        (eltype(matrix_values) <: StorageReal && supports_grouped_reduction(reduction_operation)) ||
-        supports_buffer_reduction(reduction_operation)
-    )
-end
-
-# Reduce the columns of the `matrix_values` into one value per row, reading each column once if possible. A `Count`
-# reads no values.
-function reduce_columns_of_matrix(
-    reduction_operation::ReductionOperation,
-    matrix_values::Maybe{AbstractMatrix},
-)::StorageVector
-    @assert matrix_values !== nothing
-    if !(reduction_operation isa Count) && is_column_streamable(reduction_operation, matrix_values)
-        return compute_columns_reduction(reduction_operation, matrix_values)
-    else
-        return compute_reduction(reduction_operation, matrix_values, Columns)  # NOLINT
-    end
-end
-
-# Reduce all the `matrix_values` into one value, reading each column once if possible. A `Count` reads no values.
-function reduce_all_of_matrix(
-    reduction_operation::ReductionOperation,
-    matrix_values::Maybe{AbstractMatrix},
-)::StorageScalar
-    @assert matrix_values !== nothing
-    if !(reduction_operation isa Count) &&
-       eltype(matrix_values) <: StorageReal &&
-       major_axis(matrix_values) == Columns &&
-       supports_grouped_reduction(reduction_operation)
-        return compute_streamed_matrix_reduction(reduction_operation, matrix_values)
-    else
-        return compute_reduction(reduction_operation, matrix_values)  # NOLINT
-    end
 end
 
 function reduce_matrix_to_row(

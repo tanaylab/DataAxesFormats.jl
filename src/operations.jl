@@ -2173,6 +2173,15 @@ function reduce_column_per_group!(
     return nothing
 end
 
+# Whether the reduction `operation` can reduce the column-major `matrix` per group one column at a time (see
+# `compute_grouped_reduction` and `compute_grouped_columns_reduction!`).
+function is_column_streamable(operation::ReductionOperation, matrix::AbstractMatrix)::Bool
+    return major_axis(matrix) == Columns && (
+        (eltype(matrix) <: StorageReal && supports_grouped_reduction(operation)) ||
+        supports_buffer_reduction(operation)
+    )
+end
+
 # Reduce the columns of each group of a column-major `matrix` into the `output`, which has one row per row of the
 # `matrix` and one column per group. Each group is a non-empty vector of column indices. The groups are reduced in
 # parallel, and each one reads its columns once, keeping a state (or a buffer of values) per row.
