@@ -31,9 +31,11 @@ using SparseArrays
 using TanayLabUtilities
 
 import ..Copies.expand_tensors
+import ..Copies.fill_columns!
 import ..Readers.require_axis
 import ..Writers.require_no_axis
 import ..Writers.require_no_matrix
+import SparseArrays.AbstractSparseMatrixCSC  # NOLINT
 
 """
 The action for merging the values of a property from the concatenated data sets into the result data set. This is used
@@ -701,7 +703,6 @@ function concatenate_axis_matrix(
             matrix_property;
             eltype,
             offsets,
-            sizes,
             matrices = sparse_matrices,
             overwrite,
         )
@@ -732,11 +733,10 @@ function concatenate_axis_sparse_matrices(
     matrix_property::AbstractString;
     eltype::Type,
     offsets::AbstractVector{<:Integer},
-    sizes::AbstractVector{<:Integer},
-    matrices::AbstractVector{<:AbstractMatrix},
+    matrices::AbstractVector{<:AbstractSparseMatrixCSC},
     overwrite::Bool,
 )::Nothing
-    nnz_offsets, nnz_sizes, total_nnz = nnz_arrays(matrices)
+    nnz_offsets, _, total_nnz = nnz_arrays(matrices)
 
     empty_sparse_matrix!(
         destination,
@@ -748,25 +748,9 @@ function concatenate_axis_sparse_matrices(
         overwrite,
         relayout = false,
     ) do sparse_colptr, sparse_rowval, sparse_nzval
-        n_sources = length(matrices)
-        parallel_loop_wo_rng(
-            1:n_sources;
-            name = "concatenate_axis_sparse_matrices",
-            progress = DebugProgress(n_sources; group = :daf_loops, desc = "concatenate_axis_sparse_matrices"),
-        ) do source_index
-            matrix = matrices[source_index]
-            @assert issparse(matrix)
-            column_offset = offsets[source_index]
-            ncols = sizes[source_index]
-            nnz_offset = nnz_offsets[source_index]
-            nnz_size = nnz_sizes[source_index]
-            sparse_nzval[(nnz_offset + 1):(nnz_offset + nnz_size)] = nzval(matrix)
-            sparse_rowval[(nnz_offset + 1):(nnz_offset + nnz_size)] = rowval(matrix)
-            sparse_colptr[(column_offset + 1):(column_offset + ncols)] = colptr(matrix)[1:ncols]
-            sparse_colptr[(column_offset + 1):(column_offset + ncols)] .+= nnz_offset
-            return nothing
+        for (matrix, column_offset, nnz_offset) in zip(matrices, offsets, nnz_offsets)
+            copy_columns!(sparse_colptr, sparse_rowval, sparse_nzval, matrix; column_offset, nnz_offset)
         end
-        sparse_colptr[end] = total_nnz + 1
         return nothing
     end
 
@@ -795,24 +779,17 @@ function concatenate_axis_dense_matrices(
         overwrite,
         relayout = false,
     ) do concatenated_matrix
-        n_sources = length(sources)
-        parallel_loop_wo_rng(
-            1:n_sources;
-            name = "concatenate_axis_dense_matrices",
-            progress = DebugProgress(n_sources; group = :daf_loops, desc = "concatenate_axis_dense_matrices"),
-        ) do source_index
-            source = sources[source_index]
-            matrix = matrices[source_index]
-            column_offset = offsets[source_index]
-            ncols = sizes[source_index]
+        for (source, matrix, column_offset, ncols) in zip(sources, matrices, offsets, sizes)
             if matrix === nothing
-                concatenated_matrix[:, (column_offset + 1):(column_offset + ncols)] .=
-                    require_empty_value_for_matrix(empty_value, matrix_property, other_axis, axis, source, destination)
+                fill_columns!(
+                    concatenated_matrix,
+                    (column_offset + 1):(column_offset + ncols),
+                    require_empty_value_for_matrix(empty_value, matrix_property, other_axis, axis, source, destination),
+                )
             else
                 @assert size(matrix)[2] == ncols
-                concatenated_matrix[:, (column_offset + 1):(column_offset + ncols)] = matrix
+                copy_columns!(concatenated_matrix, matrix; column_offset)
             end
-            return nothing
         end
         return nothing
     end
@@ -1381,9 +1358,9 @@ function sparsify_concatenated_matrices(
     eltype::Type,
     nrows::Integer,
     sizes::AbstractArray{<:Integer},
-)::Vector{SparseMatrixCSC}
+)::Vector{AbstractSparseMatrixCSC}
     @assert eltype <: Real
-    sparse_matrices = Vector{SparseMatrixCSC}(undef, length(matrices))
+    sparse_matrices = Vector{AbstractSparseMatrixCSC}(undef, length(matrices))
 
     n_sources = length(matrices)
     parallel_loop_wo_rng(
@@ -1397,8 +1374,12 @@ function sparsify_concatenated_matrices(
             sparse_matrices[source_index] = spzeros(eltype, nrows, ncols)
         else
             @assert size(matrix) == (nrows, ncols)
-            # A plain sparse matrix is stored as is, rather than converted element by element.
-            sparse_matrices[source_index] = plain_array(matrix)
+            # A sparse matrix, lazy or not, is kept as is, to be copied column by column. A dense matrix is converted.
+            matrix = base_array(matrix)
+            if !issparse(matrix)
+                matrix = sparse(plain_array(matrix))
+            end
+            sparse_matrices[source_index] = matrix
         end
         return nothing
     end

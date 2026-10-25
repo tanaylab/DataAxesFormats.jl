@@ -9,6 +9,21 @@
     return WeakRef(plain_array(array))
 end
 
+# The name and constructor of a new daf of each format, flat and packed, in the directory `path`.
+function new_destinations(path::AbstractString)::Vector{Tuple{String, Function}}
+    return [
+        ("memory", () -> MemoryDaf(; name = "memory!")),
+        ("files_flat", () -> FilesDaf(joinpath(path, "flat.daf"), "w+"; name = "files_flat!", packed = false)),
+        ("files_packed", () -> FilesDaf(joinpath(path, "packed.daf"), "w+"; name = "files_packed!", packed = true)),
+        ("zip_flat", () -> ZipDaf(joinpath(path, "flat.daf.zip"), "w+"; name = "zip_flat!", packed = false)),
+        ("zip_packed", () -> ZipDaf(joinpath(path, "packed.daf.zip"), "w+"; name = "zip_packed!", packed = true)),
+        ("zarr_flat", () -> ZarrDaf(joinpath(path, "flat.daf.zarr"), "w+"; name = "zarr_flat!", packed = false)),
+        ("zarr_packed", () -> ZarrDaf(joinpath(path, "packed.daf.zarr"), "w+"; name = "zarr_packed!", packed = true)),
+        ("h5df_flat", () -> H5df(joinpath(path, "flat.h5df"), "w+"; name = "h5df_flat!", packed = false)),
+        ("h5df_packed", () -> H5df(joinpath(path, "packed.h5df"), "w+"; name = "h5df_packed!", packed = true)),
+    ]
+end
+
 function with_packed_dense_matrix_round_trip(action::Function, create_daf::Function)::Nothing
     # 4096 × 3 Float32: per-column 16 KB ≥ threshold; `chunks_for` returns `(2048, 1)` → 6 chunks.
     mktempdir() do path
@@ -1092,35 +1107,13 @@ nested_test("packed_format") do
             expected_subset = fill(Float32(-1), n_rows + 2, 5)
             expected_subset[1:n_rows, 1:4] .= dense
 
-            for (destination_name, new_destination) in (
-                ("memory", () -> MemoryDaf(; name = "memory!")),
-                ("files_flat", () -> FilesDaf(joinpath(path, "flat.daf"), "w+"; name = "files_flat!", packed = false)),
-                (
-                    "files_packed",
-                    () -> FilesDaf(joinpath(path, "packed.daf"), "w+"; name = "files_packed!", packed = true),
-                ),
-                ("zip_flat", () -> ZipDaf(joinpath(path, "flat.daf.zip"), "w+"; name = "zip_flat!", packed = false)),
-                (
-                    "zip_packed",
-                    () -> ZipDaf(joinpath(path, "packed.daf.zip"), "w+"; name = "zip_packed!", packed = true),
-                ),
-                (
-                    "zarr_flat",
-                    () -> ZarrDaf(joinpath(path, "flat.daf.zarr"), "w+"; name = "zarr_flat!", packed = false),
-                ),
-                (
-                    "zarr_packed",
-                    () -> ZarrDaf(joinpath(path, "packed.daf.zarr"), "w+"; name = "zarr_packed!", packed = true),
-                ),
-                ("h5df_flat", () -> H5df(joinpath(path, "flat.h5df"), "w+"; name = "h5df_flat!", packed = false)),
-                ("h5df_packed", () -> H5df(joinpath(path, "packed.h5df"), "w+"; name = "h5df_packed!", packed = true)),
-            )
+            for (destination_name, new_destination) in new_destinations(path)
                 nested_test(destination_name) do
                     destination = new_destination()
                     copy_axis!(; destination, source, axis = "row")
                     copy_axis!(; destination, source, axis = "col")
-                    add_axis!(destination, "big_row", String[axis_vector(source, "row"); ["x1", "x2"]])
-                    add_axis!(destination, "big_col", String[axis_vector(source, "col"); ["c5"]])
+                    add_axis!(destination, "big_row", [axis_vector(source, "row"); ["x1", "x2"]])
+                    add_axis!(destination, "big_col", [axis_vector(source, "col"); ["c5"]])
                     for name in ("dense", "sparse")
                         copy_matrix!(;
                             destination,
@@ -1164,6 +1157,56 @@ nested_test("packed_format") do
                     @test get_matrix(destination, "big_row", "big_col", "dense"; relayout = false) == expected_subset
                     @test existing_materialization(dense_lazy.materialization_cell) === nothing
                     @test existing_materialization(sparse_lazy.materialization_cell) === nothing
+                    return nothing
+                end
+            end
+            return nothing
+        end
+    end
+
+    nested_test("concatenate_lazy_matrices") do
+        mktempdir() do path
+            n_genes = 16384
+            sources = [
+                FilesDaf(joinpath(path, "source.$(index).daf"), "w+"; name = "source.$(index)!", packed = true) for
+                index in 1:3
+            ]
+            expected_dense = fill(Float32(-1), n_genes, 12)
+            expected_sparse = spzeros(UInt32, n_genes, 12)
+            lazy_matrices = AbstractMatrix[]
+            for (index, source) in enumerate(sources)
+                add_axis!(source, "gene", ["g$(gene)" for gene in 1:n_genes])
+                add_axis!(source, "cell", ["s$(index).c$(cell)" for cell in 1:4])
+                columns_range = (4 * index - 3):(4 * index)
+                sparse_genes = [gene for cell in 1:4 for gene in cell:4:n_genes]
+                sparse_cells = [cell for cell in 1:4 for _ in cell:4:n_genes]
+                sparse_values = sparse(sparse_genes, sparse_cells, UInt32.(sparse_genes .+ index), n_genes, 4)
+                set_matrix!(source, "gene", "cell", "sparse", sparse_values; relayout = false)
+                push!(lazy_matrices, get_matrix(source, "gene", "cell", "sparse"; relayout = false).array)
+                expected_sparse[:, columns_range] .= sparse_values
+                if index < 3
+                    dense = Float32[gene + 100_000 * cell + 1_000_000 * index for gene in 1:n_genes, cell in 1:4]
+                    set_matrix!(source, "gene", "cell", "dense", dense; relayout = false)
+                    push!(lazy_matrices, get_matrix(source, "gene", "cell", "dense"; relayout = false).array)
+                    expected_dense[:, columns_range] .= dense
+                end
+            end
+            @test all(DataAxesFormats.Formats.is_lazy_array, lazy_matrices)
+            existing_materialization = DataAxesFormats.PackedFormat.existing_materialization
+
+            for (destination_name, new_destination) in new_destinations(path)
+                nested_test(destination_name) do
+                    destination = new_destination()
+                    concatenate!(destination, "cell", sources; empty = Dict(("gene", "cell", "dense") => Float32(-1)))
+                    concatenated_dense = get_matrix(destination, "gene", "cell", "dense"; relayout = false)
+                    @test !issparse(concatenated_dense)
+                    @test concatenated_dense == expected_dense
+                    concatenated_sparse = get_matrix(destination, "gene", "cell", "sparse"; relayout = false)
+                    @test issparse(concatenated_sparse)
+                    @test concatenated_sparse == expected_sparse
+                    for lazy_matrix in lazy_matrices
+                        @test existing_materialization(lazy_matrix.materialization_cell) === nothing
+                    end
                     return nothing
                 end
             end

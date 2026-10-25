@@ -608,14 +608,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
 
                 is_filled_per_column = falses(size(empty_matrix, 2))
                 is_filled_per_column[filled_columns_indices] .= true
-                empty_columns_indices = findall(!, is_filled_per_column)
-                parallel_loop_wo_rng(1:length(empty_columns_indices); name = "copy_matrix!.empty") do position
-                    fill_column!(empty_matrix, empty_columns_indices[position]) do column_values
-                        column_values .= empty
-                        return nothing
-                    end
-                    return nothing
-                end
+                fill_columns!(empty_matrix, findall(!, is_filled_per_column), empty)
                 return nothing
             end
         end
@@ -1159,6 +1152,22 @@ function copy_single_matrix(;
         columns_relation,
         relayout,
     )
+end
+
+# Fill the columns of a dense `matrix` at the `columns_indices` with the `value`, in parallel.
+function fill_columns!(
+    matrix::AbstractMatrix,
+    columns_indices::AbstractVector{<:Integer},
+    value::StorageScalar,
+)::Nothing
+    parallel_loop_wo_rng(columns_indices; name = "fill_columns!") do column_index
+        fill_column!(matrix, column_index) do column_values
+            column_values .= value
+            return nothing
+        end
+        return nothing
+    end
+    return nothing
 end
 
 function new_name(rename::Maybe{AbstractString}, name::AbstractString)::AbstractString
