@@ -583,6 +583,11 @@ function test_missing_axis(daf::DafReader, depth::Int; append_only::Bool = false
             end
         end
 
+        nested_test("abstract") do
+            @test add_axis!(daf, "gene", AbstractString[GENE_NAMES...]) === nothing
+            @test axis_vector(daf, "gene") == GENE_NAMES
+        end
+
         nested_test("duplicated") do
             @test_throws chomp("""
                          non-unique entries for new axis: gene

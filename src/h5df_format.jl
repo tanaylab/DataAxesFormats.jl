@@ -556,7 +556,7 @@ function Formats.format_add_axis!(h5df::H5df, axis::AbstractString, entries::Abs
 
     flame_timed("H5df.create_axis_vector") do
         axis_dataset = create_dataset(axes_group, axis, String, (length(entries)))
-        axis_dataset[:] = entries
+        axis_dataset[:] = as_string_array(entries)
         return close(axis_dataset)
     end
 
@@ -766,12 +766,16 @@ function write_string_vector(
             close(vector_group)
 
         else
-            nice_vector = vector isa Vector{String} ? vector : String[String(value) for value in vector]
-            write_packed_dense_dataset!(axis_vectors_group, name, nice_vector, is_packed)
+            write_packed_dense_dataset!(axis_vectors_group, name, as_string_array(vector), is_packed)
         end
     end
 
     return nothing
+end
+
+# HDF5 can only write an array of a concrete string type.
+function as_string_array(array::AbstractArray{<:AbstractString, N})::Array{String, N} where {N}
+    return array isa Array{String, N} ? array : String[String(value) for value in array]
 end
 
 function Formats.format_get_empty_dense_vector!(
@@ -1213,8 +1217,7 @@ function write_string_matrix(
             close(matrix_group)
 
         else
-            nice_matrix = matrix isa Matrix{String} ? matrix : String[String(value) for value in matrix]
-            write_packed_dense_dataset!(columns_axis_group, name, nice_matrix, is_packed)
+            write_packed_dense_dataset!(columns_axis_group, name, as_string_array(matrix), is_packed)
         end
     end
     return nothing
