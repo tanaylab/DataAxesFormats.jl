@@ -33,7 +33,6 @@ using ..Readers
 using ..StorageTypes
 using ProgressMeter
 
-import ..PackedFormat.fill_column!
 import ProgressMeter.AbstractProgress  # NOLINT
 using SparseArrays
 using TanayLabUtilities

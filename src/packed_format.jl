@@ -535,21 +535,18 @@ function TanayLabUtilities.Brief.brief(matrix::PackedDenseMatrix{T})::String whe
     return "$(delimited_number(matrix.n_rows)) x $(delimited_number(matrix.n_columns)) x $(T) in Columns (Packed)"
 end
 
-# Write one column of a matrix. `fill(buffer)` must set every entry of the column buffer, without keeping a reference to
-# it. For a `PackedDenseMatrix` the buffer is then encoded, and reused for other columns.
-function fill_column!(fill::Function, matrix::PackedDenseMatrix, column::Integer)::Nothing
-    @assert 1 <= column <= matrix.n_columns
+# The `fill` sets a column buffer, which is then encoded, and reused for other columns.
+function TanayLabUtilities.ParallelLoops.fill_column!(
+    fill::Function,
+    matrix::PackedDenseMatrix,
+    column_index::Integer,
+)::Nothing
+    @assert 1 <= column_index <= matrix.n_columns
     with_reusable(matrix.buffers) do buffer
         fill(buffer)
-        matrix.encoder(Int(column), buffer)
+        matrix.encoder(Int(column_index), buffer)
         return nothing
     end
-    return nothing
-end
-
-# For any other (in-memory or memory-mapped) dense matrix, `fill` writes straight into the column.
-function fill_column!(fill::Function, matrix::AbstractMatrix, column::Integer)::Nothing
-    fill(view(matrix, :, column))
     return nothing
 end
 

@@ -50,6 +50,7 @@ import ..Readers.require_matrix
 import ..Readers.require_scalar
 import ..Readers.require_unreserved_scalar
 import ..Readers.require_vector
+import SparseArrays.indtype
 
 """
     set_scalar!(
@@ -885,6 +886,10 @@ function locked_set_matrix!(
         if eltype === nothing
             eltype = Base.eltype(matrix)
         end
+        if eltype <: StorageReal && column_scratch(matrix) !== nothing
+            set_lazy_matrix!(daf, rows_axis, columns_axis, name, matrix, eltype, overwrite, relayout, packed)
+            return nothing
+        end
         if matrix isa BitMatrix || Base.eltype(matrix) != eltype
             if issparse(matrix)
                 matrix = SparseMatrixCSC{eltype}(matrix)
@@ -911,6 +916,44 @@ function locked_set_matrix!(
     Formats.format_set_matrix!(daf, rows_axis, columns_axis, name, matrix, is_resolved_packed)
     return relayout_stored_matrix!(daf, rows_axis, columns_axis, name, matrix, relayout, is_resolved_packed)
     # Formats.assert_valid_cache(daf)
+end
+
+# Set a lazy `matrix` (which reads its data on demand) by copying its columns into an empty matrix, so that it is never
+# read as a whole.
+function set_lazy_matrix!(
+    daf::DafWriter,
+    rows_axis::AbstractString,
+    columns_axis::AbstractString,
+    name::AbstractString,
+    matrix::AbstractMatrix,
+    eltype::Type{<:StorageReal},
+    overwrite::Bool,
+    relayout::Bool,
+    packed::Maybe{Bool},
+)::Nothing
+    if issparse(matrix)
+        empty_sparse_matrix!(
+            daf,
+            rows_axis,
+            columns_axis,
+            name,
+            eltype,
+            nnz(matrix),
+            indtype(matrix);
+            overwrite,
+            relayout,
+            packed,
+        ) do colptr, rowval, nzval
+            copy_columns!(colptr, rowval, nzval, matrix)
+            return nothing
+        end
+    else
+        empty_dense_matrix!(daf, rows_axis, columns_axis, name, eltype; overwrite, relayout, packed) do empty_matrix
+            copy_columns!(empty_matrix, matrix)
+            return nothing
+        end
+    end
+    return nothing
 end
 
 """

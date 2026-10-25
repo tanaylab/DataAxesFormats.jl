@@ -784,7 +784,7 @@ nested_test("packed_format") do
         end
 
         nested_test("fill_column!") do
-            DataAxesFormats.PackedFormat.fill_column!(matrix, 2) do buffer
+            fill_column!(matrix, 2) do buffer
                 buffer .= 1:4
                 return nothing
             end
@@ -1063,6 +1063,107 @@ nested_test("packed_format") do
                     @test get_matrix(daf, "row", "col", "dense") == dense
                     @test get_matrix(daf, "row", "col", "sparse") == sparse_values
                     @test get_vector(daf, "row", "vector") == vector
+                    return nothing
+                end
+            end
+            return nothing
+        end
+    end
+
+    # Copies of lazy matrices stream their columns, so the source is never read as a whole.
+    nested_test("copy_lazy_matrices") do
+        mktempdir() do path
+            n_rows = 16384
+            source = FilesDaf(joinpath(path, "source.daf"), "w+"; name = "source!", packed = true)
+            add_axis!(source, "row", ["r$(index)" for index in 1:n_rows])
+            add_axis!(source, "col", ["c$(index)" for index in 1:4])
+            dense = Float32[row + 100_000 * column for row in 1:n_rows, column in 1:4]
+            sparse_rows = [row for column in 1:4 for row in column:4:n_rows]
+            sparse_columns = [column for column in 1:4 for _ in column:4:n_rows]
+            sparse_values = sparse(sparse_rows, sparse_columns, UInt32.(sparse_rows), n_rows, 4)
+            set_matrix!(source, "row", "col", "dense", dense; relayout = false)
+            set_matrix!(source, "row", "col", "sparse", sparse_values; relayout = false)
+            dense_lazy = get_matrix(source, "row", "col", "dense"; relayout = false).array
+            sparse_lazy = get_matrix(source, "row", "col", "sparse"; relayout = false).array
+            @test DataAxesFormats.Formats.is_lazy_array(dense_lazy)
+            @test DataAxesFormats.Formats.is_lazy_array(sparse_lazy)
+            existing_materialization = DataAxesFormats.PackedFormat.existing_materialization
+
+            expected_subset = fill(Float32(-1), n_rows + 2, 5)
+            expected_subset[1:n_rows, 1:4] .= dense
+
+            for (destination_name, new_destination) in (
+                ("memory", () -> MemoryDaf(; name = "memory!")),
+                ("files_flat", () -> FilesDaf(joinpath(path, "flat.daf"), "w+"; name = "files_flat!", packed = false)),
+                (
+                    "files_packed",
+                    () -> FilesDaf(joinpath(path, "packed.daf"), "w+"; name = "files_packed!", packed = true),
+                ),
+                ("zip_flat", () -> ZipDaf(joinpath(path, "flat.daf.zip"), "w+"; name = "zip_flat!", packed = false)),
+                (
+                    "zip_packed",
+                    () -> ZipDaf(joinpath(path, "packed.daf.zip"), "w+"; name = "zip_packed!", packed = true),
+                ),
+                (
+                    "zarr_flat",
+                    () -> ZarrDaf(joinpath(path, "flat.daf.zarr"), "w+"; name = "zarr_flat!", packed = false),
+                ),
+                (
+                    "zarr_packed",
+                    () -> ZarrDaf(joinpath(path, "packed.daf.zarr"), "w+"; name = "zarr_packed!", packed = true),
+                ),
+                ("h5df_flat", () -> H5df(joinpath(path, "flat.h5df"), "w+"; name = "h5df_flat!", packed = false)),
+                ("h5df_packed", () -> H5df(joinpath(path, "packed.h5df"), "w+"; name = "h5df_packed!", packed = true)),
+            )
+                nested_test(destination_name) do
+                    destination = new_destination()
+                    copy_axis!(; destination, source, axis = "row")
+                    copy_axis!(; destination, source, axis = "col")
+                    add_axis!(destination, "big_row", String[axis_vector(source, "row"); ["x1", "x2"]])
+                    add_axis!(destination, "big_col", String[axis_vector(source, "col"); ["c5"]])
+                    for name in ("dense", "sparse")
+                        copy_matrix!(;
+                            destination,
+                            source,
+                            rows_axis = "row",
+                            columns_axis = "col",
+                            name,
+                            relayout = false,
+                        )
+                        copy_matrix!(;
+                            destination,
+                            source,
+                            rows_axis = "row",
+                            columns_axis = "col",
+                            name,
+                            rename = "$(name)_64",
+                            eltype = Float64,
+                            relayout = false,
+                        )
+                    end
+                    copy_matrix!(;
+                        destination,
+                        source,
+                        rows_axis = "row",
+                        columns_axis = "col",
+                        name = "dense",
+                        rows_reaxis = "big_row",
+                        columns_reaxis = "big_col",
+                        empty = -1,
+                        relayout = false,
+                    )
+
+                    @test get_matrix(destination, "row", "col", "dense"; relayout = false) == dense
+                    @test get_matrix(destination, "row", "col", "sparse"; relayout = false) == sparse_values
+                    dense_64 = get_matrix(destination, "row", "col", "dense_64"; relayout = false)
+                    @test eltype(dense_64) == Float64
+                    @test dense_64 == dense
+                    sparse_64 = get_matrix(destination, "row", "col", "sparse_64"; relayout = false)
+                    @test eltype(sparse_64) == Float64
+                    @test sparse_64 == sparse_values
+                    @test get_matrix(destination, "big_row", "big_col", "dense"; relayout = false) == expected_subset
+                    @test existing_materialization(dense_lazy.materialization_cell) === nothing
+                    @test existing_materialization(sparse_lazy.materialization_cell) === nothing
                     return nothing
                 end
             end

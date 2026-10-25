@@ -32,7 +32,6 @@ import ..Chains.stored_repository_path
 import ..Formats.as_named_matrix
 import ..Formats.as_named_vector
 import ..Formats.with_data_write_lock
-import ..PackedFormat.fill_column!
 import ..Readers.stored_base_daf_links
 import ..Writers.relocated_base_daf_links
 import ..Writers.write_base_daf_links!
@@ -493,10 +492,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
                     relayout = copied_relayout,
                     packed,
                 ) do sparse_colptr, sparse_rowval, sparse_nzval
-                    sparse_value = plain_array(copied_value)
-                    sparse_colptr .= colptr(sparse_value)
-                    sparse_rowval .= rowval(sparse_value)
-                    sparse_nzval .= nzval(sparse_value)
+                    copy_columns!(sparse_colptr, sparse_rowval, sparse_nzval, copied_value)
                     return nothing
                 end
             else
@@ -510,7 +506,7 @@ axis contains entries that do not exist in the target, they are discarded (not c
                     relayout = copied_relayout,
                     packed,
                 ) do empty_matrix
-                    empty_matrix .= copied_value
+                    copy_columns!(empty_matrix, copied_value)
                     return nothing
                 end
             end
@@ -597,21 +593,28 @@ axis contains entries that do not exist in the target, they are discarded (not c
                 relayout = copied_relayout,
                 packed,
             ) do empty_matrix
-                # Each column is written once, whole, as a packed destination requires.
+                # Each column is written once, whole, as a packed destination requires. Each source column is streamed
+                # into its destination column. The other destination columns hold only the `empty` value.
                 filled_rows_indices = axis_indices(destination, rows_reaxis, names(copied_value, 1))
                 filled_columns_indices = axis_indices(destination, columns_reaxis, names(copied_value, 2))
-                value_column_per_column = zeros(Int, size(empty_matrix, 2))
-                value_column_per_column[filled_columns_indices] .= 1:length(filled_columns_indices)
-                values = parent(copied_value)
-                for column in 1:size(empty_matrix, 2)
-                    fill_column!(empty_matrix, column) do column_values
+                parallel_foreach_column(parent(copied_value); name = "copy_matrix!") do value_column, _, column
+                    fill_column!(empty_matrix, filled_columns_indices[value_column]) do column_values
                         column_values .= empty
-                        value_column = value_column_per_column[column]
-                        if value_column > 0
-                            column_values[filled_rows_indices] .= view(values, :, value_column)
-                        end
+                        column_values[filled_rows_indices] .= column
                         return nothing
                     end
+                    return nothing
+                end
+
+                is_filled_per_column = falses(size(empty_matrix, 2))
+                is_filled_per_column[filled_columns_indices] .= true
+                empty_columns_indices = findall(!, is_filled_per_column)
+                parallel_loop_wo_rng(1:length(empty_columns_indices); name = "copy_matrix!.empty") do position
+                    fill_column!(empty_matrix, empty_columns_indices[position]) do column_values
+                        column_values .= empty
+                        return nothing
+                    end
+                    return nothing
                 end
                 return nothing
             end
