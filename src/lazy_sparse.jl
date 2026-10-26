@@ -36,6 +36,7 @@ import SparseArrays.AbstractSparseMatrixCSCInclAdjointAndTranspose
         colptr::Vector{Ti}
         rowval_source::AbstractVector{Ti}
         nzval_source::AbstractVector{Tv}
+        max_n_stored_in_column::Int
         materialization_cell::MaterializationCell{SparseMatrixCSC{Tv, Ti}}
         did_report_scalar_access::Threads.Atomic{Bool}
     end
@@ -48,11 +49,12 @@ one chunk at a time. A source may also be a plain `Vector`, for a flat component
 packed.
 
 Reading a subset of the columns reads only those columns. This covers `lazy[:, columns]`, `lazy[rows, columns]`,
-`lazy[:, column]`, `lazy[rows, column]`, and a `view` of any of these. It returns a new `SparseMatrixCSC` (or
-`SparseVector`) owned by the caller, which is not cached.
+`lazy[:, column]` and `lazy[rows, column]`. It returns a new `SparseMatrixCSC` (or `SparseVector`) owned by the caller,
+which is not cached.
 
 The TanayLabUtilities `parallel_foreach_column` reads all or some of the columns one at a time, into a buffer per
-thread. It never holds the whole matrix, and allocates nothing per column.
+thread. It never holds the whole matrix, and allocates nothing per column. A `view` of the lazy matrix is read the same
+way. Its `plain_array` reads only the columns the `view` selects.
 
 Any other access reads the whole matrix into a `SparseMatrixCSC`, its materialization. All readers share it while any of
 them holds it. Once no reader holds it, its memory is freed, and the next access reads the matrix again. This includes
@@ -77,6 +79,7 @@ mutable struct LazySparseMatrix{Tv, Ti <: Integer} <: AbstractSparseMatrixCSC{Tv
     colptr::Vector{Ti}
     rowval_source::AbstractVector{Ti}
     nzval_source::AbstractVector{Tv}
+    max_n_stored_in_column::Int
     materialization_cell::MaterializationCell{SparseMatrixCSC{Tv, Ti}}
     did_report_scalar_access::Threads.Atomic{Bool}
 end
@@ -89,11 +92,14 @@ function LazySparseMatrix(
     nzval_source::AbstractVector{Tv},
 )::LazySparseMatrix{Tv, Ti} where {Tv, Ti <: Integer}
     @assert length(rowval_source) == length(nzval_source)
+    max_n_stored_in_column =
+        maximum(column_index -> colptr[column_index + 1] - colptr[column_index], 1:(length(colptr) - 1); init = 0)
     return LazySparseMatrix{Tv, Ti}(
         Int(n_rows),
         colptr,
         rowval_source,
         nzval_source,
+        Int(max_n_stored_in_column),
         MaterializationCell{SparseMatrixCSC{Tv, Ti}}(),
         Threads.Atomic{Bool}(false),
     )
@@ -214,8 +220,7 @@ function TanayLabUtilities.ParallelLoops.column_scratch(
     if is_materialized(matrix)
         return nothing
     end
-    colptr = matrix.colptr
-    max_n_stored = maximum(column_index -> colptr[column_index + 1] - colptr[column_index], 1:size(matrix, 2); init = 0)
+    max_n_stored = matrix.max_n_stored_in_column
     return (
         column = SparseVector{Tv, Ti}(matrix.n_rows, Vector{Ti}(undef, max_n_stored), Vector{Tv}(undef, max_n_stored)),
         rowval_scratch = source_read_scratch(matrix.rowval_source),
@@ -497,15 +502,6 @@ function Base.show(io::IO, mime::MIME"text/plain", named::NamedLazySparseMatrix)
     return nothing
 end
 
-# A lazy matrix never changes, so a view of a column subset is the same as reading it.
-function Base.view(
-    matrix::LazySparseMatrix,
-    rows::Union{Colon, AbstractVector},
-    columns::Union{Integer, AbstractVector},
-)::AbstractSparseArray
-    return matrix[rows, columns]
-end
-
 # A lazy matrix is read-only. The generic `SparseArrays` code reads and writes a sparse matrix through these accessors,
 # so they return read-only views of the shared materialization. Any write through them (`setindex!`, `dropzeros!`,
 # `nonzeros(matrix)[i] = ...`) fails instead of changing the data all later readers see.
@@ -624,6 +620,15 @@ function TanayLabUtilities.MatrixLayouts.plain_array(
     contiguous::Bool = false,  # NOLINT
 )::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
     return shared_materialization!(matrix)
+end
+
+# A view of a lazy matrix reads only the columns it selects.
+function TanayLabUtilities.MatrixLayouts.plain_array(
+    matrix::SubArray{Tv, N, <:LazySparseMatrix{Tv}};
+    transposed_as::Maybe{Type} = nothing,  # NOLINT
+    contiguous::Bool = false,  # NOLINT
+)::AbstractSparseArray{Tv} where {Tv, N}
+    return parent(matrix)[parentindices(matrix)...]
 end
 
 end  # module

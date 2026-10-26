@@ -101,9 +101,19 @@ nested_test("lazy_sparse") do
 
         nested_test("view") do
             lazy = new_lazy()
-            @test sum(view(lazy, :, 3)) == 70
-            @test view(lazy, :, 2:3) == expected[:, 2:3]
-            @test !is_materialized(lazy)
+            columns_view = view(lazy, :, [1, 3])
+            @test parent(columns_view) === lazy
+            @test !does_materialize(lazy) do
+                n_stored_per_position = zeros(Int, 2)
+                parallel_foreach_column(columns_view) do position, _, column
+                    n_stored_per_position[position] = nnz(column)
+                    return nothing
+                end
+                @test n_stored_per_position == [2, 2]
+            end
+            @test !does_materialize(lazy) do
+                @test plain_array(view(lazy, :, 2:3)) == expected[:, 2:3]
+            end
         end
 
         nested_test("named") do
