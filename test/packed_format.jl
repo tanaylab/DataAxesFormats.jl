@@ -2460,7 +2460,7 @@ nested_test("packed_format") do
     end
 
     # `parallel_foreach_column` reads a lazy matrix one column at a time, allocating much less than a chunk (8 KB) per
-    # column. While a caller holds the materialization, it reads that instead.
+    # column. It reads a view of it the same way. While a caller holds the materialization, it reads that instead.
     nested_test("foreach_column") do
         n_rows = 2 * 2048 + 100
         n_columns = 40
@@ -2500,6 +2500,13 @@ nested_test("packed_format") do
                         n_few_bytes = @allocated column_sums(lazy, 1:4)
                         n_many_bytes = @allocated column_sums(lazy, 1:n_columns)
                         @test (n_many_bytes - n_few_bytes) / (n_columns - 4) < 4096
+                        for rows in (:, 1:2:n_rows)
+                            @test column_sums(view(lazy, rows, 1:n_columns), 1:n_columns) ≈
+                                  vec(sum(values[rows, :]; dims = 1))
+                            n_few_bytes = @allocated column_sums(view(lazy, rows, 1:4), 1:4)
+                            n_many_bytes = @allocated column_sums(view(lazy, rows, 1:n_columns), 1:n_columns)
+                            @test (n_many_bytes - n_few_bytes) / (n_columns - 4) < 4096
+                        end
                         materialization = plain_array(lazy)
                         @test column_scratch(lazy) === nothing
                         @test column_sums(lazy, 1:n_columns) ≈ expected_sums
