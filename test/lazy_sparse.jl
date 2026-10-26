@@ -251,6 +251,18 @@ nested_test("lazy_sparse") do
             end
         end
 
+        nested_test("transposed_view") do
+            lazy = new_lazy()
+            @test !does_materialize(lazy) do
+                sum_per_position = zeros(Float32, 2)
+                parallel_foreach_column(view(flip(lazy), [4, 1, 3], [1, 3])) do position, _, column
+                    sum_per_position[position] = sum(column)
+                    return nothing
+                end
+                @test sum_per_position == [40, 46]
+            end
+        end
+
         # `convert(SparseMatrixCSC{...}, lazy)` returns the shared materialization, building it if no caller holds it.
         # This is unlike the constructor `SparseMatrixCSC(lazy)`, which returns a copy owned by the caller.
         nested_test("convert") do

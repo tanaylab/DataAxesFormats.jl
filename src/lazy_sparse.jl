@@ -54,7 +54,7 @@ which is not cached.
 
 The TanayLabUtilities `parallel_foreach_column` reads all or some of the columns one at a time, into a buffer per
 thread. It never holds the whole matrix, and allocates nothing per column. A `view` of the lazy matrix is read the same
-way. Its `plain_array` reads only the columns the `view` selects.
+way. Its `plain_array` reads only the columns the `view` selects. So does `plain_array` of a `view` of its transpose.
 
 Any other access reads the whole matrix into a `SparseMatrixCSC`, its materialization. All readers share it while any of
 them holds it. Once no reader holds it, its memory is freed, and the next access reads the matrix again. This includes
@@ -629,6 +629,16 @@ function TanayLabUtilities.MatrixLayouts.plain_array(
     contiguous::Bool = false,  # NOLINT
 )::AbstractSparseArray{Tv} where {Tv, N}
     return parent(matrix)[parentindices(matrix)...]
+end
+
+# A view of a transposed lazy matrix reads only the entries it selects, and returns them in columns.
+function TanayLabUtilities.MatrixLayouts.plain_array(
+    matrix::SubArray{Tv, 2, <:Transpose{Tv, <:LazySparseMatrix{Tv}}};
+    transposed_as::Maybe{Type} = nothing,  # NOLINT
+    contiguous::Bool = false,  # NOLINT
+)::SparseMatrixCSC{Tv} where {Tv}
+    row_indices, column_indices = parentindices(matrix)
+    return SparseMatrixCSC(transpose(parent(parent(matrix))[column_indices, row_indices]))
 end
 
 end  # module
