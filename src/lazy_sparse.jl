@@ -525,6 +525,12 @@ function SparseArrays.nnz(matrix::LazySparseMatrix)::Int
     return Int(matrix.colptr[end]) - 1
 end
 
+# Base's `view` checks whether its indices alias the matrix, through `dataids`. The `SparseArrays` method would reach
+# the data through `rowvals`, which reads the whole matrix.
+function Base.dataids(matrix::LazySparseMatrix)::Tuple
+    return (Base.dataids(matrix.colptr)..., Base.dataids(matrix.rowval_source)..., Base.dataids(matrix.nzval_source)...)
+end
+
 # Like `SparseArrays`' own constructors, these return a matrix owned by the caller. If a caller holds the
 # materialization, this copies it; otherwise this builds a new one without sharing it. In contrast, `convert` returns
 # the shared materialization itself.

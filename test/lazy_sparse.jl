@@ -228,6 +228,19 @@ nested_test("lazy_sparse") do
             end
         end
 
+        # Base's `view` checks whether its indices alias the matrix, through `dataids`.
+        nested_test("row_view") do
+            lazy = new_lazy()
+            @test !does_materialize(lazy) do
+                n_stored_per_column = zeros(Int, 4)
+                parallel_foreach_column(view(lazy, [1, 3], :)) do _, column_index, column
+                    n_stored_per_column[column_index] = nnz(column)
+                    return nothing
+                end
+                @test n_stored_per_column == [1, 0, 2, 1]
+            end
+        end
+
         # `convert(SparseMatrixCSC{...}, lazy)` returns the shared materialization, building it if no caller holds it.
         # This is unlike the constructor `SparseMatrixCSC(lazy)`, which returns a copy owned by the caller.
         nested_test("convert") do
