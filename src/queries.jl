@@ -3552,7 +3552,7 @@ function add_final_values!(vector_state::VectorState, if_not::IfNot)::Nothing
         vector_state.vector_entries = vector_state.vector_entries[mask]
         vector_state.vector_values = vector_state.vector_values[mask]
         if pending_final_values !== nothing
-            final_value_index_per_entry = pending_final_values.index_per_element[mask]  # NOJET
+            final_value_index_per_entry = pending_final_values.index_per_element[mask]
             vector_state.pending_final_values =
                 PendingFinalValues(final_value_index_per_entry, pending_final_values.values)
         end
@@ -4871,7 +4871,7 @@ function compute_grouped_matrix(
     reduce_to_row::ReduceToRow,
     if_missing::Maybe{IfMissing} = nothing,
 )::Nothing
-    finalize_vector_values!(query_state, group_state)  # NOJET
+    finalize_vector_values!(query_state, group_state)
 
     if query_state.what_for != :compute
         base_state.property_name = nothing
@@ -5838,7 +5838,7 @@ function get_frame(
         push!(data, column_name => vector.array)
     end
 
-    result = DataFrame(data)  # NOJET
+    result = DataFrame(data)
     @debug "get_frame daf: $(brief(daf)) axis: $(axis) columns: $(columns) result: $(brief(result))" _group =  # NOJET
         :daf_queries
     return result
