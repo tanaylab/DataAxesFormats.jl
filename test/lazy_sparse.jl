@@ -251,6 +251,19 @@ nested_test("lazy_sparse") do
             end
         end
 
+        nested_test("unsorted_row_view") do
+            lazy = new_lazy()
+            @test !does_materialize(lazy) do
+                columns = Vector{SparseVector{Float32, Int32}}(undef, 4)
+                parallel_foreach_column(view(lazy, [3, 1], :); policy = :serial) do _, column_index, column
+                    columns[column_index] = copy(column)
+                    return nothing
+                end
+                @test columns == [expected[[3, 1], column_index] for column_index in 1:4]
+                @test all(issorted(SparseArrays.nonzeroinds(column)) for column in columns)
+            end
+        end
+
         nested_test("transposed_view") do
             lazy = new_lazy()
             @test !does_materialize(lazy) do
