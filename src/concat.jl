@@ -1268,7 +1268,7 @@ function sparse_vectors_storage_fraction(
     for (size, array) in zip(sizes, arrays)
         dense_size += size
         if array !== nothing
-            array = base_array(array)
+            array = canonical_array(array)
             if array isa AbstractSparseArray
                 sparse_size += nnz(array)
             else
@@ -1304,7 +1304,7 @@ function sparse_matrices_storage_fraction(
         total_n_columns += n_columns
         dense_size += n_rows * n_columns
         if array !== nothing
-            array = base_array(array)
+            array = canonical_array(array)
             if array isa AbstractSparseArray
                 sparse_size += nnz(array)
             else
@@ -1375,7 +1375,7 @@ function sparsify_concatenated_matrices(
         else
             @assert size(matrix) == (nrows, ncols)
             # A sparse matrix, lazy or not, is kept as is, to be copied column by column. A dense matrix is converted.
-            matrix = base_array(matrix)
+            matrix = canonical_array(matrix)
             if !issparse(matrix)
                 matrix = sparse(plain_array(matrix))
             end

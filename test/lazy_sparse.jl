@@ -266,13 +266,20 @@ nested_test("lazy_sparse") do
 
         nested_test("transposed_view") do
             lazy = new_lazy()
-            @test !does_materialize(lazy) do
-                sum_per_position = zeros(Float32, 2)
-                parallel_foreach_column(view(flip(lazy), [4, 1, 3], [1, 3])) do position, _, column
-                    sum_per_position[position] = sum(column)
-                    return nothing
+            transposed_view = view(flip(lazy), [4, 1, 3], [1, 3])
+            @test_throws "inefficient major axis: Rows" parallel_foreach_column((_, _, _) -> nothing, transposed_view)
+            TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = IgnoreHandler
+            try
+                @test !does_materialize(lazy) do
+                    sum_per_position = zeros(Float32, 2)
+                    parallel_foreach_column(transposed_view) do position, _, column
+                        sum_per_position[position] = sum(column)
+                        return nothing
+                    end
+                    @test sum_per_position == [40, 46]
                 end
-                @test sum_per_position == [40, 46]
+            finally
+                TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = ErrorHandler
             end
         end
 

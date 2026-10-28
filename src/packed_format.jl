@@ -982,7 +982,7 @@ end
 
 function TanayLabUtilities.MatrixLayouts.plain_array(
     array::ChunkedArray;
-    transposed_as::Maybe{Type} = nothing,  # NOLINT
+    flip_as::Maybe{Type} = nothing,  # NOLINT
     contiguous::Bool = false,  # NOLINT
 )::Array
     return shared_materialization!(array)

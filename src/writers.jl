@@ -253,7 +253,7 @@ function add_axis!(
         delete_axis!(daf, axis; must_exist = false)
     end
 
-    entries_array = base_array(entries)
+    entries_array = canonical_array(entries)
     entries = issparse(entries_array) ? Vector(entries_array) : entries_array
 
     return Formats.with_data_write_lock(daf, "add_axis! of:", axis) do
@@ -427,7 +427,7 @@ function locked_set_vector!(
         if vector isa NamedVector
             require_axis_names(daf, axis, "entry names of the: vector", names(vector, 1))
         end
-        vector = base_array(vector)
+        vector = canonical_array(vector)
         if eltype === nothing
             eltype = Base.eltype(vector)
         end
@@ -882,7 +882,7 @@ function locked_set_matrix!(
             require_axis_names(daf, rows_axis, "row names of the: matrix", names(matrix, 1))
             require_axis_names(daf, columns_axis, "column names of the: matrix", names(matrix, 2))
         end
-        matrix = base_array(matrix)
+        matrix = canonical_array(matrix)
         if eltype === nothing
             eltype = Base.eltype(matrix)
         end

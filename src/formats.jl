@@ -127,7 +127,7 @@ end
 
 # The [`PropertyMetadata`](@ref) of an in-memory (not packed) `array`.
 function array_metadata(array::AbstractArray)::PropertyMetadata
-    array = base_array(array)
+    array = canonical_array(array)
     element_type = eltype(array) <: AbstractString ? String : eltype(array)
     if issparse(array)
         return PropertyMetadata(element_type, true, nnz(array), SparseArrays.indtype(array), false)

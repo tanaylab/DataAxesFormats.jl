@@ -426,7 +426,7 @@ function compute_dense_eltwise(
     name::AbstractString,
 )::StorageMatrix where {T <: StorageReal}
     output = Matrix{T}(undef, size(input))
-    if column_scratch(base_array(input)) === nothing
+    if column_scratch(canonical_array(input)) === nothing
         storage = plain_array(input)
         if storage isa DenseArray
             output_values = vec(output)
@@ -931,8 +931,8 @@ function log_vector!(
     base::Float64,
 )::Nothing where {T <: AbstractFloat}
     n_elements = length(output)
-    output = base_array(output)
-    input = base_array(input)
+    output = canonical_array(output)
+    input = canonical_array(input)
     @check_turbo_vector(output)
     @check_turbo_vector(input)
     if base == 2.0
@@ -2225,9 +2225,9 @@ function n_values_per_group_of_columns(
     matrix::StorageMatrix,
     column_indices_per_group::AbstractVector{<:AbstractVector{<:Integer}},
 )::Vector{Int}
-    base_matrix = base_array(matrix)
-    if base_matrix isa SparseArrays.AbstractSparseMatrixCSC
-        column_pointers = SparseArrays.getcolptr(base_matrix)
+    canonical_matrix = canonical_array(matrix)
+    if canonical_matrix isa SparseArrays.AbstractSparseMatrixCSC
+        column_pointers = SparseArrays.getcolptr(canonical_matrix)
         return [
             sum(
                 Int(column_pointers[column_index + 1] - column_pointers[column_index]) for

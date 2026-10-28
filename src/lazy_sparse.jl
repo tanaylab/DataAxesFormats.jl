@@ -616,7 +616,7 @@ end
 
 function TanayLabUtilities.MatrixLayouts.plain_array(
     matrix::LazySparseMatrix{Tv, Ti};
-    transposed_as::Maybe{Type} = nothing,  # NOLINT
+    flip_as::Maybe{Type} = nothing,  # NOLINT
     contiguous::Bool = false,  # NOLINT
 )::SparseMatrixCSC{Tv, Ti} where {Tv, Ti}
     return shared_materialization!(matrix)
@@ -625,20 +625,10 @@ end
 # A view of a lazy matrix reads only the columns it selects.
 function TanayLabUtilities.MatrixLayouts.plain_array(
     matrix::SubArray{Tv, N, <:LazySparseMatrix{Tv}};
-    transposed_as::Maybe{Type} = nothing,  # NOLINT
+    flip_as::Maybe{Type} = nothing,  # NOLINT
     contiguous::Bool = false,  # NOLINT
 )::AbstractSparseArray{Tv} where {Tv, N}
     return parent(matrix)[parentindices(matrix)...]
-end
-
-# A view of a transposed lazy matrix reads only the entries it selects, and returns them in columns.
-function TanayLabUtilities.MatrixLayouts.plain_array(
-    matrix::SubArray{Tv, 2, <:Transpose{Tv, <:LazySparseMatrix{Tv}}};
-    transposed_as::Maybe{Type} = nothing,  # NOLINT
-    contiguous::Bool = false,  # NOLINT
-)::SparseMatrixCSC{Tv} where {Tv}
-    row_indices, column_indices = parentindices(matrix)
-    return SparseMatrixCSC(transpose(parent(parent(matrix))[column_indices, row_indices]))
 end
 
 end  # module

@@ -1664,7 +1664,7 @@ function cache_description(daf::DafReader, indent::AbstractString, lines::Vector
                 value_description = "pending"
             else
                 if value isa AbstractArray
-                    value = base_array(value)
+                    value = canonical_array(value)
                 end
                 value_description = brief(value)
             end

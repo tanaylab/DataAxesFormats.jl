@@ -27,7 +27,7 @@ end
 
 # A sparse string property is read back dense, so its storage is checked against its non-empty values.
 function verify_metadata(metadata::PropertyMetadata, values::AbstractArray; is_packed::Bool)::Nothing
-    values = base_array(values)
+    values = canonical_array(values)
     if eltype(values) <: AbstractString
         @test metadata.eltype == String
         if metadata.is_sparse

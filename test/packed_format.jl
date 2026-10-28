@@ -213,14 +213,14 @@ function verify_packed_round_trip(
         values = get_vector(daf, "row", name)
         @test values == vector
         if !startswith(name, "string_")
-            @test issparse(base_array(values)) == contains(name, "_sparse")
+            @test issparse(canonical_array(values)) == contains(name, "_sparse")
         end
     end
     for (name, matrix) in expected_matrices
         values = get_matrix(daf, "row", "col", name; relayout = false)
         @test values == matrix
         if !startswith(name, "string_")
-            @test issparse(base_array(values)) == contains(name, "_sparse")
+            @test issparse(canonical_array(values)) == contains(name, "_sparse")
         end
     end
     for name in keys(expected_vectors)
