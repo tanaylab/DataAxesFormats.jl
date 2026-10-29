@@ -283,6 +283,33 @@ nested_test("lazy_sparse") do
             end
         end
 
+        nested_test("relayout") do
+            lazy = new_lazy()
+            @test !does_materialize(lazy) do
+                result = relayout(lazy)
+                @test result == expected
+                @test major_axis(result) == Rows
+            end
+        end
+
+        nested_test("transposed") do
+            lazy = new_lazy()
+            @test_throws "inefficient major axis: Rows" parallel_foreach_column((_, _, _) -> nothing, flip(lazy))
+            TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = IgnoreHandler
+            try
+                @test !does_materialize(lazy) do
+                    sum_per_position = zeros(Float32, 3)
+                    parallel_foreach_column(flip(lazy)) do position, _, column
+                        sum_per_position[position] = sum(column)
+                        return nothing
+                    end
+                    @test sum_per_position == vec(sum(expected; dims = 2))
+                end
+            finally
+                TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = ErrorHandler
+            end
+        end
+
         # `convert(SparseMatrixCSC{...}, lazy)` returns the shared materialization, building it if no caller holds it.
         # This is unlike the constructor `SparseMatrixCSC(lazy)`, which returns a copy owned by the caller.
         nested_test("convert") do
