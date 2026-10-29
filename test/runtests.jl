@@ -35,6 +35,7 @@ test_prefixes(ARGS)
 Random.seed!(123456)
 TanayLabUtilities.MatrixLayouts.GLOBAL_INEFFICIENT_ACTION_HANDLER = ErrorHandler
 abort_on_first_failure(true)
+start_hang_watchdog()
 
 function with_unwrapping_exceptions(action::Function)::Any
     try
