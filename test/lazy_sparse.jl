@@ -116,6 +116,40 @@ nested_test("lazy_sparse") do
             end
         end
 
+        # Most columns start in the chunk where the previous column ends. A serial pass decodes that chunk once.
+        nested_test("decodes_each_chunk_once") do
+            n_rows = 10
+            n_columns = 20
+            n_stored_per_column = 7
+            n_stored = n_columns * n_stored_per_column
+            colptr = Int32[1 + (column - 1) * n_stored_per_column for column in 1:(n_columns + 1)]
+            rowval = Int32[(position - 1) % n_stored_per_column + 1 for position in 1:n_stored]
+            nzval = Float32[position for position in 1:n_stored]
+            n_fetched_bytes = Threads.Atomic{Int}(0)
+            function striped(values::Vector{T})::AbstractVector{T} where {T}
+                bytes = Vector{UInt8}(reinterpret(UInt8, values))
+                return DataAxesFormats.PackedFormat.StripedVector(
+                    T,
+                    n_stored,
+                    10,
+                    (offset::Int, n_bytes::Int) -> begin
+                        Threads.atomic_add!(n_fetched_bytes, n_bytes)
+                        return bytes[(offset + 1):(offset + n_bytes)]
+                    end,
+                )
+            end
+            lazy = LazySparseMatrix(n_rows, colptr, striped(rowval), striped(nzval))
+            sum_per_column = zeros(Float32, n_columns)
+            parallel_foreach_column(lazy; policy = :serial) do column_index, _, column
+                sum_per_column[column_index] = sum(nonzeros(column))
+                return nothing
+            end
+            @test sum_per_column ==
+                  [sum(view(nzval, colptr[column]:(colptr[column + 1] - 1))) for column in 1:n_columns]
+            @test n_fetched_bytes[] == n_stored * (sizeof(Int32) + sizeof(Float32))
+            @test !is_materialized(lazy)
+        end
+
         nested_test("named") do
             lazy = new_lazy()
             named = NamedArray(lazy, (["r1", "r2", "r3"], ["c1", "c2", "c3", "c4"]), ("row", "col"))

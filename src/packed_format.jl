@@ -989,17 +989,20 @@ function TanayLabUtilities.MatrixLayouts.plain_array(
 end
 
 # Reusable buffers for reading chunks of a `ChunkedArray` with no allocation: one stored chunk, for the chunks a read
-# uses only part of, and the lists of the chunks a read needs.
-struct ChunkReadScratch{T, N}  # NOLINT
-    chunk::Array{T, N}
-    missing_chunk_coords::Vector{CartesianIndex{N}}
-    empty_chunk_coords::Vector{CartesianIndex{N}}
-    nonempty_with_offset::Vector{Tuple{CartesianIndex{N}, Int, Int, UInt16}}
+# uses only part of, and the lists of the chunks a read needs. The `held_chunk_coords` are the coordinates of the chunk
+# the stored chunk holds, if any.
+mutable struct ChunkReadScratch{T, N}  # NOLINT
+    const chunk::Array{T, N}
+    held_chunk_coords::Maybe{CartesianIndex{N}}
+    const missing_chunk_coords::Vector{CartesianIndex{N}}
+    const empty_chunk_coords::Vector{CartesianIndex{N}}
+    const nonempty_with_offset::Vector{Tuple{CartesianIndex{N}, Int, Int, UInt16}}
 end
 
 function ChunkReadScratch(array::ChunkedArray{T, N})::ChunkReadScratch{T, N} where {T, N}
     return ChunkReadScratch{T, N}(
         Array{T, N}(undef, array.chunk_shape),
+        nothing,
         CartesianIndex{N}[],
         CartesianIndex{N}[],
         Tuple{CartesianIndex{N}, Int, Int, UInt16}[],
@@ -1072,7 +1075,8 @@ end
 
 # Read the chunks of the requested `ranges` into the `destination`. Without a `scratch`, chunks are looked up in the
 # pool, and the chunks the read uses only part of are decoded into new chunks and pooled. With a `scratch`, the pool is
-# neither read nor written, and such chunks are decoded into the scratch chunk.
+# neither read nor written, and such chunks are decoded into the scratch chunk. The chunk the scratch holds is copied
+# from it. So consecutive reads that share a chunk decode it once.
 function read_chunks!(
     array::ChunkedArray{T, N},
     destination::AbstractArray{<:Any, N},
@@ -1096,7 +1100,15 @@ function read_chunks!(
             end
         end
     else
-        missing_chunk_coords = append!(empty!(scratch.missing_chunk_coords), chunk_range)
+        missing_chunk_coords = empty!(scratch.missing_chunk_coords)
+        for chunk_coords in chunk_range
+            if chunk_coords == scratch.held_chunk_coords
+                held_chunk = view(scratch.chunk, Base.OneTo.(chunk_shape_in_array(array, chunk_coords))...)
+                copy_chunk_into_destination!(destination, held_chunk, chunk_coords, array.chunk_shape, ranges)
+            else
+                push!(missing_chunk_coords, chunk_coords)
+            end
+        end
     end
 
     chunk_reader = array.chunk_reader
@@ -1173,7 +1185,9 @@ function read_chunk_into_destination!(
         # The slice of the scratch chunk is contiguous for the `(n,)` and `(n, 1)` chunks of vectors and matrices.
         scratch_slice = view(scratch.chunk, Base.OneTo.(stored_chunk_shape)...)
         if is_contiguous_array(scratch_slice)
+            scratch.held_chunk_coords = nothing
             fill_chunk!(scratch_slice)
+            scratch.held_chunk_coords = chunk_coords
             chunk = view(scratch_slice, Base.OneTo.(chunk_shape)...)
             copy_chunk_into_destination!(destination, chunk, chunk_coords, array.chunk_shape, ranges)
             return nothing
