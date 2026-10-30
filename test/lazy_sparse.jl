@@ -310,6 +310,13 @@ nested_test("lazy_sparse") do
             end
         end
 
+        nested_test("brief_of_mask") do
+            mask = LazySparseMatrix(3, copy(expected.colptr), copy(expected.rowval), fill(true, nnz(expected)))
+            @test !does_materialize(mask) do
+                @test endswith(brief(mask), "; ? true)")
+            end
+        end
+
         # `convert(SparseMatrixCSC{...}, lazy)` returns the shared materialization, building it if no caller holds it.
         # This is unlike the constructor `SparseMatrixCSC(lazy)`, which returns a copy owned by the caller.
         nested_test("convert") do

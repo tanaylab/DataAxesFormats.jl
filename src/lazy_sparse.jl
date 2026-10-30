@@ -622,6 +622,11 @@ function TanayLabUtilities.MatrixLayouts.plain_array(
     return shared_materialization!(matrix)
 end
 
+# A lazy matrix is costly to read until it is materialized.
+function TanayLabUtilities.MatrixLayouts.is_costly_to_read(matrix::LazySparseMatrix)::Bool
+    return !is_materialized(matrix)
+end
+
 # A view of a lazy matrix reads only the columns it selects.
 function TanayLabUtilities.MatrixLayouts.plain_array(
     matrix::SubArray{Tv, N, <:LazySparseMatrix{Tv}};
