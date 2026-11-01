@@ -136,10 +136,12 @@ Example HDF5 structure:
 
 !!! note
 
-    Deleting data from an HDF5 file does not reuse the abandoned storage. In general if you want to reclaim that
-    storage, you will need to repack the file, which will invalidate any memory-mapped buffers created for it.
-    Therefore, if you delete data (e.g. using [`delete_vector!`](@ref)), you should eventually abandon the `H5df`
-    object, repack the HDF5 file, then create a new `H5df` object to access the repacked data.
+    Deleting data from an HDF5 file may leave its storage abandoned. HDF5 may reuse it for data written while the file
+    stays open, but not while an array memory-mapped onto it is alive. Storage that isn't reused this way is lost when
+    the file is closed. In general if you want to reclaim that storage, you will need to repack the file, which will
+    invalidate any memory-mapped buffers created for it. Therefore, if you delete data (e.g. using
+    [`delete_vector!`](@ref)), you should eventually abandon the `H5df` object, repack the HDF5 file, then create a new
+    `H5df` object to access the repacked data.
 
 !!! note
 
@@ -1656,10 +1658,31 @@ function Formats.format_matrix_metadata(
     return object_metadata(matrix_object, "rowval")
 end
 
+# Memory-map a dataset. The array holds its own HDF5 reference to the dataset until it is garbage collected. HDF5
+# doesn't free the storage of a deleted dataset while it is open, so a later write can't reuse the storage the array
+# maps. The finalizer holds the identifier rather than the `Dataset`, because Julia may finalize a `Dataset` that only a
+# finalizer refers to. Closing the file closes all its objects, and HDF5 may then give the identifier to another
+# object, so the reference is released only while the file is open. HDF5 may buffer data written to the dataset until
+# it is closed, so the dataset is flushed first, and the buffered data can't later overwrite data written to the array.
+function mapped_dataset_array(dataset::HDF5.Dataset)::Array
+    HDF5.API.h5d_flush(dataset)
+    array = HDF5.readmmap(dataset)
+    dataset_id = dataset.id
+    file = dataset.file
+    HDF5.API.h5i_inc_ref(dataset_id)
+    finalizer(array) do _
+        if isopen(file)
+            HDF5.API.h5i_dec_ref(dataset_id)
+        end
+        return nothing
+    end
+    return array
+end
+
 function dataset_as_vector(dataset::HDF5.Dataset)::Tuple{StorageVector, Formats.CacheGroup}
     return flame_timed("H5df.dataset_as_vector") do
         if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
-            return (HDF5.readmmap(dataset), Formats.MappedData)
+            return (mapped_dataset_array(dataset), Formats.MappedData)
         elseif HDF5.ischunked(dataset) && !isempty(dataset)
             return (dataset_as_chunked_array(dataset), Formats.MemoryData)
         else
@@ -1671,7 +1694,7 @@ end
 function dataset_as_matrix(dataset::HDF5.Dataset)::Tuple{StorageMatrix, Formats.CacheGroup}
     return flame_timed("H5df.dataset_as_matrix") do
         if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
-            return (HDF5.readmmap(dataset), Formats.MappedData)
+            return (mapped_dataset_array(dataset), Formats.MappedData)
         elseif HDF5.ischunked(dataset) && !isempty(dataset)
             return (dataset_as_chunked_array(dataset), Formats.MemoryData)
         else
@@ -1684,7 +1707,7 @@ end
 function dataset_as_materialized_vector(dataset::HDF5.Dataset)::Tuple{Vector, Formats.CacheGroup}
     return flame_timed("H5df.dataset_as_materialized_vector") do
         if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset) && !isempty(dataset)
-            return (HDF5.readmmap(dataset), Formats.MappedData)
+            return (mapped_dataset_array(dataset), Formats.MappedData)
         else
             return (read(dataset), Formats.MemoryData)
         end

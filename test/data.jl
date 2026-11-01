@@ -3815,6 +3815,7 @@ nested_test("data") do
                 values = Float64.(1:100_000)
                 set_vector!(daf, "cell", "score", values)
                 score = get_vector(daf, "cell", "score")
+                GC.gc()
                 set_vector!(daf, "cell", "score", zeros(Float64, 100_000); overwrite = true)
                 set_vector!(daf, "cell", "other", fill(-1.0, 100_000))
                 @test score == values
