@@ -2054,17 +2054,21 @@ struct ShardChunkEntry
     uncompressed_size::UInt64
 end
 
-# The buffers for encoding one inner chunk without allocating. `entry` holds its ZIP entry. `raw` holds its raw bytes
-# when its memory can't be used in place. `padded` holds a trailing-edge chunk padded to the full chunk shape. `name`
-# holds its entry name. Each grows to the largest chunk it encodes.
+# The buffers for encoding a block of consecutive inner chunks without allocating. `entry` holds their ZIP entries, one
+# after the other, and `entries` their metadata. `raw` holds the raw bytes of a chunk when its memory can't be used in
+# place. `padded` holds a trailing-edge chunk padded to the full chunk shape. `name` holds a chunk's entry name. Each
+# grows to the largest block it encodes.
 struct ShardChunkScratch
     entry::Vector{UInt8}
+    entries::Vector{Maybe{ShardChunkEntry}}
     raw::Vector{UInt8}
     padded::Vector{UInt8}
     name::Vector{UInt8}
 end
 
-ShardChunkScratch()::ShardChunkScratch = ShardChunkScratch(UInt8[], UInt8[], UInt8[], UInt8[])
+function ShardChunkScratch()::ShardChunkScratch
+    return ShardChunkScratch(UInt8[], Maybe{ShardChunkEntry}[], UInt8[], UInt8[], UInt8[])
+end
 
 # Grow the `buffer` to at least `n_bytes`. It never shrinks, so a reused buffer stops allocating.
 function grow_buffer!(buffer::Vector{UInt8}, n_bytes::Integer)::Nothing
@@ -2099,7 +2103,7 @@ mutable struct IncrementalShardWriter{S, P1 <: Zarr.AbstractCodecPipeline, P2 <:
     codec_json_cd_entry::Maybe{Tuple{UInt32, UInt64, UInt64, UInt64, Vector{UInt8}}}
     next_chunk_index::Int
     next_offset::UInt64
-    held_entries::Dict{Int, Maybe{Tuple{Vector{UInt8}, ShardChunkEntry}}}
+    held_blocks::Dict{Int, Tuple{Vector{UInt8}, Vector{Maybe{ShardChunkEntry}}}}
     write_lock::ReentrantLock
 end
 
@@ -2129,16 +2133,13 @@ function IncrementalShardWriter(
         nothing,
         1,
         index_size,
-        Dict{Int, Maybe{Tuple{Vector{UInt8}, ShardChunkEntry}}}(),
+        Dict{Int, Tuple{Vector{UInt8}, Vector{Maybe{ShardChunkEntry}}}}(),
         ReentrantLock(),
     )
 end
 
-# Encode the chunk at `chunk_index` into the `scratch`, and write it to the shard of the `writer` in chunk order. A
-# chunk arriving in its turn reserves its offset under the lock, and is written after the lock is released. A chunk
-# arriving early is copied out of the `scratch` and held. The chunk that fills the gap also writes the held chunks that
-# follow it. Nothing waits, so any number of tasks may submit chunks in any order. Only chunks submitted out of order
-# are held.
+# Encode the chunk at `chunk_index` into the `scratch`, and write it to the shard of the `writer` in chunk order, as a
+# block of one chunk (see [`write_shard_block!`](@ref)).
 function submit_shard_chunk!(
     writer::IncrementalShardWriter,
     scratch::ShardChunkScratch,
@@ -2146,85 +2147,105 @@ function submit_shard_chunk!(
     chunk_data::AbstractArray,
 )::Nothing
     entry = encode_shard_chunk!(scratch, writer, chunk_index, chunk_data)
+    resize!(scratch.entries, 1)
+    scratch.entries[1] = entry
+    write_shard_block!(writer, scratch, chunk_index, entry === nothing ? 0 : entry.n_bytes)
+    return nothing
+end
+
+# Write a block of consecutive chunks, starting at `first_chunk_index`, to the shard of the `writer` in chunk order. The
+# block is encoded in the `scratch`: the metadata in its `entries`, and `n_bytes` of ZIP entries, one after the other,
+# in its `entry`. A block arriving in its turn reserves its offsets under the lock, and is written in one piece after
+# the lock is released. A block arriving early is copied out of the `scratch` and held. The block that fills the gap
+# also writes the held blocks that follow it. Nothing waits, so any number of tasks may submit blocks in any order.
+# Only blocks submitted out of order are held.
+function write_shard_block!(
+    writer::IncrementalShardWriter,
+    scratch::ShardChunkScratch,
+    first_chunk_index::Int,
+    n_bytes::Int,
+)::Nothing
     is_positional = is_positional_sink(writer.sink)
-    entry_offset = nothing
+    block_offset = UInt64(0)
     held_writes = nothing
     @lock writer.write_lock begin
-        if chunk_index != writer.next_chunk_index
-            @assert chunk_index > writer.next_chunk_index && !haskey(writer.held_entries, chunk_index)
-            writer.held_entries[chunk_index] = entry === nothing ? nothing : (scratch.entry[1:(entry.n_bytes)], entry)
+        if first_chunk_index != writer.next_chunk_index
+            @assert first_chunk_index > writer.next_chunk_index && !haskey(writer.held_blocks, first_chunk_index)
+            writer.held_blocks[first_chunk_index] = (scratch.entry[1:n_bytes], copy(scratch.entries))
             return nothing
         end
-        entry_offset = reserve_shard_entry!(writer, chunk_index, entry)
-        if entry_offset !== nothing && !is_positional
-            write_to_sink!(writer.sink, view(scratch.entry, 1:(entry.n_bytes)))
+        block_offset = reserve_shard_block!(writer, first_chunk_index, scratch.entries)
+        if !is_positional
+            write_to_sink!(writer.sink, view(scratch.entry, 1:n_bytes))
         end
-        while haskey(writer.held_entries, writer.next_chunk_index)
-            held_chunk_index = writer.next_chunk_index
-            held_entry = pop!(writer.held_entries, held_chunk_index)
-            if held_entry === nothing
-                reserve_shard_entry!(writer, held_chunk_index, nothing)
-            else
-                held_bytes, held_metadata = held_entry
-                held_offset = reserve_shard_entry!(writer, held_chunk_index, held_metadata)
-                if is_positional
-                    if held_writes === nothing
-                        held_writes = Tuple{UInt64, Vector{UInt8}}[]
-                    end
-                    push!(held_writes, (held_offset, held_bytes))
-                else
-                    write_to_sink!(writer.sink, held_bytes)
+        while haskey(writer.held_blocks, writer.next_chunk_index)
+            held_first_chunk_index = writer.next_chunk_index
+            held_bytes, held_entries = pop!(writer.held_blocks, held_first_chunk_index)
+            held_offset = reserve_shard_block!(writer, held_first_chunk_index, held_entries)
+            if is_positional
+                if held_writes === nothing
+                    held_writes = Tuple{UInt64, Vector{UInt8}}[]
                 end
+                push!(held_writes, (held_offset, held_bytes))
+            else
+                write_to_sink!(writer.sink, held_bytes)
             end
         end
     end
     if is_positional
-        if entry_offset !== nothing
-            GC.@preserve scratch write_to_sink_at!(writer.sink, entry_offset, pointer(scratch.entry), entry.n_bytes)
+        if n_bytes > 0
+            GC.@preserve scratch write_to_sink_at!(writer.sink, block_offset, pointer(scratch.entry), n_bytes)
         end
         if held_writes !== nothing
             for (held_offset, held_bytes) in held_writes
-                GC.@preserve held_bytes write_to_sink_at!(
-                    writer.sink,
-                    held_offset,
-                    pointer(held_bytes),
-                    length(held_bytes),
-                )
+                if !isempty(held_bytes)
+                    GC.@preserve held_bytes write_to_sink_at!(
+                        writer.sink,
+                        held_offset,
+                        pointer(held_bytes),
+                        length(held_bytes),
+                    )
+                end
             end
         end
     end
     return nothing
 end
 
-# Reserve the offset of the chunk at `chunk_index`, which is next in turn, and record it in the Zarr index and the
-# central directory. Returns the offset, or `nothing` if the chunk is elided. The caller holds the write lock.
-function reserve_shard_entry!(
+# Reserve the offsets of a block of consecutive chunks, starting at `first_chunk_index`, which is next in turn, and
+# record each chunk in the Zarr index and the central directory. An elided chunk (a `nothing` entry) gets no offset.
+# Returns the offset of the block. The caller holds the write lock.
+function reserve_shard_block!(
     writer::IncrementalShardWriter,
-    chunk_index::Int,
-    entry::Maybe{ShardChunkEntry},
-)::Maybe{UInt64}
-    @assert chunk_index == writer.next_chunk_index
-    writer.next_chunk_index += 1
-    if entry === nothing
-        return nothing  # UNTESTED
+    first_chunk_index::Int,
+    entries::AbstractVector{Maybe{ShardChunkEntry}},
+)::UInt64
+    @assert first_chunk_index == writer.next_chunk_index
+    block_offset = writer.next_offset
+    for entry in entries
+        chunk_index = writer.next_chunk_index
+        writer.next_chunk_index += 1
+        if entry !== nothing
+            entry_offset = writer.next_offset
+            writer.next_offset += entry.n_bytes
+            writer.index_data[2 * chunk_index - 1] = entry_offset + entry.index_offset
+            writer.index_data[2 * chunk_index] = entry.index_length
+            writer.cd_entries[chunk_index] = (entry.crc, entry_offset, entry.compressed_size, entry.uncompressed_size)
+        end
     end
-    entry_offset = writer.next_offset
-    writer.next_offset += entry.n_bytes
-    writer.index_data[2 * chunk_index - 1] = entry_offset + entry.index_offset
-    writer.index_data[2 * chunk_index] = entry.index_length
-    writer.cd_entries[chunk_index] = (entry.crc, entry_offset, entry.compressed_size, entry.uncompressed_size)
-    return entry_offset
+    return block_offset
 end
 
-# Encode one inner chunk of the shard of the `writer` into `scratch.entry`, without writing it. Returns the entry, or
-# `nothing` if the chunk is elided. The array-to-bytes step runs separately from the bytes-to-bytes codecs. For a
-# ZIP-known method (ZSTD 93, DEFLATE 8), the CRC and the uncompressed size are of the raw bytes, which is what a generic
-# ZIP tool sees after decompressing.
+# Encode one inner chunk of the shard of the `writer` into `scratch.entry`, starting at `entry_start`, without writing
+# it. Returns the entry, or `nothing` if the chunk is elided. The array-to-bytes step runs separately from the
+# bytes-to-bytes codecs. For a ZIP-known method (ZSTD 93, DEFLATE 8), the CRC and the uncompressed size are of the raw
+# bytes, which is what a generic ZIP tool sees after decompressing.
 function encode_shard_chunk!(
     scratch::ShardChunkScratch,
     writer::IncrementalShardWriter,
     chunk_index::Int,
-    chunk_data::AbstractArray,
+    chunk_data::AbstractArray;
+    entry_start::Int = 1,
 )::Maybe{ShardChunkEntry}
     inner = writer.inner_pipeline
     method = zip_method_for_pipeline(inner)
@@ -2236,9 +2257,9 @@ function encode_shard_chunk!(
     return GC.@preserve chunk_data begin
         raw_bytes = shard_chunk_raw_bytes(scratch, inner, chunk_data)
         if method == DEFLATE_COMPRESSION_METHOD
-            encode_deflate_shard_entry!(scratch, inner, method, raw_bytes)
+            encode_deflate_shard_entry!(scratch, entry_start, inner, method, raw_bytes)
         else
-            encode_zip64_shard_entry!(scratch, inner, method, raw_bytes)
+            encode_zip64_shard_entry!(scratch, entry_start, inner, method, raw_bytes)
         end
     end
 end
@@ -2274,6 +2295,7 @@ end
 # valid gzip stream. The header has no ZIP64 extra, so the name ends exactly where the payload starts.
 function encode_deflate_shard_entry!(
     scratch::ShardChunkScratch,
+    entry_start::Int,
     inner::Zarr.AbstractCodecPipeline,
     method::UInt16,
     raw_bytes::Vector{UInt8},
@@ -2283,21 +2305,22 @@ function encode_deflate_shard_entry!(
     options = DeflateEncodeOptions(; level = gzip_codec.level)
     name_length = length(scratch.name)
     header_size = LOCAL_FILE_HEADER_FIXED_SIZE + name_length
+    payload_start = entry_start + header_size
     payload_capacity = encode_bound(options, Int64(length(raw_bytes)))
-    grow_buffer!(scratch.entry, header_size + payload_capacity + 8)
+    grow_buffer!(scratch.entry, payload_start - 1 + payload_capacity + 8)
     maybe_payload_size =
-        try_encode!(options, view(scratch.entry, (header_size + 1):(header_size + payload_capacity)), raw_bytes)
+        try_encode!(options, view(scratch.entry, payload_start:(payload_start + payload_capacity - 1)), raw_bytes)
     @assert is_size(maybe_payload_size)
     payload_size = Int(maybe_payload_size)
     compressed_size = UInt64(payload_size)
     uncompressed_size = UInt64(length(raw_bytes))
     crc = zip_crc32(raw_bytes)
-    trailer_position = header_size + Int(payload_size) + 1
+    trailer_position = payload_start + payload_size
     write_little_endian_uint32!(scratch.entry, trailer_position, crc)
     write_little_endian_uint32!(scratch.entry, trailer_position + 4, UInt32(length(raw_bytes) % UInt32))
     write_local_file_header!(
         scratch.entry,
-        1,
+        entry_start,
         scratch.name,
         compressed_size,
         uncompressed_size,
@@ -2321,22 +2344,24 @@ end
 # the codecs elide the chunk.
 function encode_zip64_shard_entry!(
     scratch::ShardChunkScratch,
+    entry_start::Int,
     inner::Zarr.AbstractCodecPipeline,
     method::UInt16,
     raw_bytes::Vector{UInt8},
 )::Maybe{ShardChunkEntry}
     header_size = LOCAL_FILE_HEADER_FIXED_SIZE + length(scratch.name) + ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE
+    payload_start = entry_start + header_size
     bytes_codecs = inner.bytes_bytes
     if isempty(bytes_codecs)
         payload_size = length(raw_bytes)
-        grow_buffer!(scratch.entry, header_size + payload_size)
-        copyto!(scratch.entry, header_size + 1, raw_bytes, 1, payload_size)
+        grow_buffer!(scratch.entry, payload_start - 1 + payload_size)
+        copyto!(scratch.entry, payload_start, raw_bytes, 1, payload_size)
     elseif length(bytes_codecs) == 1 && bytes_codecs[1] isa Zarr.Codecs.V3Codecs.BloscV3Codec
         payload_capacity = length(raw_bytes) + MAX_OVERHEAD
-        grow_buffer!(scratch.entry, header_size + payload_capacity)
+        grow_buffer!(scratch.entry, payload_start - 1 + payload_capacity)
         payload_size = GC.@preserve scratch blosc_encode!(
             bytes_codecs[1],
-            pointer(scratch.entry, header_size + 1),
+            pointer(scratch.entry, payload_start),
             payload_capacity,
             raw_bytes,
         )
@@ -2351,18 +2376,27 @@ function encode_zip64_shard_entry!(
             return nothing  # UNTESTED
         end
         payload_size = length(encoded)
-        grow_buffer!(scratch.entry, header_size + payload_size)
-        copyto!(scratch.entry, header_size + 1, encoded, 1, payload_size)
+        grow_buffer!(scratch.entry, payload_start - 1 + payload_size)
+        copyto!(scratch.entry, payload_start, encoded, 1, payload_size)
     end
     compressed_size = UInt64(payload_size)
     if method == STORED_COMPRESSION_METHOD
         uncompressed_size = compressed_size
-        crc = zip_crc32(view(scratch.entry, (header_size + 1):(header_size + payload_size)))
+        crc = zip_crc32(view(scratch.entry, payload_start:(payload_start + payload_size - 1)))
     else
         uncompressed_size = UInt64(length(raw_bytes))
         crc = zip_crc32(raw_bytes)
     end
-    write_local_file_header!(scratch.entry, 1, scratch.name, compressed_size, uncompressed_size, crc, 0, method)
+    write_local_file_header!(
+        scratch.entry,
+        entry_start,
+        scratch.name,
+        compressed_size,
+        uncompressed_size,
+        crc,
+        0,
+        method,
+    )
     return ShardChunkEntry(
         header_size + payload_size,
         UInt64(header_size),
@@ -2493,7 +2527,7 @@ end
 
 function finalize_shard!(writer::IncrementalShardWriter)::Nothing
     @lock writer.write_lock begin
-        write_held_shard_entries!(writer)
+        write_held_shard_blocks!(writer)
         seek_in_sink!(writer.sink, writer.next_offset)
         encoded_index = Zarr.pipeline_encode(writer.index_pipeline, writer.index_data, nothing)
         @assert UInt64(length(encoded_index)) == writer.index_size
@@ -2508,28 +2542,18 @@ function finalize_shard!(writer::IncrementalShardWriter)::Nothing
     return nothing
 end
 
-# Write the chunks still held when the shard is finalized, in chunk order. They follow chunks that were never submitted,
+# Write the blocks still held when the shard is finalized, in chunk order. They follow chunks that were never submitted,
 # whose index slots stay empty. The caller holds the write lock.
-function write_held_shard_entries!(writer::IncrementalShardWriter)::Nothing
-    for held_chunk_index in sort!(collect(keys(writer.held_entries)))
-        held_entry = pop!(writer.held_entries, held_chunk_index)
-        writer.next_chunk_index = held_chunk_index
-        if held_entry === nothing
-            reserve_shard_entry!(writer, held_chunk_index, nothing)  # UNTESTED
+function write_held_shard_blocks!(writer::IncrementalShardWriter)::Nothing
+    for held_first_chunk_index in sort!(collect(keys(writer.held_blocks)))
+        held_bytes, held_entries = pop!(writer.held_blocks, held_first_chunk_index)
+        writer.next_chunk_index = held_first_chunk_index
+        held_offset = reserve_shard_block!(writer, held_first_chunk_index, held_entries)
+        if is_positional_sink(writer.sink)
+            GC.@preserve held_bytes write_to_sink_at!(writer.sink, held_offset, pointer(held_bytes), length(held_bytes))
         else
-            held_bytes, held_metadata = held_entry
-            held_offset = reserve_shard_entry!(writer, held_chunk_index, held_metadata)
-            if is_positional_sink(writer.sink)
-                GC.@preserve held_bytes write_to_sink_at!(
-                    writer.sink,
-                    held_offset,
-                    pointer(held_bytes),
-                    length(held_bytes),
-                )
-            else
-                seek_in_sink!(writer.sink, held_offset)
-                write_to_sink!(writer.sink, held_bytes)
-            end
+            seek_in_sink!(writer.sink, held_offset)
+            write_to_sink!(writer.sink, held_bytes)
         end
     end
     return nothing
@@ -2910,9 +2934,15 @@ function sparse_matrix_json_bytes(
     end
 end
 
-# Write all the inner chunks of `data` to the shard of the `writer`. The chunks are encoded in parallel, each into the
-# scratch of its thread, and written in chunk order (see [`submit_shard_chunk!`](@ref)), so the shard holds the same
-# bytes as a serial write. The loop claims the chunks in order, so few arrive before their turn.
+# The number of consecutive inner chunks [`write_shard_data!`](@ref) encodes and writes as one block. A block takes one
+# loop claim, one hold of the writer's lock and one write, instead of one per chunk.
+const SHARD_WRITE_BLOCK_CHUNKS = 8
+
+# Write all the inner chunks of `data` to the shard of the `writer`. Blocks of consecutive chunks are encoded in
+# parallel, each into the scratch of its thread, and written in chunk order (see [`write_shard_block!`](@ref)), so the
+# shard holds the same bytes as a serial write. The loop is given an `order`, so it claims one block at a time in order,
+# and few blocks arrive before their turn. Without one, each claim is a large run of blocks, and most blocks arrive
+# early and are held.
 function write_shard_data!(
     writer::IncrementalShardWriter,
     data::AbstractArray{T, N},
@@ -2920,26 +2950,54 @@ function write_shard_data!(
 )::Nothing where {T, N}
     chunks_per_shard = writer.chunks_per_shard
     n_chunks = prod(chunks_per_shard)
+    n_blocks = cld(n_chunks, SHARD_WRITE_BLOCK_CHUNKS)
     fill_value = shard_fill_value(T)
     scratch_per_thread = [ShardChunkScratch() for _ in 1:maxthreadid()]
     parallel_loop_wo_rng(
-        1:n_chunks;
+        1:n_blocks;
         name = "write_shard_data!",
-        progress = DebugProgress(n_chunks; group = :daf_loops, desc = "write_shard_data!"),
+        progress = DebugProgress(n_blocks; group = :daf_loops, desc = "write_shard_data!"),
+        order = collect(1:n_blocks),
         nested = true,
-    ) do chunk_index
+    ) do block_index
         scratch = scratch_per_thread[threadid()]
-        chunk = extract_inner_chunk(
-            data,
-            chunk_index,
-            chunks_per_shard,
-            inner_chunk_shape,
-            fill_value;
-            padded_bytes = scratch.padded,
-        )
-        submit_shard_chunk!(writer, scratch, chunk_index, chunk)
+        first_chunk_index = (block_index - 1) * SHARD_WRITE_BLOCK_CHUNKS + 1
+        last_chunk_index = min(block_index * SHARD_WRITE_BLOCK_CHUNKS, n_chunks)
+        submit_shard_block!(writer, scratch, first_chunk_index, last_chunk_index) do chunk_index
+            return extract_inner_chunk(
+                data,
+                chunk_index,
+                chunks_per_shard,
+                inner_chunk_shape,
+                fill_value;
+                padded_bytes = scratch.padded,
+            )
+        end
         return nothing
     end
+    return nothing
+end
+
+# Encode the chunks `first_chunk_index:last_chunk_index` of the shard of the `writer` into the `scratch`, one after the
+# other, and write them as one block (see [`write_shard_block!`](@ref)). `chunk_data_of(chunk_index)` returns the data
+# of each chunk.
+function submit_shard_block!(
+    chunk_data_of::Function,
+    writer::IncrementalShardWriter,
+    scratch::ShardChunkScratch,
+    first_chunk_index::Int,
+    last_chunk_index::Int,
+)::Nothing
+    resize!(scratch.entries, last_chunk_index - first_chunk_index + 1)
+    n_bytes = 0
+    for chunk_index in first_chunk_index:last_chunk_index
+        entry = encode_shard_chunk!(scratch, writer, chunk_index, chunk_data_of(chunk_index); entry_start = n_bytes + 1)
+        scratch.entries[chunk_index - first_chunk_index + 1] = entry
+        if entry !== nothing
+            n_bytes += entry.n_bytes
+        end
+    end
+    write_shard_block!(writer, scratch, first_chunk_index, n_bytes)
     return nothing
 end
 
@@ -3847,24 +3905,24 @@ function packed_format_streaming_dense_matrix(
     base_key = "matrices/$(rows_axis)/$(columns_axis)/$(name)"
     writer = packed_make_streaming_shard_writer(daf, "$(base_key).zip", T, chunks_per_shard, chunk_shape, codec)
 
-    # The chunks of a column follow each other in chunk order, so they are contiguous in the shard. Columns may be
-    # written from any task, so each column takes a scratch from a reusable storage.
+    # The chunks of a column are consecutive, so each column is written as one block. Columns may be written from any
+    # task, so each column takes a scratch from a reusable storage.
     scratches = ReusableStorage(() -> ShardChunkScratch())
     fill_value = shard_fill_value(T)
     encoder =
         (column::Int, chunk_buffer::Vector{T}) -> begin
             column_data = reshape(chunk_buffer, Int(nrows), 1)
+            column_base = (column - 1) * n_row_tiles
             with_reusable(scratches) do scratch
-                for row_tile in 1:n_row_tiles
-                    tile = extract_inner_chunk(
+                submit_shard_block!(writer, scratch, column_base + 1, column_base + n_row_tiles) do chunk_index
+                    return extract_inner_chunk(
                         column_data,
-                        row_tile,
+                        chunk_index - column_base,
                         (n_row_tiles, 1),
                         chunk_shape,
                         fill_value;
                         padded_bytes = scratch.padded,
                     )
-                    submit_shard_chunk!(writer, scratch, (column - 1) * n_row_tiles + row_tile, tile)
                 end
                 return nothing
             end
