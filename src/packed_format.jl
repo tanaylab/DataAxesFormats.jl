@@ -2681,12 +2681,45 @@ function sparse_matrix_json_bytes(
     end
 end
 
+# The number of inner chunks [`write_shard_data!`](@ref) encodes in parallel before writing them.
+const SHARD_WRITE_BATCH_CHUNKS = 1024
+
+# Write all the inner chunks of `data` to the shard of the `writer`. The chunks are encoded in parallel, in batches of
+# `SHARD_WRITE_BATCH_CHUNKS`. Each batch is written in chunk order, so the shard holds the same bytes as a serial write.
+function write_shard_data!(
+    writer::IncrementalShardWriter,
+    data::AbstractArray{T, N},
+    inner_chunk_shape::NTuple{N, Int},
+)::Nothing where {T, N}
+    chunks_per_shard = writer.chunks_per_shard
+    n_chunks = prod(chunks_per_shard)
+    fill_value = shard_fill_value(T)
+    encoded_chunks = Vector{Maybe{EncodedShardChunk}}(undef, min(n_chunks, SHARD_WRITE_BATCH_CHUNKS))
+    for first_chunk_index in 1:SHARD_WRITE_BATCH_CHUNKS:n_chunks
+        last_chunk_index = min(first_chunk_index + SHARD_WRITE_BATCH_CHUNKS - 1, n_chunks)
+        n_batch_chunks = last_chunk_index - first_chunk_index + 1
+        parallel_loop_wo_rng(
+            first_chunk_index:last_chunk_index;
+            name = "write_shard_data!",
+            progress = DebugProgress(n_batch_chunks; group = :daf_loops, desc = "write_shard_data!"),
+        ) do chunk_index
+            chunk = extract_inner_chunk(data, chunk_index, chunks_per_shard, inner_chunk_shape, fill_value)
+            encoded_chunks[chunk_index - first_chunk_index + 1] = encode_shard_chunk(writer, chunk_index, chunk)
+            return nothing
+        end
+        write_shard_chunks!(
+            writer,
+            (encoded_chunk for encoded_chunk in view(encoded_chunks, 1:n_batch_chunks) if encoded_chunk !== nothing),
+        )
+    end
+    return nothing
+end
+
 # Encode `data` as a single dual-format shard byte blob and return the bytes. The caller decides where to
 # put them: the `FilesDaf` packed write path writes them to a fresh `<name>.zip` `IOStream`; the `ZipDaf`
 # packed write path stores them as a new outer-zip entry via `packed_write_bytes!`.
-# Implementation: drive [`IncrementalShardWriter`](@ref) over an [`InMemorySink`](@ref), slicing `data` into
-# the inner-chunk grid and submitting one chunk at a time (partial-edge chunks are padded with the
-# `shard_fill_value(T)`). The resulting bytes are byte-identical to what a `ZarrDaf` in `DirectoryStore` mode
+# Implementation: [`write_shard_data!`](@ref) through an [`IncrementalShardWriter`](@ref) over an
+# [`InMemorySink`](@ref). The resulting bytes are byte-identical to what a `ZarrDaf` in `DirectoryStore` mode
 # would write at `<group>/<name>/c/0[/0]` for the same data, which is the property `zarr_convert.jl` relies
 # on for hard-link conversion across backends.
 function encode_packed_dense_array(
@@ -2697,14 +2730,7 @@ function encode_packed_dense_array(
     chunks_per_shard = Zarr.Codecs.V3Codecs.calculate_chunks_per_shard(size(data), inner_chunk_shape)
     sink = InMemorySink()
     writer = make_streaming_shard_writer(sink, T, chunks_per_shard, bytes_bytes_codecs)
-    fill_value = shard_fill_value(T)
-    for chunk_index in 1:prod(chunks_per_shard)
-        submit_shard_chunk!(
-            writer,
-            chunk_index,
-            extract_inner_chunk(data, chunk_index, chunks_per_shard, inner_chunk_shape, fill_value),
-        )
-    end
+    write_shard_data!(writer, data, inner_chunk_shape)
     finalize_shard!(writer)
     return take_bytes!(sink)
 end

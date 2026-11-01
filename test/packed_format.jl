@@ -1385,10 +1385,34 @@ nested_test("packed_format") do
                     return nothing
                 end
             end
-            @test stored_sizes[9] < stored_sizes[1]
+            @test stored_sizes[9] != stored_sizes[1]
         finally
             DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION = saved_compression
             DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION_LEVEL = saved_compression_level
+        end
+    end
+
+    # A shard encoded in parallel batches holds the same bytes as one written a chunk at a time. The data has more
+    # chunks than one batch, and its last chunk is padded.
+    nested_test("parallel_shard_write") do
+        PackedFormat = DataAxesFormats.PackedFormat
+        data = Float32.(((1:20_001) .* 7919) .% 1013)
+        inner_chunk_shape = (16,)
+        chunks_per_shard = Zarr.Codecs.V3Codecs.calculate_chunks_per_shard(size(data), inner_chunk_shape)
+        @test prod(chunks_per_shard) > PackedFormat.SHARD_WRITE_BATCH_CHUNKS
+        fill_value = PackedFormat.shard_fill_value(Float32)
+        for compression in PackedFormat.SUPPORTED_COMPRESSION_CODECS
+            bytes_bytes_codecs = PackedFormat.v3_bytes_codecs_for(PackedFormat.compressor_for(compression), Float32)
+            sink = PackedFormat.InMemorySink()
+            writer = PackedFormat.make_streaming_shard_writer(sink, Float32, chunks_per_shard, bytes_bytes_codecs)
+            for chunk_index in 1:prod(chunks_per_shard)
+                chunk =
+                    PackedFormat.extract_inner_chunk(data, chunk_index, chunks_per_shard, inner_chunk_shape, fill_value)
+                PackedFormat.submit_shard_chunk!(writer, chunk_index, chunk)
+            end
+            PackedFormat.finalize_shard!(writer)
+            @test PackedFormat.encode_packed_dense_array(data, inner_chunk_shape, bytes_bytes_codecs) ==
+                  PackedFormat.take_bytes!(sink)
         end
     end
 

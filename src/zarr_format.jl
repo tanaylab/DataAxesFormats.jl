@@ -236,7 +236,6 @@ import ..PackedFormat.build_shard_metadata
 import ..PackedFormat.ChunkedArray
 import ..PackedFormat.chunks_for
 import ..PackedFormat.compressor_for
-import ..PackedFormat.extract_inner_chunk
 import ..PackedFormat.finalize_shard!
 import ..PackedFormat.flush_packed_dense_matrix!
 import ..PackedFormat.HTTP_CHUNK_POOL
@@ -260,6 +259,7 @@ import ..PackedFormat.take_bytes!
 import ..PackedFormat.url_byte_fetcher
 import ..PackedFormat.url_suffix_byte_fetcher
 import ..PackedFormat.v3_bytes_codecs_for
+import ..PackedFormat.write_shard_data!
 import ..PackedFormat.VLenUTF8V3Codec
 import ..PackedFormat.write_to_sink!
 import ..Reorder
@@ -948,11 +948,7 @@ function write_packed_shard!(array::ZArray{T, N}, data::AbstractArray{T, N})::No
         shard_fill_value(T),
         chunks_per_shard,
     )
-    fill_value = shard_fill_value(T)
-    for chunk_index in 1:prod(chunks_per_shard)
-        chunk_view = extract_inner_chunk(data, chunk_index, chunks_per_shard, inner_chunk_shape, fill_value)
-        submit_shard_chunk!(writer, chunk_index, chunk_view)
-    end
+    write_shard_data!(writer, data, inner_chunk_shape)
     finalize_shard!(writer)
     return nothing
 end
