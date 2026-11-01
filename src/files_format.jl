@@ -1306,9 +1306,9 @@ function packed_make_streaming_shard_writer(
     shard_key::AbstractString,
     ::Type{T},
     chunks_per_shard::Tuple,
-    ::NTuple{N, Int},
+    ::Integer,
     codec::PackedCodec,
-)::IncrementalShardWriter where {T <: StorageReal, N}
+)::IncrementalShardWriter where {T}
     return open_streaming_shard_writer("$(files.path)/$(shard_key)", T, chunks_per_shard, v3_bytes_codecs_for(codec, T))
 end
 

@@ -356,6 +356,7 @@
     colptr::Vector{Ti}
     rowval_source::AbstractVector{Ti}
     nzval_source::AbstractVector{Tv}
+    max_n_stored_in_column::Int
     materialization_cell::MaterializationCell{SparseMatrixCSC{Tv, Ti}}
     did_report_scalar_access::Threads.Atomic{Bool}
 end
@@ -387,11 +388,9 @@ end
 <code>lazy[rows, columns]
 </code>, 
 <code>lazy[:, column]
-</code>, 
+</code> and 
 <code>lazy[rows, column]
-</code>, and a 
-<code>view
-</code> of any of these. It returns a new 
+</code>. It returns a new 
 <code>SparseMatrixCSC
 </code> (or 
 <code>SparseVector
@@ -399,7 +398,17 @@ end
 </p>
 <p>The TanayLabUtilities 
 <code>parallel_foreach_column
-</code> reads all or some of the columns one at a time, into a buffer per thread. It never holds the whole matrix, and allocates nothing per column.
+</code> reads all or some of the columns one at a time, into a buffer per thread. It never holds the whole matrix, and allocates nothing per column. A 
+<code>view
+</code> of the lazy matrix is read the same way. Its 
+<code>plain_array
+</code> reads only the columns the 
+<code>view
+</code> selects. So does 
+<code>plain_array
+</code> of a 
+<code>view
+</code> of its transpose.
 </p>
 <p>Any other access reads the whole matrix into a 
 <code>SparseMatrixCSC

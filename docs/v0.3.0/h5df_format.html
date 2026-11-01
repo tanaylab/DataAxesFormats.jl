@@ -644,13 +644,13 @@
 </p>
 </div>
 </div>
-<div class="admonition is-info" id="Note-8657f73ab2165025">
+<div class="admonition is-info" id="Note-47cf7310b07f39b7">
 <header class="admonition-header">Note
-<a class="admonition-anchor" href="#Note-8657f73ab2165025" title="Permalink">
+<a class="admonition-anchor" href="#Note-47cf7310b07f39b7" title="Permalink">
 </a>
 </header>
 <div class="admonition-body">
-<p>Deleting data from an HDF5 file does not reuse the abandoned storage. In general if you want to reclaim that storage, you will need to repack the file, which will invalidate any memory-mapped buffers created for it. Therefore, if you delete data (e.g. using 
+<p>Deleting data from an HDF5 file may leave its storage abandoned. HDF5 may reuse it for data written while the file stays open, but not while an array memory-mapped onto it is alive. Storage that isn&#39;t reused this way is lost when the file is closed. In general if you want to reclaim that storage, you will need to repack the file, which will invalidate any memory-mapped buffers created for it. Therefore, if you delete data (e.g. using 
 <a href="writers.html#DataAxesFormats.Writers.delete_vector!">
 <code>delete_vector!
 </code>

@@ -783,16 +783,16 @@ function packed_make_streaming_shard_writer(
     shard_key::AbstractString,
     ::Type{T},
     chunks_per_shard::Tuple,
-    chunk_shape::NTuple{N, Int},
+    raw_bytes_bound::Integer,
     codec::PackedCodec,
-)::IncrementalShardWriter where {T <: StorageReal, N}
+)::IncrementalShardWriter where {T}
     n_chunks = UInt64(prod(chunks_per_shard))
     per_chunk_overhead = UInt64(LOCAL_FILE_HEADER_FIXED_SIZE + 64 + ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE)
-    per_chunk_upper_bound = UInt64(2 * prod(chunk_shape) * sizeof(T) + 4096) + per_chunk_overhead
+    chunks_upper_bound = UInt64(2 * raw_bytes_bound) + n_chunks * (UInt64(4096) + per_chunk_overhead)
     per_cd_entry_overhead = UInt64(CENTRAL_DIRECTORY_ENTRY_FIXED_SIZE + 64 + ZIP64_CENTRAL_DIRECTORY_EXTRA_SIZE)
     index_size = UInt64(16 * n_chunks + 4)
     cd_region_size = n_chunks * per_cd_entry_overhead + UInt64(TRAILING_END_OF_CENTRAL_DIRECTORY_REGION_SIZE)
-    reserved_size = index_size + n_chunks * per_chunk_upper_bound + cd_region_size
+    reserved_size = index_size + chunks_upper_bound + cd_region_size
     physical_key = entry_key(zip_daf, shard_key)
     region = reserve_mmap_zip_entry!(zip_daf.store, physical_key, reserved_size)
     sink = MmapShardRegion(zip_daf.store, physical_key, region, UInt64(0), UInt64(0), reserved_size)

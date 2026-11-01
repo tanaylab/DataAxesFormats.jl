@@ -387,7 +387,8 @@
     leaf::AbstractString,
     mode::AbstractString = &quot;r&quot;;
     [name::Maybe{AbstractString} = nothing,
-    packed::Bool = false]
+    packed::Bool = false,
+    skip_missing::Bool = false]
 )::Union{DafReader, DafWriter}
 </code>
 </pre>
@@ -406,6 +407,14 @@
 </code> as its per-daf default. Base repositories are always opened in &quot;r&quot; mode and the 
 <code>packed
 </code> value is irrelevant for them.
+</p>
+<p>If 
+<code>skip_missing
+</code> is 
+<code>true
+</code>, a recorded base whose path doesn&#39;t exist is skipped, and reported in an info message. This allows opening a repository whose bases were published separately, using only the ones that were downloaded. A skipped base hides its own bases too, since they are recorded only inside it. Its data is missing from the chain, so reading it fails as for any missing property. A base inside a file (
+<code>...#group
+</code>) is missing only if the file is, and an HTTP base is never missing. A base that exists but fails to open still raises an error.
 </p>
 <p>A convenient way to create persistent complete chains is using 
 <a href="chains.html#DataAxesFormats.Chains.complete_chain!">

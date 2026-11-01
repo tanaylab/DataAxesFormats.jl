@@ -1367,6 +1367,30 @@ nested_test("packed_format") do
         end
     end
 
+    # Packed strings stream into their file or reserved entry. The reserved entry is sized from the strings themselves,
+    # so one very long string still fits. There are several chunks, the last one padded.
+    nested_test("streamed_strings") do
+        values = [isodd(index) ? "" : ["a", "ä", "日本語", "x"^50][mod1(index ÷ 2, 4)] for index in 1:3001]
+        values[1500] = Random.randstring(Random.MersenneTwister(1), 200_000)
+        matrix_values = reshape(values[1:3000], 300, 10)
+        mktempdir() do path
+            for (open_daf, daf_path) in (
+                ((daf_path, mode) -> FilesDaf(daf_path, mode; name = "files!", packed = true), "$(path)/files"),
+                ((daf_path, mode) -> ZipDaf(daf_path, mode; name = "zip!", packed = true), "$(path)/zip.daf.zip"),
+            )
+                daf = open_daf(daf_path, "w+")
+                add_axis!(daf, "entry", ["e$(index)" for index in 1:3001])
+                add_axis!(daf, "row", ["r$(index)" for index in 1:300])
+                add_axis!(daf, "column", ["c$(index)" for index in 1:10])
+                set_vector!(daf, "entry", "value", values)
+                set_matrix!(daf, "row", "column", "value", matrix_values; relayout = false)
+                reader = open_daf(daf_path, "r")
+                @test get_vector(reader, "entry", "value") == values
+                @test get_matrix(reader, "row", "column", "value"; relayout = false) == matrix_values
+            end
+        end
+    end
+
     # A gzip chunk in a ZIP entry is compressed at the requested level.
     nested_test("gzip_level") do
         saved_compression = DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION
@@ -1393,43 +1417,67 @@ nested_test("packed_format") do
     end
 
     # A shard encoded in parallel holds the same bytes as one written a chunk at a time, in order or in reverse order,
-    # and through a file. The last chunk is padded.
+    # and through a file from contiguous or strided data. The last chunk is padded. Without chunk 1, every chunk is held
+    # until the shard is finalized, and the index slot of chunk 1 stays empty.
     nested_test("parallel_shard_write") do
         PackedFormat = DataAxesFormats.PackedFormat
         data = Float32.(((1:20_001) .* 7919) .% 1013)
+        strided_data = view(repeat(data; inner = 2), 1:2:(2 * length(data)))
         inner_chunk_shape = (16,)
         chunks_per_shard = Zarr.Codecs.V3Codecs.calculate_chunks_per_shard(size(data), inner_chunk_shape)
         n_chunks = prod(chunks_per_shard)
         fill_value = PackedFormat.shard_fill_value(Float32)
         scratch = PackedFormat.ShardChunkScratch()
+
+        function submit_chunks(sink, chunk_indices, bytes_bytes_codecs)::Nothing
+            writer = PackedFormat.make_streaming_shard_writer(sink, Float32, chunks_per_shard, bytes_bytes_codecs)
+            for chunk_index in chunk_indices
+                chunk =
+                    PackedFormat.extract_inner_chunk(data, chunk_index, chunks_per_shard, inner_chunk_shape, fill_value)
+                PackedFormat.submit_shard_chunk!(writer, scratch, chunk_index, chunk)
+            end
+            PackedFormat.finalize_shard!(writer)
+            return nothing
+        end
+
+        function memory_chunks_bytes(chunk_indices, bytes_bytes_codecs)::Vector{UInt8}
+            sink = PackedFormat.InMemorySink()
+            submit_chunks(sink, chunk_indices, bytes_bytes_codecs)
+            return PackedFormat.take_bytes!(sink)
+        end
+
         mktempdir() do path
-            for compression in PackedFormat.SUPPORTED_COMPRESSION_CODECS
-                bytes_bytes_codecs = PackedFormat.v3_bytes_codecs_for(PackedFormat.compressor_for(compression), Float32)
+            all_bytes_bytes_codecs = (
+                (),
+                (
+                    PackedFormat.v3_bytes_codecs_for(PackedFormat.compressor_for(compression), Float32) for
+                    compression in PackedFormat.SUPPORTED_COMPRESSION_CODECS
+                )...,
+            )
+            for bytes_bytes_codecs in all_bytes_bytes_codecs
                 parallel_bytes = PackedFormat.encode_packed_dense_array(data, inner_chunk_shape, bytes_bytes_codecs)
                 for chunk_indices in (1:n_chunks, n_chunks:-1:1)
-                    sink = PackedFormat.InMemorySink()
-                    writer =
-                        PackedFormat.make_streaming_shard_writer(sink, Float32, chunks_per_shard, bytes_bytes_codecs)
-                    for chunk_index in chunk_indices
-                        chunk = PackedFormat.extract_inner_chunk(
-                            data,
-                            chunk_index,
-                            chunks_per_shard,
-                            inner_chunk_shape,
-                            fill_value,
-                        )
-                        PackedFormat.submit_shard_chunk!(writer, scratch, chunk_index, chunk)
-                    end
-                    PackedFormat.finalize_shard!(writer)
-                    @test PackedFormat.take_bytes!(sink) == parallel_bytes
+                    @test memory_chunks_bytes(chunk_indices, bytes_bytes_codecs) == parallel_bytes
                 end
+                for source_data in (data, strided_data)
+                    open("$(path)/shard", "w") do io
+                        writer =
+                            PackedFormat.make_streaming_shard_writer(io, Float32, chunks_per_shard, bytes_bytes_codecs)
+                        PackedFormat.write_shard_data!(writer, source_data, inner_chunk_shape)
+                        PackedFormat.finalize_shard!(writer)
+                        return nothing
+                    end
+                    @test read("$(path)/shard") == parallel_bytes
+                end
+
+                held_bytes = memory_chunks_bytes(2:n_chunks, bytes_bytes_codecs)
+                @test reinterpret(UInt64, held_bytes[1:16]) == [typemax(UInt64), typemax(UInt64)]
+                @test memory_chunks_bytes(n_chunks:-1:2, bytes_bytes_codecs) == held_bytes
                 open("$(path)/shard", "w") do io
-                    writer = PackedFormat.make_streaming_shard_writer(io, Float32, chunks_per_shard, bytes_bytes_codecs)
-                    PackedFormat.write_shard_data!(writer, data, inner_chunk_shape)
-                    PackedFormat.finalize_shard!(writer)
+                    submit_chunks(io, 2:n_chunks, bytes_bytes_codecs)
                     return nothing
                 end
-                @test read("$(path)/shard") == parallel_bytes
+                @test read("$(path)/shard") == held_bytes
             end
         end
     end

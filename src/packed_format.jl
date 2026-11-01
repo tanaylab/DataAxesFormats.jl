@@ -1322,7 +1322,7 @@ function fetch_chunks_coalesced!(
     end
     # The chunks are usually stored in order, which is cheaper to check than to sort.
     if !issorted(nonempty_with_offset; by = entry -> entry[2])
-        sort!(nonempty_with_offset; by = entry -> entry[2])
+        sort!(nonempty_with_offset; by = entry -> entry[2])  # UNTESTED
     end
     max_gap_bytes = packed_http_max_coalesce_gap_bytes()
 
@@ -2017,15 +2017,15 @@ function write_to_sink_at!(io::IOStream, offset::UInt64, bytes::Ptr{UInt8}, n_by
     file_descriptor = Base.cconvert(Cint, fd(io))
     n_written = 0
     while n_written < n_bytes
-        result = @ccall gc_safe = true pwrite(
+        result = @ccall gc_safe = true pwrite(  # NOLINT
             file_descriptor::Cint,
             (bytes + n_written)::Ptr{UInt8},
             (n_bytes - n_written)::Csize_t,
             (offset + n_written)::Int64,
         )::Cssize_t
         if result < 0
-            errno = Libc.errno()
-            if errno != Libc.EINTR
+            errno = Libc.errno()  # UNTESTED
+            if errno != Libc.EINTR  # UNTESTED
                 error("failed to write a packed chunk: $(Libc.strerror(errno))")  # UNTESTED
             end
         else
@@ -2058,7 +2058,7 @@ end
 # after the other, and `entries` their metadata. `raw` holds the raw bytes of a chunk when its memory can't be used in
 # place. `padded` holds a trailing-edge chunk padded to the full chunk shape. `name` holds a chunk's entry name. Each
 # grows to the largest block it encodes.
-struct ShardChunkScratch
+struct ShardChunkScratch  # NOLINT
     entry::Vector{UInt8}
     entries::Vector{Maybe{ShardChunkEntry}}
     raw::Vector{UInt8}
@@ -2076,6 +2076,13 @@ function grow_buffer!(buffer::Vector{UInt8}, n_bytes::Integer)::Nothing
         resize!(buffer, n_bytes)
     end
     return nothing
+end
+
+# A block of consecutive chunks that arrived before its turn. `bytes` holds their ZIP entries, one after the other, and
+# `entries` their metadata.
+struct HeldShardBlock
+    bytes::Vector{UInt8}
+    entries::Vector{Maybe{ShardChunkEntry}}
 end
 
 # Streaming writer for dual-format shards — simultaneously a valid Zarr v3 sharded-array byte stream AND a
@@ -2103,7 +2110,7 @@ mutable struct IncrementalShardWriter{S, P1 <: Zarr.AbstractCodecPipeline, P2 <:
     codec_json_cd_entry::Maybe{Tuple{UInt32, UInt64, UInt64, UInt64, Vector{UInt8}}}
     next_chunk_index::Int
     next_offset::UInt64
-    held_blocks::Dict{Int, Tuple{Vector{UInt8}, Vector{Maybe{ShardChunkEntry}}}}
+    held_blocks::Dict{Int, HeldShardBlock}
     write_lock::ReentrantLock
 end
 
@@ -2133,7 +2140,7 @@ function IncrementalShardWriter(
         nothing,
         1,
         index_size,
-        Dict{Int, Tuple{Vector{UInt8}, Vector{Maybe{ShardChunkEntry}}}}(),
+        Dict{Int, HeldShardBlock}(),
         ReentrantLock(),
     )
 end
@@ -2171,7 +2178,7 @@ function write_shard_block!(
     @lock writer.write_lock begin
         if first_chunk_index != writer.next_chunk_index
             @assert first_chunk_index > writer.next_chunk_index && !haskey(writer.held_blocks, first_chunk_index)
-            writer.held_blocks[first_chunk_index] = (scratch.entry[1:n_bytes], copy(scratch.entries))
+            writer.held_blocks[first_chunk_index] = HeldShardBlock(scratch.entry[1:n_bytes], copy(scratch.entries))
             return nothing
         end
         block_offset = reserve_shard_block!(writer, first_chunk_index, scratch.entries)
@@ -2180,15 +2187,15 @@ function write_shard_block!(
         end
         while haskey(writer.held_blocks, writer.next_chunk_index)
             held_first_chunk_index = writer.next_chunk_index
-            held_bytes, held_entries = pop!(writer.held_blocks, held_first_chunk_index)
-            held_offset = reserve_shard_block!(writer, held_first_chunk_index, held_entries)
+            held_block = pop!(writer.held_blocks, held_first_chunk_index)
+            held_offset = reserve_shard_block!(writer, held_first_chunk_index, held_block.entries)
             if is_positional
                 if held_writes === nothing
                     held_writes = Tuple{UInt64, Vector{UInt8}}[]
                 end
-                push!(held_writes, (held_offset, held_bytes))
+                push!(held_writes, (held_offset, held_block.bytes))
             else
-                write_to_sink!(writer.sink, held_bytes)
+                write_to_sink!(writer.sink, held_block.bytes)
             end
         end
     end
@@ -2546,9 +2553,10 @@ end
 # whose index slots stay empty. The caller holds the write lock.
 function write_held_shard_blocks!(writer::IncrementalShardWriter)::Nothing
     for held_first_chunk_index in sort!(collect(keys(writer.held_blocks)))
-        held_bytes, held_entries = pop!(writer.held_blocks, held_first_chunk_index)
+        held_block = pop!(writer.held_blocks, held_first_chunk_index)
+        held_bytes = held_block.bytes
         writer.next_chunk_index = held_first_chunk_index
-        held_offset = reserve_shard_block!(writer, held_first_chunk_index, held_entries)
+        held_offset = reserve_shard_block!(writer, held_first_chunk_index, held_block.entries)
         if is_positional_sink(writer.sink)
             GC.@preserve held_bytes write_to_sink_at!(writer.sink, held_offset, pointer(held_bytes), length(held_bytes))
         else
@@ -2633,18 +2641,19 @@ function write_central_directory_and_eocd!(writer::IncrementalShardWriter)::Noth
         end
     end
     if codec_json_entry !== nothing
-        (crc, lfh_offset, compressed_size, uncompressed_size, name_bytes) = codec_json_entry
+        (crc, lfh_offset, compressed_size, uncompressed_size, codec_json_name_bytes) = codec_json_entry
         write_central_directory_entry!(
             cd_buffer,
             position,
-            name_bytes,
+            codec_json_name_bytes,
             compressed_size,
             uncompressed_size,
             crc,
             lfh_offset,
             STORED_COMPRESSION_METHOD,
         )
-        position += CENTRAL_DIRECTORY_ENTRY_FIXED_SIZE + length(name_bytes) + ZIP64_CENTRAL_DIRECTORY_EXTRA_SIZE
+        position +=
+            CENTRAL_DIRECTORY_ENTRY_FIXED_SIZE + length(codec_json_name_bytes) + ZIP64_CENTRAL_DIRECTORY_EXTRA_SIZE
     end
     write_end_of_central_directory_region!(cd_buffer, position, cd_offset, UInt64(cd_entries_size), UInt64(entry_count))
     write_to_sink!(writer.sink, cd_buffer)
@@ -3087,8 +3096,8 @@ function extract_inner_chunk(
     padded_bytes::Maybe{Vector{UInt8}} = nothing,
 )::AbstractArray{T, N} where {T, N}
     coord = Tuple(CartesianIndices(chunks_per_shard)[chunk_index])
-    starts = ntuple(dim -> (coord[dim] - 1) * inner_chunk_shape[dim] + 1, Val(N))  # NOJET
-    stops = ntuple(dim -> min(coord[dim] * inner_chunk_shape[dim], size(data, dim)), Val(N))  # NOJET
+    starts = ntuple(dim -> (coord[dim] - 1) * inner_chunk_shape[dim] + 1, Val(N))
+    stops = ntuple(dim -> min(coord[dim] * inner_chunk_shape[dim], size(data, dim)), Val(N))
     ranges = ntuple(dim -> starts[dim]:stops[dim], Val(N))
     if !all(stops .- starts .+ 1 .== inner_chunk_shape)
         if padded_bytes === nothing || !isbitstype(T)
@@ -3195,8 +3204,8 @@ function packed_format_write_sparse_component!(
     return nothing
 end
 
-# Write `data` as a packed shard at the logical `shard_key`. A numeric array streams into its file or reserved entry as
-# its chunks are encoded. A string array has no bound on its encoded size, so it is encoded whole in memory first.
+# Write `data` as a packed shard at the logical `shard_key`. It streams into its file or reserved entry as its chunks
+# are encoded.
 function packed_write_shard!(
     daf::PackedDaf,
     shard_key::AbstractString,
@@ -3204,15 +3213,32 @@ function packed_write_shard!(
     chunk_shape::NTuple{N, Int},
     codec::PackedCodec,
 )::Nothing where {T, N}
-    if T <: StorageReal
-        chunks_per_shard = Zarr.Codecs.V3Codecs.calculate_chunks_per_shard(size(data), chunk_shape)
-        writer = packed_make_streaming_shard_writer(daf, shard_key, T, chunks_per_shard, chunk_shape, codec)
-        write_shard_data!(writer, data, chunk_shape)
-        finalize_shard!(writer)
-    else
-        packed_write_bytes!(daf, shard_key, encode_packed_dense_array(data, chunk_shape, v3_bytes_codecs_for(codec, T)))
-    end
+    chunks_per_shard = Zarr.Codecs.V3Codecs.calculate_chunks_per_shard(size(data), chunk_shape)
+    raw_bytes_bound = shard_raw_bytes_bound(data, chunk_shape, prod(chunks_per_shard))
+    writer = packed_make_streaming_shard_writer(daf, shard_key, T, chunks_per_shard, raw_bytes_bound, codec)
+    write_shard_data!(writer, data, chunk_shape)
+    finalize_shard!(writer)
     return nothing
+end
+
+# An upper bound of the raw bytes of the `n_chunks` inner chunks of `data`, as the array-to-bytes codec encodes them,
+# with the trailing-edge chunks padded.
+function shard_raw_bytes_bound(
+    ::AbstractArray{T},
+    chunk_shape::Tuple,
+    n_chunks::Integer,
+)::UInt64 where {T <: StorageReal}
+    return shard_raw_bytes_bound(T, chunk_shape, n_chunks)
+end
+
+function shard_raw_bytes_bound(::Type{T}, chunk_shape::Tuple, n_chunks::Integer)::UInt64 where {T <: StorageReal}
+    return UInt64(n_chunks * prod(chunk_shape) * sizeof(T))
+end
+
+# A `VLenUTF8` chunk is a 4-byte count, then a 4-byte length and the UTF-8 bytes of each string. Padding strings are
+# empty.
+function shard_raw_bytes_bound(data::AbstractArray{<:AbstractString}, chunk_shape::Tuple, n_chunks::Integer)::UInt64
+    return UInt64(4 * n_chunks + 4 * n_chunks * prod(chunk_shape) + sum(ncodeunits, data; init = 0))
 end
 
 # Write a packed dense numeric or string property as the descriptor JSON at `<base_key>.json` and the encoded v3
@@ -3495,17 +3521,18 @@ function packed_finalize_entry!(daf::PackedDaf, ::AbstractString)::Nothing  # UN
 end
 
 # Build an [`IncrementalShardWriter`](@ref) bound to a backend-specific sink covering the entry at the logical key.
-# `FilesDaf` opens the shard file as an `IOStream` and ignores `chunk_shape`; `ZipDaf` reserves an upper-bound zip
-# entry sized from `chunk_shape` (raw uncompressed inner-chunk bytes plus per-chunk slack and the index slab) and
-# returns an `MmapShardRegion` over its bytes (the entry is shrunk to actual size and CRC-patched at finalize).
+# `raw_bytes_bound` is an upper bound of the raw bytes of all the inner chunks (see [`shard_raw_bytes_bound`](@ref)).
+# `FilesDaf` opens the shard file as an `IOStream` and ignores it; `ZipDaf` reserves an upper-bound zip entry sized
+# from it (plus per-chunk slack and the index slab) and returns an `MmapShardRegion` over its bytes (the entry is shrunk
+# to actual size and CRC-patched at finalize).
 function packed_make_streaming_shard_writer(  # UNTESTED
     daf::PackedDaf,
     ::AbstractString,
-    ::Type{T},
+    ::Type,
     ::Tuple,
-    ::NTuple{N, Int},
+    ::Integer,
     ::PackedCodec,
-)::IncrementalShardWriter where {T <: StorageReal, N}
+)::IncrementalShardWriter
     return error("packed_make_streaming_shard_writer not implemented for $(typeof(daf))")
 end
 
@@ -3903,7 +3930,8 @@ function packed_format_streaming_dense_matrix(
     chunks_per_shard = (n_row_tiles, Int(ncols))
     codec = compressor_for()
     base_key = "matrices/$(rows_axis)/$(columns_axis)/$(name)"
-    writer = packed_make_streaming_shard_writer(daf, "$(base_key).zip", T, chunks_per_shard, chunk_shape, codec)
+    raw_bytes_bound = shard_raw_bytes_bound(T, chunk_shape, prod(chunks_per_shard))
+    writer = packed_make_streaming_shard_writer(daf, "$(base_key).zip", T, chunks_per_shard, raw_bytes_bound, codec)
 
     # The chunks of a column are consecutive, so each column is written as one block. Columns may be written from any
     # task, so each column takes a scratch from a reusable storage.
