@@ -3119,7 +3119,7 @@ end
 
 # Write one component vector of a sparse property (`nzind`, `nzval`, `colptr`, `rowval`) at `<base_key>.<suffix>` (raw
 # little-endian bytes, zero-copy mmap-able) when `chunk_shape === nothing`, or at `<base_key>.<suffix>.zip` (v3
-# sharded-array bytes via [`encode_packed_dense_array`](@ref)) otherwise. `base_key` is a logical relative key like
+# sharded-array bytes via [`packed_write_shard!`](@ref)) otherwise. `base_key` is a logical relative key like
 # `"vectors/r/n"` or `"matrices/r/c/n"` (no leading prefix); each backend's `packed_write_*` dispatch resolves it to its
 # physical address.
 function packed_format_write_sparse_component!(
@@ -3132,15 +3132,34 @@ function packed_format_write_sparse_component!(
     if chunk_shape === nothing
         packed_write_typed_array!(daf, "$(base_key).$(suffix)", data)
     else
-        encoded = encode_packed_dense_array(data, chunk_shape, v3_bytes_codecs_for(compressor_for(), T))
-        packed_write_bytes!(daf, "$(base_key).$(suffix).zip", encoded)
+        packed_write_shard!(daf, "$(base_key).$(suffix).zip", data, chunk_shape, compressor_for())
+    end
+    return nothing
+end
+
+# Write `data` as a packed shard at the logical `shard_key`. A numeric array streams into its file or reserved entry as
+# its chunks are encoded. A string array has no bound on its encoded size, so it is encoded whole in memory first.
+function packed_write_shard!(
+    daf::PackedDaf,
+    shard_key::AbstractString,
+    data::AbstractArray{T, N},
+    chunk_shape::NTuple{N, Int},
+    codec::PackedCodec,
+)::Nothing where {T, N}
+    if T <: StorageReal
+        chunks_per_shard = Zarr.Codecs.V3Codecs.calculate_chunks_per_shard(size(data), chunk_shape)
+        writer = packed_make_streaming_shard_writer(daf, shard_key, T, chunks_per_shard, chunk_shape, codec)
+        write_shard_data!(writer, data, chunk_shape)
+        finalize_shard!(writer)
+    else
+        packed_write_bytes!(daf, shard_key, encode_packed_dense_array(data, chunk_shape, v3_bytes_codecs_for(codec, T)))
     end
     return nothing
 end
 
 # Write a packed dense numeric or string property as the descriptor JSON at `<base_key>.json` and the encoded v3
 # sharded-array bytes at `<base_key>.zip`. `base_key` is a logical relative key like `"vectors/r/n"` or
-# `"matrices/r/c/n"`; each backend's `packed_write_bytes!` dispatch resolves it to its physical address. The encoder
+# `"matrices/r/c/n"`; each backend's `packed_write_*` dispatch resolves it to its physical address. The encoder
 # handles both numeric eltypes (raw little-endian inner chunks) and `<: AbstractString` eltypes (`VLenUTF8V3Codec`).
 function packed_format_write_dense_array!(
     daf::PackedDaf,
@@ -3149,10 +3168,9 @@ function packed_format_write_dense_array!(
     chunk_shape::NTuple{N, Int},
 )::Nothing where {T, N}
     codec = compressor_for()
-    encoded = encode_packed_dense_array(data, chunk_shape, v3_bytes_codecs_for(codec, T))
     json_bytes = packed_array_json_bytes(T, chunk_shape, codec)
     packed_write_bytes!(daf, "$(base_key).json", json_bytes)
-    packed_write_bytes!(daf, "$(base_key).zip", encoded)
+    packed_write_shard!(daf, "$(base_key).zip", data, chunk_shape, codec)
     packed_register_metadata!(daf, base_key, json_bytes)
     return nothing
 end
@@ -3427,9 +3445,9 @@ function packed_make_streaming_shard_writer(  # UNTESTED
     ::AbstractString,
     ::Type{T},
     ::Tuple,
-    ::NTuple{2, Int},
+    ::NTuple{N, Int},
     ::PackedCodec,
-)::IncrementalShardWriter where {T <: StorageReal}
+)::IncrementalShardWriter where {T <: StorageReal, N}
     return error("packed_make_streaming_shard_writer not implemented for $(typeof(daf))")
 end
 

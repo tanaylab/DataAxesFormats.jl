@@ -783,9 +783,9 @@ function packed_make_streaming_shard_writer(
     shard_key::AbstractString,
     ::Type{T},
     chunks_per_shard::Tuple,
-    chunk_shape::NTuple{2, Int},
+    chunk_shape::NTuple{N, Int},
     codec::PackedCodec,
-)::IncrementalShardWriter where {T <: StorageReal}
+)::IncrementalShardWriter where {T <: StorageReal, N}
     n_chunks = UInt64(prod(chunks_per_shard))
     per_chunk_overhead = UInt64(LOCAL_FILE_HEADER_FIXED_SIZE + 64 + ZIP64_LOCAL_FILE_HEADER_EXTRA_SIZE)
     per_chunk_upper_bound = UInt64(2 * prod(chunk_shape) * sizeof(T) + 4096) + per_chunk_overhead
