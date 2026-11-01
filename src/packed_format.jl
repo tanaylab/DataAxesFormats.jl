@@ -2115,7 +2115,9 @@ function encode_shard_chunk(
         # exactly at the DEFLATE payload start — a single contiguous Zarr range from name-start spans
         # `[gzip header][DEFLATE payload][gzip trailer]`, a valid gzip stream for the Gzip codec.
         crc = zip_crc32(raw_bytes)
-        payload = transcode(DeflateCompressor, raw_bytes)
+        gzip_codec = only(inner.bytes_bytes)
+        @assert gzip_codec isa Zarr.Codecs.V3Codecs.GzipV3Codec
+        payload = transcode(DeflateCompressor(; level = gzip_codec.level), raw_bytes)
         # 8-byte gzip trailer: little-endian CRC32 of the uncompressed data + ISIZE (uncompressed
         # length modulo 2^32). Written as dead bytes after the entry data; ZIP-side ignores them.
         trailer = Vector{UInt8}(undef, 8)

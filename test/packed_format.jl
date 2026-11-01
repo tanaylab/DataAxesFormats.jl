@@ -1367,6 +1367,31 @@ nested_test("packed_format") do
         end
     end
 
+    # A gzip chunk in a ZIP entry is compressed at the requested level.
+    nested_test("gzip_level") do
+        saved_compression = DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION
+        saved_compression_level = DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION_LEVEL
+        try
+            DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION = :gzip
+            stored_sizes = Dict{Int, Int}()
+            for compression_level in (1, 9)
+                DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION_LEVEL = compression_level
+                mktempdir() do path
+                    daf = FilesDaf(path, "w+"; name = "gzip!", packed = true)
+                    add_axis!(daf, "elem", ["e$(index)" for index in 1:100_000])
+                    set_vector!(daf, "elem", "v", Float32.(((1:100_000) .* 7919) .% 1013))
+                    vectors_directory = "$(path)/vectors/elem"
+                    stored_sizes[compression_level] = sum(filesize, readdir(vectors_directory; join = true))
+                    return nothing
+                end
+            end
+            @test stored_sizes[9] < stored_sizes[1]
+        finally
+            DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION = saved_compression
+            DataAxesFormats.PackedFormat.DAF_PACKED_COMPRESSION_LEVEL = saved_compression_level
+        end
+    end
+
     # The empty arrays of an in-memory `ZarrDaf` aren't memory-mapped. A 2-D `ZArray` is column-major.
     nested_test("zarr_empty_arrays") do
         daf = ZarrDaf(; name = "memory!")
@@ -1381,7 +1406,6 @@ nested_test("packed_format") do
     end
 
     # A legacy v1.0 sparse descriptor doesn't record its nnz. It is computed from the size of its indices.
-    # A legacy v1.0 sparse descriptor has no nnz, so it is computed from the size of the indices file.
     nested_test("legacy_sparse_descriptor") do
         mktempdir() do path
             expected_vector = SparseVector(8, Int32[2, 5, 7], Float32[1, 2, 3])
