@@ -1497,7 +1497,7 @@ function print_vector_state(vector_state::VectorState, indent::AbstractString)::
     return nothing
 end
 
-function print_pending_final_values(pending_final_values::Maybe{PendingFinalValues}, indent::AbstractString)::Nothing  # UNTESTED
+function print_pending_final_values(pending_final_values::Maybe{PendingFinalValues}, indent::AbstractString)::Nothing
     if pending_final_values === nothing
         println("   $(indent)pending_final_values: nothing")
     else
@@ -1843,8 +1843,8 @@ function get_query_final_state(daf::Maybe{DafReader}, query_sequence::QuerySeque
 
         if do_query_phrase(query_state)
             if !query_state.exists
-                @assert query_state.what_for == :exists  # UNTESTED
-                return query_state  # UNTESTED
+                @assert query_state.what_for == :exists
+                return query_state
             end
             continue
         end
@@ -5039,7 +5039,7 @@ end
 
 function ensure_matrix_is_axis(query_state::QueryState, matrix_state::MatrixState, as_axis::Maybe{AsAxis})::Nothing
     if matrix_state.property_axis_name === nothing || as_axis !== nothing
-        matrix_property_is_axis(query_state, matrix_state, as_axis; finalize_matrix_values = false)
+        matrix_property_is_axis(query_state, matrix_state, as_axis)
         @assert pop!(query_state.stack) === matrix_state
     end
     @assert matrix_state.property_axis_name !== nothing
@@ -5318,17 +5318,12 @@ end
 function matrix_property_is_axis(
     query_state::QueryState,
     matrix_state::MatrixState,
-    as_axis::Maybe{AsAxis} = nothing;
-    finalize_matrix_values::Bool = true,
+    as_axis::Maybe{AsAxis} = nothing,
 )::Nothing
     @assert matrix_state.property_name !== nothing
     @assert matrix_state.property_axis_name === nothing
     if query_state.what_for == :compute
         @assert eltype(matrix_state.matrix_values) <: AbstractString
-    end
-
-    if finalize_matrix_values
-        finalize_matrix_values!(query_state, matrix_state)
     end
 
     if as_axis !== nothing && as_axis.axis_name !== nothing

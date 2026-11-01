@@ -559,7 +559,7 @@ function owned_entry_bytes(zip_daf::ZipDaf, key::AbstractString)::Vector{UInt8}
     if entry_bytes isa Vector{UInt8}
         return entry_bytes
     else
-        return Vector{UInt8}(entry_bytes)
+        return Vector{UInt8}(entry_bytes)  # UNTESTED
     end
 end
 

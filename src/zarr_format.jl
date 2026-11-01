@@ -317,17 +317,17 @@ function numeric_zcreate(
     return array
 end
 
-# Build a v3 uncompressed `String` ZArray under `group` at `name` with inner pipeline `VLenUTF8V3Codec`. The
-# default `chunks == shape` produces the single-chunk layout used for axis-entry arrays and the `daf`
-# version-marker. Packed string properties go through [`sharded_zcreate`](@ref) instead, which produces a
-# single-shard layout matching the numeric packed path. The optional `chunks` parameter exists for the
-# non-canonical read-tolerance test exercising the reader against a multi-chunk-per-file vlen-utf8 layout
-# that we never write ourselves.
+# Build a v3 uncompressed `String` ZArray under `group` at `name` with inner pipeline `VLenUTF8V3Codec`. The default
+# `chunks == shape` produces the single-chunk layout used for axis-entry arrays and the `daf` version-marker. Zarr
+# requires each chunk to be at least 1, so an empty array still has a chunk of 1. Packed string properties go through
+# [`sharded_zcreate`](@ref) instead, which produces a single-shard layout matching the numeric packed path. The optional
+# `chunks` parameter exists for the non-canonical read-tolerance test exercising the reader against a
+# multi-chunk-per-file vlen-utf8 layout that we never write ourselves.
 function string_zcreate(
     group::ZGroup,
     name::AbstractString,
     shape::NTuple{N, Int},
-    chunks::NTuple{N, Int} = shape,
+    chunks::NTuple{N, Int} = max.(shape, 1),
 )::ZArray{String, N} where {N}
     pipeline = Zarr.V3Pipeline((), VLenUTF8V3Codec(), ())
     metadata = Zarr.MetadataV3{String, N, typeof(pipeline)}(
@@ -1443,7 +1443,7 @@ end
 # array is never mmap-eligible, etc. — so check order is purely cost-driven (cheapest predicate first).
 function is_lazy_source(array::ZArray{T})::Bool where {T}
     if isempty(array)
-        return false  # UNTESTED
+        return false
     elseif is_zarr_array_packed(array)
         return true
     elseif can_mmap(array)

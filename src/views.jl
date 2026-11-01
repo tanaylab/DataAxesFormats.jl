@@ -1349,7 +1349,7 @@ function prepare_query(
     if maybe_query === nothing
         return nothing
     elseif maybe_query isa QueryOperation
-        return maybe_query  # UNTESTED
+        return maybe_query
     else
         @assert maybe_query isa AbstractString
         query_string = strip(maybe_query)

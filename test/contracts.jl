@@ -753,6 +753,19 @@ nested_test("contracts") do
         @test add_axis!(daf, "cell", ["A", "B"]) === nothing
         @test add_axis!(daf, "gene", ["X", "Y", "Z"]) === nothing
 
+        # A matrix stored only in the other layout satisfies the contract. A contract daf has the bases of its daf.
+        nested_test("flipped") do
+            @test set_matrix!(daf, "gene", "cell", "UMIs", [0 3; 1 4; 2 5]; relayout = false) === nothing
+            contract = Contract(;
+                axes = ["cell" => (RequiredInput, "description"), "gene" => (RequiredInput, "description")],
+                data = [("cell", "gene", "UMIs") => (RequiredInput, Int64, "description")],
+            )
+            contract_daf = contractor("computation", contract, daf)
+            @test verify_input(contract_daf) === nothing
+            @test DataAxesFormats.Readers.stored_base_daf_links(contract_daf) ===
+                  DataAxesFormats.Readers.stored_base_daf_links(daf)
+        end
+
         nested_test("()") do
             @test set_matrix!(daf, "cell", "gene", "UMIs", [0 1 2; 3 4 5]) === nothing
             for (name, expectation) in (

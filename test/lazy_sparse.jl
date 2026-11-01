@@ -86,6 +86,9 @@ nested_test("lazy_sparse") do
             @test reordered == expected[[3, 1], 3:4]
             @test all(issorted(view(rowvals(reordered), nzrange(reordered, column))) for column in 1:2)
             @test lazy[[true, false, true], [1, 3]] == expected[[1, 3], [1, 3]]
+            @test lazy[2:3, [true, false, true, true]] == expected[2:3, [1, 3, 4]]
+            @test lazy[[true, false, true], [false, false, true, true]] == expected[[1, 3], 3:4]
+            @test lazy[[3, 1], [true, false, true, false]] == expected[[3, 1], [1, 3]]
             @test lazy[2:3, 4] == expected[2:3, 4]
             @test lazy[[false, true, true], 4] == expected[2:3, 4]
             @test !is_materialized(lazy)
@@ -260,6 +263,10 @@ nested_test("lazy_sparse") do
                 materialized = shared_materialization!(lazy)
                 @test parent(rowvals(lazy)) === rowvals(materialized)
                 @test parent(nonzeros(lazy)) === nonzeros(materialized)
+                # The writers get the plain vectors of the materialization.
+                @test TanayLabUtilities.colptr(lazy) === SparseArrays.getcolptr(materialized)
+                @test TanayLabUtilities.rowval(lazy) === rowvals(materialized)
+                @test TanayLabUtilities.nzval(lazy) === nonzeros(materialized)
                 return nothing
             end
         end
@@ -440,6 +447,10 @@ nested_test("lazy_sparse") do
             @test adjoint(sparse(adjoint(expected))) == lazy
             @test isequal(named, expected)
             @test isequal(expected, lazy)
+            @test isequal(lazy, expected)
+            @test isequal(Matrix(expected), lazy)
+            @test isequal(named, named)
+            @test isequal(lazy, new_lazy())
             @test lazy != expected .* 2
             @test !lazy.did_report_scalar_access[]
             return nothing

@@ -169,6 +169,13 @@ nested_test("operations") do
                 vector_result = DataAxesFormats.Registry.compute_eltwise(Round(), sparse([0.0, 0.3, 2.6, -0.4]))
                 @test vector_result == [0, 0, 3, 0]
                 @test nnz(vector_result) == 1
+                with_stored_zero = SparseVector(4, [1, 2, 4], [0.0, 1.0, 3.0])
+                log_result = DataAxesFormats.Registry.compute_eltwise(Log(; eps = 1), with_stored_zero)
+                @test log_result ≈ log.([0.0, 1.0, 0.0, 3.0] .+ 1)
+                @test nnz(log_result) == 2
+                dense_log_result = DataAxesFormats.Registry.compute_eltwise(Log(; eps = 0.5), with_stored_zero)
+                @test dense_log_result isa Vector{Float64}
+                @test dense_log_result ≈ log.([0.0, 1.0, 0.0, 3.0] .+ 0.5)
             end
         end
 
@@ -713,6 +720,8 @@ nested_test("operations") do
             @test compute_reduction(Mode(), [3, 1, 3, 1]) == 1
             @test compute_reduction(Mode(), sparse([0, 2, 0, 2])) == 0
             @test compute_reduction(Mode(), sparse([0, 0, -1, -1])) == -1
+            # A stored zero counts together with the implicit zeros.
+            @test compute_reduction(Mode(), SparseVector(5, [1, 2, 3], [0, 2, 2])) == 0
             @test compute_reduction(Mode(), ["b", "a", "b", "a"]) == "a"
             @test compute_reduction(Mode(), sparse([0 2; 0 2; 2 0; 0 2]), 1) == [0, 2]
             return nothing

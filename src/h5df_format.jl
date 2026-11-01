@@ -347,8 +347,8 @@ function H5df(
                     create_group(root, group)  # NOJET
                 end
             else
-                if create_if_missing  # UNTESTED
-                    create_group(root, group)  # UNTESTED
+                if create_if_missing
+                    create_group(root, group)
                 end
             end
             root = root[group]

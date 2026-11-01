@@ -530,6 +530,50 @@ nested_test("complete") do
             end
         end
 
+        # A format without a version marker is always at this version.
+        nested_test("memory_version") do
+            @test DataAxesFormats.Formats.format_raise_version!(MemoryDaf(; name = "memory!"))
+        end
+
+        nested_test("h5df_legacy") do
+            mktempdir() do path
+                cells = FilesDaf("$(path)/cells", "w"; name = "cells!")
+                populate_complete_cells!(cells)
+                metacells = H5df("$(path)/metacells.h5df", "w"; name = "metacells!")
+                HDF5.delete_object(metacells.root, "daf")
+                metacells.root["daf"] = [1, 0]
+                set_base_daf_links!(metacells, cells)
+                @test read(metacells.root["daf"]) == [1, 1]
+                @test has_raw_scalar(metacells, "_base_daf_links")
+                return nothing
+            end
+        end
+
+        nested_test("zarr_legacy") do
+            mktempdir() do path
+                cells = FilesDaf("$(path)/cells", "w"; name = "cells!")
+                populate_complete_cells!(cells)
+                zarr_group_attrs = DataAxesFormats.ZarrFormat.zarr_group_attrs
+
+                # A directory's marker is raised, and stored.
+                metacells = ZarrDaf("$(path)/metacells.daf.zarr", "w"; name = "metacells!")
+                metacells.root.attrs["daf"] = [1, 0]
+                set_base_daf_links!(metacells, cells)
+                @test zarr_group_attrs(metacells.root)["daf"] == [1, 1]
+                @test has_raw_scalar(metacells, "_base_daf_links")
+                reopened = ZarrDaf("$(path)/metacells.daf.zarr", "r"; name = "metacells!")
+                @test zarr_group_attrs(reopened.daf.root)["daf"] == [1, 1]
+
+                # A ZIP archive can't be raised, so it records its bases as its version does.
+                archived = ZarrDaf("$(path)/metacells.daf.zarr.zip", "w"; name = "archived!")
+                archived.root.attrs["daf"] = [1, 0]
+                set_base_daf_links!(archived, cells)
+                @test has_raw_scalar(archived, "base_daf_repository")
+                @test !has_raw_scalar(archived, "_base_daf_links")
+                return nothing
+            end
+        end
+
         nested_test("zip_legacy") do
             mktempdir() do path
                 cells = FilesDaf("$(path)/cells", "w"; name = "cells!")
@@ -546,6 +590,15 @@ nested_test("complete") do
                 @test get_vector(complete_daf("$(path)/metacells.daf.zip"), "cell", "age") == [10, 20, 30]
                 return nothing
             end
+        end
+
+        # Each relative path in a record of bases is rewritten to reach the same base from the new directory.
+        nested_test("relocated_record") do
+            relocated_base_daf_links = DataAxesFormats.Writers.relocated_base_daf_links
+            @test JSON.parse(relocated_base_daf_links("[\"cells\", \"/data/cells\"]", "/work/a", "/work/b")) ==
+                  ["../a/cells", "/data/cells"]
+            @test JSON.parse(relocated_base_daf_links("{\"path\": \"cells\", \"axes\": 1}", "/work/a", "/work/b")) ==
+                  Dict("path" => "../a/cells", "axes" => 1)
         end
 
         nested_test("copy") do

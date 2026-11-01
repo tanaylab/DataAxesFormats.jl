@@ -181,8 +181,8 @@ function Base.show(io::IO, cache_key::CacheKey)::Nothing
             print(io, "axis_vector[axis: $(key[1])]:$(qualifier)")
         end
     elseif type == CachedQuery
-        @assert key isa AbstractString  # UNTESTED
-        print(io, "query[$(key)]:$(qualifier)")  # UNTESTED
+        @assert key isa AbstractString
+        print(io, "query[$(key)]:$(qualifier)")
     elseif type == CachedData
         if key isa AbstractString
             print(io, "scalar[$(key)]:$(qualifier)")
@@ -1138,7 +1138,7 @@ function write_slow_through_cache(
     if cached isa CacheEntry
         return fill_pending_cache_entry!(getter, format, cache_key, cached)::T
     end
-    return cached
+    return cached  # UNTESTED
 end
 
 # Compute the data of the pending `cache_entry` of the `cache_key` using the `getter`, store it in the entry, and return

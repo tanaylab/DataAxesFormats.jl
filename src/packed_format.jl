@@ -800,7 +800,7 @@ struct ChunkPool
     budget_kb::Function
 end
 
-function ChunkPool(budget_kb::Function)::ChunkPool
+function ChunkPool(budget_kb::Function)::ChunkPool  # ONLY SEEMS UNTESTED
     return ChunkPool(
         LRUCache.LRU{Tuple{Int, Int}, Array}(; maxsize = budget_kb() * 1024, by = chunk_n_bytes),
         budget_kb,
@@ -1543,7 +1543,7 @@ function PackedDenseArray(
     function chunk_byte_range(chunk_coords::CartesianIndex{N})::Maybe{Tuple{Int, Int, UInt16}}
         range = Zarr.Codecs.V3Codecs.get_chunk_slice(shard_index(), Tuple(chunk_coords))
         if range === nothing
-            return nothing
+            return nothing  # UNTESTED
         end
         # Zarr's result isn't inferred, so the reads of every chunk would box it.
         return (Int(range[1])::Int, Int(range[2])::Int, UInt16(0))

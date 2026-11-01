@@ -60,6 +60,52 @@ nested_test("views") do
             return nothing
         end
 
+        nested_test("names") do
+            add_axis!(daf, "gene", ["X", "Y"])
+            set_matrix!(daf, "cell", "gene", "UMIs", [1 2; 3 4; 5 6]; relayout = false)
+            view = viewer(
+                daf;
+                name = "view!",
+                axes = [VIEW_ALL_AXES],
+                data = [VIEW_ALL_SCALARS, VIEW_ALL_VECTORS, VIEW_ALL_MATRICES],
+            )
+            @test get_query(view, ". ?") == Set(["version"])
+            @test get_query(view, "@ ?") == Set(["cell", "gene"])
+            @test get_query(view, "@ cell : ?") == Set(["age", "is_old"])
+            @test get_query(view, "@ cell @ gene :: ?") == Set(["UMIs"])
+
+            set_scalar!(daf, "species", "mouse")
+            add_axis!(daf, "batch", ["B1"])
+            set_vector!(daf, "cell", "batch", [1, 1, 2])
+            set_matrix!(daf, "gene", "cell", "fraction", [0.1 0.2 0.3; 0.4 0.5 0.6]; relayout = false)
+            @test get_query(view, ". ?") == Set(["version", "species"])
+            @test get_query(view, "@ ?") == Set(["batch", "cell", "gene"])
+            @test get_query(view, "@ cell : ?") == Set(["age", "batch", "is_old"])
+            @test get_query(view, "@ cell @ gene :: ?") == Set(["UMIs", "fraction"])
+
+            # The version counters of the properties and names of a hidden axis don't change.
+            cells_view = viewer(daf; name = "cells!", axes = ["cell" => "="], data = [VIEW_ALL_VECTORS])
+            @test vector_version_counter(cells_view, "gene", "is_marker") == 0
+            @test matrix_version_counter(cells_view, "cell", "gene", "UMIs") == 0
+            Formats = DataAxesFormats.Formats
+            @test Formats.format_get_version_counter(cells_view, Formats.vectors_set_cache_key("gene")) == 0
+            @test Formats.format_get_version_counter(
+                cells_view,
+                Formats.matrices_set_cache_key("cell", "gene"; relayout = true),
+            ) == 0
+            @test Formats.format_get_version_counter(cells_view, (Formats.CachedQuery, ". ?", :value)) == 0
+
+            # An identity matrix of a view is cached by its base, in both layouts.
+            Formats.with_data_read_lock(view, "test") do
+                @test Formats.format_has_cached_matrix(view, "gene", "cell", "UMIs") ==
+                      Formats.format_has_cached_matrix(daf, "gene", "cell", "UMIs")
+                @test Formats.format_matrix_cache_format(view, "cell", "gene", "UMIs") ===
+                      Formats.format_matrix_cache_format(daf, "cell", "gene", "UMIs")
+                return nothing
+            end
+            return nothing
+        end
+
         nested_test("relayout") do
             add_axis!(daf, "gene", ["X", "Y"])
             set_matrix!(daf, "cell", "gene", "UMIs", [1 2; 3 4; 5 6]; relayout = false)

@@ -395,7 +395,7 @@ function copy_supported_vectors(
 
         @assert element_type <: StorageScalar
         if element_type <: AbstractString
-            empty_value = ""  # UNTESTED
+            empty_value = ""
         else
             empty_value = element_type(0)
         end

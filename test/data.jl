@@ -4295,10 +4295,10 @@ nested_test("data") do
                     return nothing
                 end
 
-                # Pre-cache the middle chunk of a 3-chunk striped vector, then read the full range so that the
-                # missing chunks straddle the cached one. The coalescer sees non-contiguous missing offsets; with
-                # `DAF_HTTP_MAX_COALESCE_GAP_KB = 0` the gap exceeds the threshold and the span is split into
-                # separate Range GETs.
+                # Pre-cache the middle chunk of a 3-chunk striped vector, by reading part of it, then read the full
+                # range so that the missing chunks straddle the cached one. The coalescer sees non-contiguous missing
+                # offsets; with `DAF_HTTP_MAX_COALESCE_GAP_KB = 0` the gap exceeds the threshold and the span is split
+                # into separate Range GETs.
                 nested_test("coalesce_gap_split") do
                     gap_path = path * "/gap.daf"
                     writer = FilesDaf(gap_path, "w+"; name = "gap!", packed = false)
@@ -4313,7 +4313,7 @@ nested_test("data") do
                             daf = HttpDaf(url)
                             vector = get_vector(daf, "cell", "score")
                             wrapped = parent(parent(vector))
-                            @test wrapped[2049:4096] == gap_vector[2049:4096]
+                            @test wrapped[2050:4095] == gap_vector[2050:4095]
                             @test wrapped[1:n_gap_elements] == gap_vector
                         finally
                             DataAxesFormats.PackedFormat.DAF_HTTP_MAX_COALESCE_GAP_KB = saved_gap_kb

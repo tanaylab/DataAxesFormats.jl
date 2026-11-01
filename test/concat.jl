@@ -249,6 +249,15 @@ nested_test("concat") do
                 @test issparse(get_matrix(destination, "cell", "gene", "UMIs").array)
             end
 
+            nested_test("mixed") do
+                set_matrix!(sources[1], "cell", "gene", "UMIs", [0 2; 3 0])
+                set_matrix!(sources[2], "cell", "gene", "UMIs", sparse_matrix_csc([1 0; 0 0; 0 0]))
+                @test !issparse(get_matrix(sources[1], "cell", "gene", "UMIs").array)
+                concatenate!(destination, "cell", sources; sparse_if_saves_storage_fraction = 0.2)
+                @test get_matrix(destination, "cell", "gene", "UMIs") == [0 2; 3 0; 1 0; 0 0; 0 0]
+                @test issparse(get_matrix(destination, "cell", "gene", "UMIs").array)
+            end
+
             nested_test("dense_rows") do
                 set_matrix!(sources[1], "cell", "gene", "UMIs", [1 2; 3 4]; relayout = false)
                 set_matrix!(sources[2], "cell", "gene", "UMIs", [5 6; 7 8; 9 10]; relayout = false)

@@ -1284,6 +1284,10 @@ nested_test("packed_format") do
                 end
                 @test 0 < pool.chunks.currentsize <= 1024
                 @test n_pooled_chunks(arrays[end]) == 4
+                # Purging the first array forgets the chunks the pool already evicted.
+                @test n_pooled_chunks(arrays[1]) < 4
+                DataAxesFormats.Formats.purge_lazy_array!(arrays[1])
+                @test n_pooled_chunks(arrays[1]) == 0
             end
 
             nested_test("densify") do
@@ -1360,6 +1364,54 @@ nested_test("packed_format") do
 
         nested_test("unsupported_from_v3") do
             @test_throws "unsupported v3 codec for packed conversion" packed_codec_from_v3_codec("bogus")
+        end
+    end
+
+    # The empty arrays of an in-memory `ZarrDaf` aren't memory-mapped. A 2-D `ZArray` is column-major.
+    nested_test("zarr_empty_arrays") do
+        daf = ZarrDaf(; name = "memory!")
+        add_axis!(daf, "cell", String[])
+        add_axis!(daf, "gene", ["X"])
+        set_vector!(daf, "cell", "score", Float32[])
+        set_matrix!(daf, "cell", "gene", "UMIs", zeros(Float32, 0, 1); relayout = false)
+        empty_cache!(daf)
+        @test isempty(get_vector(daf, "cell", "score"))
+        @test size(get_matrix(daf, "cell", "gene", "UMIs"; relayout = false)) == (0, 1)
+        @test major_axis(Zarr.zzeros(Float32, 3, 4)) == Columns
+    end
+
+    # A legacy v1.0 sparse descriptor doesn't record its nnz. It is computed from the size of its indices.
+    # A legacy v1.0 sparse descriptor has no nnz, so it is computed from the size of the indices file.
+    nested_test("legacy_sparse_descriptor") do
+        mktempdir() do path
+            expected_vector = SparseVector(8, Int32[2, 5, 7], Float32[1, 2, 3])
+            daf = FilesDaf(path, "w+"; name = "legacy!")
+            add_axis!(daf, "row", ["r$(index)" for index in 1:8])
+            set_vector!(daf, "row", "v", expected_vector)
+            json = JSON.parsefile("$(path)/vectors/row/v.json")
+            indtype = json["nzind"]["eltype"]
+            write("$(path)/vectors/row/v.json", """{"format":"sparse","eltype":"Float32","indtype":"$(indtype)"}""")
+            daf = FilesDaf(path, "r")
+            metadata = vector_metadata(daf, "row", "v")
+            @test metadata.eltype === Float32
+            @test metadata.is_sparse
+            @test metadata.nnz == 3
+            @test nnz(canonical_array(get_vector(daf, "row", "v"))) == 3
+            @test get_vector(daf, "row", "v") == expected_vector
+        end
+    end
+
+    # Each byte of an inner-chunk name is checked: the prefix, each separator, and each digit.
+    nested_test("inner_chunk_names") do
+        stored_method = DataAxesFormats.PackedFormat.STORED_COMPRESSION_METHOD
+        is_inner_chunk_name = DataAxesFormats.PackedFormat.is_inner_chunk_name
+        name = DataAxesFormats.PackedFormat.inner_chunk_name_bytes((2, 12), 14, stored_method)
+        @test String(copy(name)) == "c/06/1"
+        @test is_inner_chunk_name(name, 1, (2, 12), 14, stored_method)
+        for offset in (1, 2, 4)
+            wrong_name = copy(name)
+            wrong_name[offset] = UInt8('x')
+            @test !is_inner_chunk_name(wrong_name, 1, (2, 12), 14, stored_method)
         end
     end
 
@@ -1624,6 +1676,28 @@ nested_test("packed_format") do
             end
             @test get_matrix(daf, "row", "col", "data") == original
             return nothing
+        end
+
+        # Columns filled out of order are stored out of order, so reading a row sorts its chunks by their offsets.
+        nested_test("streaming_dense_matrix_fill_out_of_order") do
+            mktempdir() do path
+                n_rows = 4096
+                n_cols = 4
+                original = Matrix{Float32}(reshape(Float32.(1:(n_rows * n_cols)), n_rows, n_cols))
+                daf = FilesDaf(path, "w+"; name = "files!", packed = true)
+                add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
+                add_axis!(daf, "col", ["c$(index)" for index in 1:n_cols])
+                empty_dense_matrix!(daf, "row", "col", "data", Float32; packed = true) do filled
+                    @test brief(filled) == "4,096 x 4 x Float32 in Columns (Packed)"
+                    filled[:, 3:4] .= original[:, 3:4]
+                    filled[:, 1:2] .= original[:, 1:2]
+                    return nothing
+                end
+                stored = parent(get_matrix(FilesDaf(path, "r"; name = "files!"), "row", "col", "data"))
+                @test stored isa DataAxesFormats.PackedFormat.ChunkedArray
+                @test stored[5, :] == original[5, :]
+                return nothing
+            end
         end
 
         # Packed dense vector round-trip on `DictStore`-backed `ZarrDaf`: exercises `write_packed_shard!`'s
@@ -2364,10 +2438,12 @@ nested_test("packed_format") do
                         add_axis!(daf, "row", ["r$(index)" for index in 1:n_rows])
                         add_axis!(daf, "col", ["c$(index)" for index in 1:n_cols])
                         set_vector!(daf, "elem", "v", original_vec)
+                        set_vector!(daf, "elem", "s", string.(original_vec))
                         set_matrix!(daf, "row", "col", "m", original_mat; relayout = false)
 
                         reader = FilesDaf(joinpath(path, "test.daf"), "r")
                         @test get_vector(reader, "elem", "v") == original_vec
+                        @test get_vector(reader, "elem", "s") == string.(original_vec)
                         @test get_matrix(reader, "row", "col", "m") == original_mat
 
                         vec_shard = joinpath(path, "test.daf", "vectors", "elem", "v.zip")
