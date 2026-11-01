@@ -254,13 +254,14 @@ import ..PackedFormat.PackedDenseMatrix
 import ..PackedFormat.position_in_sink
 import ..PackedFormat.seek_in_sink!
 import ..PackedFormat.shard_fill_value
+import ..PackedFormat.ShardChunkScratch
 import ..PackedFormat.submit_shard_chunk!
 import ..PackedFormat.take_bytes!
 import ..PackedFormat.url_byte_fetcher
 import ..PackedFormat.url_suffix_byte_fetcher
 import ..PackedFormat.v3_bytes_codecs_for
-import ..PackedFormat.write_shard_data!
 import ..PackedFormat.VLenUTF8V3Codec
+import ..PackedFormat.write_shard_data!
 import ..PackedFormat.write_to_sink!
 import ..Reorder
 import ..ZipFormat.acquire_shared_mmap_zip_store!
@@ -2020,9 +2021,14 @@ function packed_streaming_dense_matrix(
     chunk_key_str = chunk_key(array, single_chunk_matrix_suffix(array))
     sink = open_dual_shard_sink(group.storage, chunk_key_str, chunks_per_shard, (nrows, 1), T)
     writer = IncrementalShardWriter(sink, sharding_codec.codecs, sharding_codec.index_codecs, zero(T), chunks_per_shard)
+    # Columns may be written from any task, so each column takes a scratch from a reusable storage.
+    scratches = ReusableStorage(() -> ShardChunkScratch())
     encoder =
         (column::Int, chunk_buffer::Vector{T}) -> begin
-            submit_shard_chunk!(writer, column, reshape(chunk_buffer, nrows, 1))
+            with_reusable(scratches) do scratch
+                submit_shard_chunk!(writer, scratch, column, reshape(chunk_buffer, nrows, 1))
+                return nothing
+            end
             return nothing
         end
     finalizer = () -> finalize_shard!(writer)
