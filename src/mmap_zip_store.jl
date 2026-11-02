@@ -220,97 +220,12 @@ mutable struct MmapZipStore <: Zarr.AbstractStore
     io_stream::IOStream
     is_writable::Bool
     max_file_size::UInt64
-    reservation_base::Ptr{Cvoid}
-    reservation_length::UInt64
     overlay_length::UInt64
     file_mmap::Vector{UInt8}
     entries::Vector{ZipEntry}
     name_to_index::Dict{String, Int}
     central_directory_offset::UInt64
     central_directory_size::UInt64
-end
-
-# Platform-specific MAP_ANON flag value for `mmap(2)` (Darwin uses 0x1000; Linux and other BSDs use 0x20).
-@static if Sys.isapple()
-    const MAP_ANON_FLAG = Cint(0x1000)
-else
-    const MAP_ANON_FLAG = Cint(0x20)
-end
-const MAP_PRIVATE_FLAG = Cint(0x02)
-const MAP_SHARED_FLAG = Cint(0x01)
-const MAP_FIXED_FLAG = Cint(0x10)
-const PROT_NONE_FLAG = Cint(0x00)
-const PROT_READ_FLAG = Cint(0x01)
-const PROT_WRITE_FLAG = Cint(0x02)
-
-# Reserve `byte_length` bytes of virtual address space as an anonymous PROT_NONE mapping. Consumes
-# VA only: no RAM, no disk, no file size. Accessing the returned range raises SIGSEGV until it is
-# overlaid with a file mapping via `overlay_file_on_range!`. On first failure (typically because
-# abandoned-but-not-yet-GC'd reservations from prior opens have filled the per-process VA), force a
-# GC cycle to finalize those and retry once.
-function reserve_virtual_range(byte_length::Integer)::Ptr{Cvoid}
-    ptr = raw_reserve_virtual_range(byte_length)
-    if reinterpret(Int, ptr) == -1
-        GC.gc()  # UNTESTED
-        ptr = raw_reserve_virtual_range(byte_length)  # UNTESTED
-        if reinterpret(Int, ptr) == -1  # UNTESTED
-            error("mmap reservation of $(byte_length) bytes failed: $(Base.Libc.strerror())")  # UNTESTED
-        end
-    end
-    return ptr
-end
-
-@inline function raw_reserve_virtual_range(byte_length::Integer)::Ptr{Cvoid}
-    return ccall(
-        :mmap,
-        Ptr{Cvoid},
-        (Ptr{Cvoid}, Csize_t, Cint, Cint, Cint, Int64),
-        Ptr{Cvoid}(0),
-        Csize_t(byte_length),
-        PROT_NONE_FLAG,
-        MAP_PRIVATE_FLAG | MAP_ANON_FLAG,
-        Cint(-1),
-        Int64(0),
-    )
-end
-
-# Overlay the file backing `io_stream` onto `byte_length` bytes starting at `base`, replacing any
-# existing mapping in that range. `base` must be inside a region previously obtained from
-# `reserve_virtual_range`, and `byte_length` must be <= filesize(io_stream) (macOS rejects
-# file-backed MAP_SHARED mappings whose length exceeds the file size).
-function overlay_file_on_range!(base::Ptr{Cvoid}, io_stream::IOStream, byte_length::Integer)::Nothing
-    file_desc = Cint(reinterpret(Int32, fd(io_stream)))
-    ptr = ccall(
-        :mmap,
-        Ptr{Cvoid},
-        (Ptr{Cvoid}, Csize_t, Cint, Cint, Cint, Int64),
-        base,
-        Csize_t(byte_length),
-        PROT_READ_FLAG | PROT_WRITE_FLAG,
-        MAP_SHARED_FLAG | MAP_FIXED_FLAG,
-        file_desc,
-        Int64(0),
-    )
-    if reinterpret(Int, ptr) == -1 || ptr != base
-        error("mmap file overlay at $(base) for $(byte_length) bytes failed: $(Base.Libc.strerror())")  # UNTESTED
-    end
-    return nothing
-end
-
-# Tell the kernel not to coalesce 4 KiB pages into 2 MiB transparent huge pages across `byte_length`
-# bytes at `base`. The advice is recorded on the VMA and applies to all future file overlays within
-# the reservation. No-op on non-Linux platforms. See `mmap_with_small_pages` for the rationale.
-function disable_transparent_huge_pages(base::Ptr{Cvoid}, byte_length::Integer)::Nothing
-    @static if Sys.islinux()
-        if byte_length > 0  # FLAKY TESTED
-            MADV_NOHUGEPAGE = Cint(15)  # FLAKY TESTED
-            result = ccall(:madvise, Cint, (Ptr{Cvoid}, Csize_t, Cint), base, Csize_t(byte_length), MADV_NOHUGEPAGE)  # FLAKY TESTED
-            if result != 0  # FLAKY TESTED
-                error("madvise MADV_NOHUGEPAGE failed: $(Base.Libc.strerror())")  # FLAKY TESTED
-            end
-        end
-    end
-    return nothing
 end
 
 function Base.show(io::IO, store::MmapZipStore)::Nothing
@@ -384,23 +299,11 @@ function parse_existing_zip_archive(
                 "zip file size: $(file_size) exceeds max_file_size: $(max_file_size) for writable open: $(path)",
             )
         end
-        reservation_base = reserve_virtual_range(Int(max_file_size))
-        overlay_file_on_range!(reservation_base, io_stream, Int(file_size))
-        disable_transparent_huge_pages(reservation_base, Int(max_file_size))
-        file_mmap = unsafe_wrap(Array, Ptr{UInt8}(reservation_base), Int(max_file_size); own = false)
-        let captured_base = reservation_base
-            finalizer(file_mmap) do _
-                return ccall(:munmap, Cint, (Ptr{Cvoid}, Csize_t), captured_base, Csize_t(max_file_size))
-            end
-        end
-        reservation_length = max_file_size
-        overlay_length = file_size
+        file_mmap = mmap_with_small_pages(io_stream, Vector{UInt8}, Int(file_size); reserved_bytes = Int(max_file_size))
     else
-        reservation_base = Ptr{Cvoid}(0)
-        reservation_length = UInt64(0)
-        overlay_length = file_size
-        file_mmap = mmap_with_small_pages(io_stream, Vector{UInt8}, Int(file_size), 0; grow = false)
+        file_mmap = mmap_with_small_pages(io_stream, Vector{UInt8}, Int(file_size))
     end
+    overlay_length = file_size
 
     zip_view = view(file_mmap, 1:Int(file_size))
     zip_reader = ZipArchives.ZipReader(zip_view)
@@ -432,8 +335,6 @@ function parse_existing_zip_archive(
         io_stream,
         is_writable,
         max_file_size,
-        reservation_base,
-        reservation_length,
         overlay_length,
         file_mmap,
         entries,
@@ -459,14 +360,14 @@ end
 end
 
 # Extend the real (non-sparse) file to `new_file_size` bytes and re-overlay the file onto the first
-# `new_file_size` bytes of `store.reservation_base`. Works for both growth and shrinkage: the file's
+# `new_file_size` bytes of `store.file_mmap`. Works for both growth and shrinkage: the file's
 # first `min(old, new)` bytes are untouched, and the overlay ends up covering exactly `new_file_size`
 # bytes of the reservation (the remainder reverts to the original PROT_NONE reservation).
 function resize_file_overlay!(store::MmapZipStore, new_file_size::UInt64)::Nothing
     @assert store.is_writable
     @assert new_file_size <= store.max_file_size
     truncate(store.io_stream, Int(new_file_size))
-    overlay_file_on_range!(store.reservation_base, store.io_stream, Int(new_file_size))
+    remap_with_small_pages!(store.file_mmap, store.io_stream, Int(new_file_size))
     store.overlay_length = new_file_size
     return nothing
 end

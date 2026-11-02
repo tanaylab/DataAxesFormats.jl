@@ -1658,6 +1658,24 @@ function Formats.format_matrix_metadata(
     return object_metadata(matrix_object, "rowval")
 end
 
+# Memory-map a contiguous dataset with small pages, through the descriptor HDF5 holds for its file, so the file isn't
+# opened again for each dataset.
+function mmap_dataset(dataset::HDF5.Dataset)::Array
+    T = HDF5.get_jl_type(dataset)
+    dims = size(dataset)
+    access_properties = HDF5.API.h5d_get_access_plist(dataset)
+    file_descriptor = try
+        unsafe_load(Ptr{Cint}(HDF5.API.h5f_get_vfd_handle(dataset.file, access_properties)))
+    finally
+        HDF5.API.h5p_close(access_properties)
+    end
+    offset = HDF5.API.h5d_get_offset(dataset)
+    if offset % Base.datatype_alignment(T) != 0
+        error("misaligned dataset: $(HDF5.name(dataset)) offset: $(offset) in: $(HDF5.filename(dataset))")  # UNTESTED
+    end
+    return mmap_with_small_pages(fdio(Int(file_descriptor)), Array{T, length(dims)}, dims, offset)
+end
+
 # Memory-map a dataset. The array holds its own HDF5 reference to the dataset until it is garbage collected. HDF5
 # doesn't free the storage of a deleted dataset while it is open, so a later write can't reuse the storage the array
 # maps. The finalizer holds the identifier rather than the `Dataset`, because Julia may finalize a `Dataset` that only a
@@ -1666,7 +1684,7 @@ end
 # it is closed, so the dataset is flushed first, and the buffered data can't later overwrite data written to the array.
 function mapped_dataset_array(dataset::HDF5.Dataset)::Array
     HDF5.API.h5d_flush(dataset)
-    array = HDF5.readmmap(dataset)
+    array = mmap_dataset(dataset)
     dataset_id = dataset.id
     file = dataset.file
     HDF5.API.h5i_inc_ref(dataset_id)

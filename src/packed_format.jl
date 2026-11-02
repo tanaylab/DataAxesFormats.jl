@@ -101,7 +101,6 @@ using DiskArrays
 using HTTP
 using JSON
 using LRUCache
-using Mmap
 using SparseArrays
 using TanayLabUtilities
 using Zarr
@@ -3046,7 +3045,7 @@ function rewrite_index_only_as_dual_format_shard(
 )::Nothing where {T, N}
     source_metadata = build_shard_metadata(T, shape, inner_chunk_shape, bytes_bytes_codecs, source_index_location)
     decoded = Array{T}(undef, shape)
-    source_bytes = open(io -> Mmap.mmap(io, Vector{UInt8}), source_path, "r")
+    source_bytes = mmap_with_small_pages(source_path, Vector{UInt8})
     Zarr.pipeline_decode!(source_metadata.pipeline, decoded, source_bytes)
     write(destination_path, encode_packed_dense_array(decoded, inner_chunk_shape, bytes_bytes_codecs))
     return nothing
@@ -3065,7 +3064,7 @@ function rewrite_zip_only_as_dual_format_shard(
     inner_chunk_shape::NTuple{N, Int},
     codec::PackedCodec,
 )::Nothing where {T, N}
-    mmap_bytes = open(io -> Mmap.mmap(io, Vector{UInt8}), source_path, "r")
+    mmap_bytes = mmap_with_small_pages(source_path, Vector{UInt8})
     source_array = ZipShardArray(
         T,
         shape,

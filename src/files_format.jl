@@ -219,7 +219,6 @@ using ..Writers
 using Base.Filesystem
 using DiskArrays
 using JSON
-using Mmap
 using ProgressMeter
 
 import ProgressMeter.AbstractProgress  # NOLINT
@@ -1132,7 +1131,7 @@ function mmap_file_data(
     return flame_timed("FilesDaf.mmap_file_data") do
         key = (:daf, :mmap_data, mode)
         return get_through_global_weak_cache(abspath(path), key) do _
-            return mmap_populate_if_old_linux_ramdisk(path, T, size, mode)
+            return mmap_with_small_pages(path, T, size; mode)
         end
     end
 end
@@ -1269,7 +1268,7 @@ function packed_open_array(
     descriptor::AbstractDict,
     dims::NTuple{N, Int},
 )::ChunkedArray{T, N} where {T, N}
-    mmap_bytes = open(io -> Mmap.mmap(io, Vector{UInt8}), "$(files.path)/$(shard_key)", "r")
+    mmap_bytes = mmap_with_small_pages("$(files.path)/$(shard_key)", Vector{UInt8})
     return open_packed_shard_from_buffer(mmap_bytes, T, descriptor, dims)
 end
 

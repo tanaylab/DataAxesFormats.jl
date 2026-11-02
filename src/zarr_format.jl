@@ -215,7 +215,6 @@ using ..StorageTypes
 using ..Writers
 using Base.Filesystem
 using JSON
-using Mmap
 using ProgressMeter
 
 import ProgressMeter.AbstractProgress  # NOLINT
@@ -1270,9 +1269,7 @@ function try_mmap_vector_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{Vector{T}}
         if !isfile(chunk_path)
             return nothing
         end
-        return open(chunk_path, is_writable(daf) ? "r+" : "r") do io
-            return Mmap.mmap(io, Vector{T}, (length(array),))
-        end
+        return mmap_with_small_pages(chunk_path, Vector{T}, length(array); mode = is_writable(daf) ? "r+" : "r")
     end
     if storage isa MmapZipStore
         return try_mmap_entry_as(storage, key, T, length(array))
@@ -1295,9 +1292,7 @@ function try_mmap_matrix_chunk(daf::ZarrDaf, array::ZArray{T})::Maybe{Matrix{T}}
         if !isfile(chunk_path)
             return nothing
         end
-        return open(chunk_path, is_writable(daf) ? "r+" : "r") do io
-            return Mmap.mmap(io, Matrix{T}, size(array))
-        end
+        return mmap_with_small_pages(chunk_path, Matrix{T}, size(array); mode = is_writable(daf) ? "r+" : "r")
     end
     if storage isa MmapZipStore
         return try_mmap_entry_as(storage, key, T, size(array))
@@ -1414,7 +1409,7 @@ function local_shard_bytes(array::ZArray)::AbstractVector{UInt8}
     storage = array.storage
     key = chunk_key(array, single_chunk_suffix(array))
     if storage isa Zarr.DirectoryStore
-        return open(io -> Mmap.mmap(io, Vector{UInt8}), joinpath(storage.folder, key), "r")
+        return mmap_with_small_pages(joinpath(storage.folder, key), Vector{UInt8})
     else
         shard_bytes = storage[key]
         @assert shard_bytes !== nothing

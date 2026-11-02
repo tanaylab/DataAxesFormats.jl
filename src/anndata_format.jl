@@ -87,6 +87,7 @@ using SparseArrays
 using TanayLabUtilities
 
 import ..Formats
+import ..H5dfFormat.mmap_dataset
 import ..Readers.require_matrix
 
 """
@@ -521,7 +522,7 @@ function access_matrix( # only seems untested
 )::AbstractMatrix
     dataset = matrix.dset
     if HDF5.ismmappable(dataset) && HDF5.iscontiguous(dataset)
-        return flip(HDF5.readmmap(dataset))
+        return flip(mmap_dataset(dataset))
     else
         return flip(read(dataset))
     end
