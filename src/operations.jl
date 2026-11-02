@@ -2258,7 +2258,7 @@ function compute_streamed_grouped_columns_reduction!(
         1:n_groups;
         name = "compute_grouped_columns_reduction",
         weights = weight_per_group,
-        progress = DebugProgress(n_groups; group = :daf_loops, desc = "compute_grouped_columns_reduction"),
+        progress = DebugProgress(sum(weight_per_group); group = :daf_loops, desc = "compute_grouped_columns_reduction"),
     ) do group_index
         column_reader = column_reader_per_thread[threadid()]
         state_per_row = state_per_row_per_thread[threadid()]
@@ -2313,7 +2313,7 @@ function compute_buffered_grouped_columns_reduction!(
         1:n_groups;
         name = "compute_grouped_columns_reduction",
         weights = weight_per_group,
-        progress = DebugProgress(n_groups; group = :daf_loops, desc = "compute_grouped_columns_reduction"),
+        progress = DebugProgress(sum(weight_per_group); group = :daf_loops, desc = "compute_grouped_columns_reduction"),
     ) do group_index
         column_reader = column_reader_per_thread[threadid()]
         row_index_per_collected = row_index_per_collected_per_thread[threadid()]

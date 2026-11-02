@@ -24,6 +24,7 @@ using ..Readers
 using ..StorageTypes
 using ..Writers
 
+using Base.Threads
 using NamedArrays
 using SparseArrays
 using TanayLabUtilities
@@ -593,22 +594,25 @@ axis contains entries that do not exist in the target, they are discarded (not c
                 relayout = copied_relayout,
                 packed,
             ) do empty_matrix
-                # Each column is written once, whole, as a packed destination requires. Each source column is streamed
-                # into its destination column. The other destination columns hold only the `empty` value.
+                # Each column is written once, whole and in order, as a packed destination requires. A destination
+                # column of a source column gets its values. The other destination columns hold only the `empty` value.
                 filled_rows_indices = axis_indices(destination, rows_reaxis, names(copied_value, 1))
                 filled_columns_indices = axis_indices(destination, columns_reaxis, names(copied_value, 2))
-                parallel_foreach_column(parent(copied_value); name = "copy_matrix!") do value_column, _, column
-                    fill_column!(empty_matrix, filled_columns_indices[value_column]) do column_values
+                value_column_per_column = zeros(Int, size(empty_matrix, 2))
+                value_column_per_column[filled_columns_indices] .= 1:length(filled_columns_indices)
+                column_reader_per_thread = new_column_reader_per_thread(parent(copied_value))
+                parallel_loop_wo_rng(1:size(empty_matrix, 2); name = "copy_matrix!") do column_index
+                    fill_column!(empty_matrix, column_index) do column_values
                         column_values .= empty
-                        column_values[filled_rows_indices] .= column
+                        value_column = value_column_per_column[column_index]
+                        if value_column > 0
+                            column_values[filled_rows_indices] .=
+                                read_column(column_reader_per_thread[threadid()], value_column)
+                        end
                         return nothing
                     end
                     return nothing
                 end
-
-                is_filled_per_column = falses(size(empty_matrix, 2))
-                is_filled_per_column[filled_columns_indices] .= true
-                fill_columns!(empty_matrix, findall(!, is_filled_per_column), empty)
                 return nothing
             end
         end

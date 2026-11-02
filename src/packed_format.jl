@@ -2077,6 +2077,10 @@ function grow_buffer!(buffer::Vector{UInt8}, n_bytes::Integer)::Nothing
     return nothing
 end
 
+# The number of blocks of all shards that arrived before their turn and were held, so tests can check that a writer of
+# columns in order holds few.
+const N_HELD_SHARD_BLOCKS = Threads.Atomic{Int}(0)
+
 # A block of consecutive chunks that arrived before its turn. `bytes` holds their ZIP entries, one after the other, and
 # `entries` their metadata.
 struct HeldShardBlock
@@ -2178,6 +2182,7 @@ function write_shard_block!(
         if first_chunk_index != writer.next_chunk_index
             @assert first_chunk_index > writer.next_chunk_index && !haskey(writer.held_blocks, first_chunk_index)
             writer.held_blocks[first_chunk_index] = HeldShardBlock(scratch.entry[1:n_bytes], copy(scratch.entries))
+            atomic_add!(N_HELD_SHARD_BLOCKS, 1)
             return nothing
         end
         block_offset = reserve_shard_block!(writer, first_chunk_index, scratch.entries)
@@ -2948,9 +2953,8 @@ const SHARD_WRITE_BLOCK_CHUNKS = 8
 
 # Write all the inner chunks of `data` to the shard of the `writer`. Blocks of consecutive chunks are encoded in
 # parallel, each into the scratch of its thread, and written in chunk order (see [`write_shard_block!`](@ref)), so the
-# shard holds the same bytes as a serial write. The loop is given an `order`, so it claims one block at a time in order,
-# and few blocks arrive before their turn. Without one, each claim is a large run of blocks, and most blocks arrive
-# early and are held.
+# shard holds the same bytes as a serial write. The loop claims one block at a time in order, so few blocks arrive
+# before their turn.
 function write_shard_data!(
     writer::IncrementalShardWriter,
     data::AbstractArray{T, N},
@@ -2965,7 +2969,6 @@ function write_shard_data!(
         1:n_blocks;
         name = "write_shard_data!",
         progress = DebugProgress(n_blocks; group = :daf_loops, desc = "write_shard_data!"),
-        order = collect(1:n_blocks),
         nested = true,
     ) do block_index
         scratch = scratch_per_thread[threadid()]

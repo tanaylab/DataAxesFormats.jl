@@ -1378,6 +1378,36 @@ nested_test("copies") do
         end
     end
 
+    # A packed destination is written in column order, so it holds few columns, even when its first column has no source
+    # column.
+    nested_test("packed_superset") do
+        mktempdir() do path
+            n_genes = 4096
+            n_cells = 200
+            gene_names = ["g$(index)" for index in 1:n_genes]
+            @test add_axis!(source, "gene", gene_names) === nothing
+            @test add_axis!(source, "cell", ["c$(index)" for index in 2:n_cells]) === nothing
+            umis = Float32.(reshape(1:(n_genes * (n_cells - 1)), n_genes, n_cells - 1))
+            @test set_matrix!(source, "gene", "cell", "UMIs", umis; relayout = false) === nothing
+            packed = FilesDaf(path, "w+"; name = "packed!", packed = true)
+            @test add_axis!(packed, "gene", gene_names) === nothing
+            @test add_axis!(packed, "cell", ["c$(index)" for index in 1:n_cells]) === nothing
+            n_held_blocks = DataAxesFormats.PackedFormat.N_HELD_SHARD_BLOCKS[]
+            @test copy_matrix!(;
+                source,
+                destination = packed,
+                rows_axis = "gene",
+                columns_axis = "cell",
+                name = "UMIs",
+                empty = -1,
+                relayout = false,
+            ) === nothing
+            @test DataAxesFormats.PackedFormat.N_HELD_SHARD_BLOCKS[] - n_held_blocks < 20
+            @test get_matrix(packed, "gene", "cell", "UMIs"; relayout = false) == hcat(fill(Float32(-1), n_genes), umis)
+            return nothing
+        end
+    end
+
     nested_test("tensor") do
         @test add_axis!(source, "cell", ["A", "B"]) === nothing
         @test add_axis!(source, "gene", ["X", "Y", "Z"]) === nothing
